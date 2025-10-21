@@ -350,9 +350,35 @@
         .reputation-text.status-perfect { color: var(--accent-green); background-color: rgba(34, 197, 94, 0.1); }
         .reputation-text.status-good { color: var(--warning-color); background-color: rgba(245, 158, 11, 0.1); }
         .reputation-text.status-bad { color: var(--danger-color); background-color: rgba(239, 68, 68, 0.1); }
+
+        #install-banner {
+            display: none;
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: calc(100% - 40px);
+            max-width: 400px;
+            background-color: var(--surface);
+            color: var(--text-primary);
+            padding: 25px;
+            border-radius: 16px;
+            z-index: 5000;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            border: 1px solid var(--border-color);
+            text-align: center;
+        }
     </style>
 </head>
 <body>
+    <div id="install-banner">
+        <button id="close-install-banner" style="position: absolute; top: 15px; right: 15px; background: transparent; border: none; color: var(--text-secondary); font-size: 28px; cursor: pointer; line-height: 1; padding: 0;">&times;</button>
+        <img src="" alt="App Icon" id="install-banner-logo" style="width: 64px; height: 64px; margin-bottom: 15px;">
+        <h3 style="margin: 0 0 8px; font-size: 1.2em; font-weight: 600;" data-lang-key="installAppTitle"></h3>
+        <p style="margin: 0 0 25px; font-size: 0.9em; color: var(--text-secondary); line-height: 1.5;" data-lang-key="installAppMsg"></p>
+        <button id="install-btn" style="background-color: var(--accent-blue); color: white; border: none; padding: 14px; border-radius: 10px; font-weight: 600; cursor: pointer; width: 100%; font-size: 1em;" data-lang-key="installBtn"></button>
+    </div>
+
     <div id="splash-screen">
         <img id="splash-logo" src="https://res.cloudinary.com/dc6as14p0/image/upload/v1759611967/LOGO---LUMIX-FINANZAS-REDUCIDO_gc8zow.png" alt="Logo">
     </div>
@@ -415,6 +441,7 @@
         let currentLang = localStorage.getItem('adminLanguage') || 'pt';
         let mapInstance = null;
         let collectorMarkers = {};
+        let deferredPrompt; // Para la instalación de PWA
         const money = val => (typeof val !== 'number' || isNaN(val)) ? 'R$ 0,00' : val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
         const DEFAULT_LOGO_URL = "https://res.cloudinary.com/dc6as14p0/image/upload/v1759611967/LOGO---LUMIX-FINANZAS-REDUCIDO_gc8zow.png";
 
@@ -425,7 +452,7 @@
             totalCapital: 'Capital Total', activeCollectors: 'Cobradores Ativos', activeClients: 'Clientes Ativos',
             collectionTeam: 'Equipe de Cobrança', addCollector: 'Adicionar Cobrador',
             globalFinances: 'Finanças Globais', distributedCapital: 'Capital Distribuído', expectedToday: 'Ganhos Previstos Hoje',
-            fieldValue: 'Valor Total em Campo', grossProfit: 'Lucro Bruto Total',
+            grossProfit: 'Lucro Bruto Total',
             clients: 'Clientes', capitalOnHand: 'Capital em Mãos', viewProfile: 'Ver Perfil',
             inOrder: 'Em Ordem', attention: 'Atenção',
             trackingAvailable: 'Rastreamento Disponível', trackingUnavailable: 'Rastreamento Indisponível',
@@ -458,7 +485,10 @@
             capitalDeployed: 'Capital Desdobrado',
             interestGenerated: 'Juros Gerados',
             delinquencyRate: 'Taxa de Inadimplência',
-            reputationPerfect: 'Excelente'
+            reputationPerfect: 'Excelente',
+            installAppTitle: 'Instale nosso aplicativo',
+            installAppMsg: 'Uma experiência mais rápida e completa.',
+            installBtn: 'Instalar'
         },
         es: {
             dashboard: 'Dashboard', reports: 'Reportes', settings: 'Ajustes', profile: 'Perfil', map: 'Mapa',
@@ -497,7 +527,10 @@
             daysShort: ['D','L','M','M','J','V','S'],
             all: 'Todos',
             sortByCapital: 'Ordenar por Capital',
-            trackingUnavailableShort: 'Rastreo No Disp.'
+            trackingUnavailableShort: 'Rastreo No Disp.',
+            installAppTitle: 'Instala nuestra aplicación',
+            installAppMsg: 'Una experiencia más rápida y completa.',
+            installBtn: 'Instalar'
         },
         en: {
             dashboard: 'Dashboard', reports: 'Reports', settings: 'Settings', profile: 'Profile', map: 'Map',
@@ -536,7 +569,10 @@
             daysShort: ['S','M','T','W','T','F','S'],
             all: 'All',
             sortByCapital: 'Sort by Capital',
-            trackingUnavailableShort: 'Track. Unavail.'
+            trackingUnavailableShort: 'Track. Unavail.',
+            installAppTitle: 'Install our app',
+            installAppMsg: 'A faster, more complete experience.',
+            installBtn: 'Install'
         }
     };
 // ... código existente ...
@@ -2103,6 +2139,37 @@
 
         function init() {
             document.body.classList.add('dark-mode');
+            
+            // Lógica del Banner de Instalación PWA
+            window.addEventListener('beforeinstallprompt', (e) => {
+                e.preventDefault();
+                deferredPrompt = e;
+                const installBanner = document.getElementById('install-banner');
+                if (installBanner) {
+                    installBanner.style.display = 'block';
+                    applyLanguage(currentLang); // Aplica el idioma al nuevo contenido
+                }
+            });
+            const installBtn = document.getElementById('install-btn');
+            if (installBtn) {
+                installBtn.addEventListener('click', async () => {
+                    const installBanner = document.getElementById('install-banner');
+                    if (installBanner) installBanner.style.display = 'none';
+                    if (deferredPrompt) {
+                        deferredPrompt.prompt();
+                        const { outcome } = await deferredPrompt.userChoice;
+                        console.log(`User response to the install prompt: ${outcome}`);
+                        deferredPrompt = null;
+                    }
+                });
+            }
+            const closeInstallBtn = document.getElementById('close-install-banner');
+            if (closeInstallBtn) {
+                closeInstallBtn.addEventListener('click', () => {
+                    const installBanner = document.getElementById('install-banner');
+                    if (installBanner) installBanner.style.display = 'none';
+                });
+            }
             
             onSnapshot(doc(db, 'config', 'global'), (docSnap) => {
                 if (docSnap.exists()) {
