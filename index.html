@@ -932,11 +932,22 @@
 
         function updateDashboard() {
             if(!document.getElementById('kpi-total-capital')) return;
-            const totalCapital = allCollectors.reduce((sum, c) => sum + (c.startingCapital || 0), 0) + allClients.reduce((sum, cl) => sum + (cl.paid || 0), 0) - allClients.reduce((sum, cl) => sum + (cl.totalLoan / (1 + (cl.interestRate || 0)/100)), 0);
+            
+            // --- [REPARACIÓN 1] Lógica de cálculo de capital total corregida para multi-préstamos ---
+            const totalStartingCapital = allCollectors.reduce((sum, c) => sum + (c.startingCapital || 0), 0);
+            const allLoans = allClients.flatMap(c => c.loans || []);
+            const totalPaid = allLoans.reduce((sum, l) => sum + (l.paid || 0), 0);
+            const totalPrincipal = allClients.flatMap(c => {
+                const interestRate = c.interestRate || globalSettings.defaultInterest || 20;
+                return (c.loans || []).map(l => (l.totalLoan || 0) / (1 + interestRate / 100));
+            }).reduce((sum, principal) => sum + principal, 0);
+
+            const totalCapital = totalStartingCapital + totalPaid - totalPrincipal;
+            const activeClientsCount = allClients.filter(c => (c.loans || []).some(l => l.status !== 'finished')).length;
 
             document.getElementById('kpi-total-capital').textContent = money(totalCapital);
             document.getElementById('kpi-active-collectors').textContent = allCollectors.length;
-            document.getElementById('kpi-active-clients').textContent = allClients.length;
+            document.getElementById('kpi-active-clients').textContent = activeClientsCount;
 
             const listContainer = document.getElementById('collectors-list');
             if(!listContainer) return;
@@ -1022,6 +1033,245 @@
             applyLanguage(currentLang);
         }
         
+        // --- [REPARACIÓN 2] Se restauran las funciones del mapa y reportes ---
+        
+        function initMap() {
+            if (mapInstance) {
+                mapInstance.invalidateSize();
+                return;
+            }
+            mapInstance = L.map('map-container').setView([-16.68, -49.25], 5);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(mapInstance);
+        }
+
+        function updateCollectorMarkers() {
+            if (!mapInstance) return;
+
+            allCollectors.forEach(collector => {
+                const marker = collectorMarkers[collector.id];
+                if (collector.isRealtimeTrackingActive && collector.lastLocation) {
+                    const { latitude, longitude } = collector.lastLocation;
+                    const status = calculateCollectorStatus(collector.id);
+                    
+                    const popupContent = `
+                        <div class="map-popup-card">
+                            <div class="popup-header">
+                                <img src="${collector.profilePictureUrl || `https://placehold.co/96x96/0f172a/FFFFFF?text=${(collector.name || 'C').charAt(0)}`}" class="popup-avatar">
+                                <div class="popup-info">
+                                    <div class="popup-name">${collector.name}</div>
+                                    <div class="item-status-tag" style="background-color: ${status.color}20; color: ${status.color};"><i data-lucide="${status.icon}" style="width:12px; height:12px;"></i> ${translations[currentLang][status.textKey]}</div>
+                                </div>
+                            </div>
+                            <div class="popup-stats">
+                                <div><span class="stat-label" data-lang-key="clients"></span><span class="stat-value">${allClients.filter(c=>c.collectorId === collector.id).length}</span></div>
+                                <div><span class="stat-label" data-lang-key="capitalOnHand"></span><span class="stat-value">${money(collector.capitalOnHand || 0)}</span></div>
+                            </div>
+                            <div class="popup-actions">
+                                <a class="popup-action-link" data-collector-id="${collector.id}"><i data-lucide="user"></i> <span data-lang-key="viewProfile"></span></a>
+                            </div>
+                        </div>
+                    `;
+
+                    if (marker) {
+                        marker.setLatLng([latitude, longitude]);
+                        marker.getPopup().setContent(popupContent);
+                    } else {
+                        const newMarker = L.marker([latitude, longitude]).addTo(mapInstance).bindPopup(popupContent);
+                        collectorMarkers[collector.id] = newMarker;
+                    }
+                } else {
+                    if (marker) {
+                        marker.remove();
+                        delete collectorMarkers[collector.id];
+                    }
+                }
+            });
+            lucide.createIcons();
+            applyLanguage(currentLang);
+
+            document.querySelectorAll('.popup-action-link').forEach(link => {
+                link.addEventListener('click', (e) => {
+                    showCollectorDetails(e.currentTarget.dataset.collectorId);
+                });
+            });
+        }
+
+        function focusOnCollector(collectorId) {
+            const collector = allCollectors.find(c => c.id === collectorId);
+            if (collector && collector.lastLocation && mapInstance) {
+                const { latitude, longitude } = collector.lastLocation;
+                mapInstance.flyTo([latitude, longitude], 16);
+                
+                const marker = collectorMarkers[collectorId];
+                if (marker) {
+                    setTimeout(() => marker.openPopup(), 500);
+                }
+            } else {
+                showToast("Localização do cobrador não disponível.", true);
+            }
+        }
+
+        function updateReportsView() {
+            const collectorFilter = document.getElementById('report-collector-filter');
+            const periodFilter = document.querySelector('#reports-view .filter-btn.active');
+            const resultsContainer = document.getElementById('report-results');
+            if(!collectorFilter || !periodFilter || !resultsContainer) return;
+            
+            const selectedCollectorId = collectorFilter.value;
+            const selectedPeriod = periodFilter.dataset.period;
+            
+            collectorFilter.innerHTML = `<option value="all">Todos os Cobradores</option>` + allCollectors.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+            collectorFilter.value = selectedCollectorId;
+
+            let filteredClients = (selectedCollectorId === 'all') ? allClients : allClients.filter(c => c.collectorId === selectedCollectorId);
+            
+            let startDate;
+            const now = new Date();
+            if (selectedPeriod === 'today') startDate = new Date(now.setHours(0,0,0,0));
+            else if (selectedPeriod === 'week') {
+                 startDate = new Date(now.setDate(now.getDate() - now.getDay()));
+                 startDate.setHours(0,0,0,0);
+            } else if (selectedPeriod === 'month') {
+                startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+            }
+
+            let paymentsInPeriod = [];
+            filteredClients.forEach(client => {
+                (client.history || []).forEach(h => {
+                    if (h.date?.seconds) {
+                        const paymentDate = new Date(h.date.seconds * 1000);
+                        if (!startDate || paymentDate >= startDate) {
+                            paymentsInPeriod.push({ ...h, clientName: client.name });
+                        }
+                    }
+                });
+            });
+
+            const totalCollected = paymentsInPeriod.reduce((sum, p) => sum + p.amount, 0);
+
+            let loansDeployed = filteredClients.reduce((sum, c) => {
+                const interestRate = c.interestRate || globalSettings.defaultInterest || 20;
+                const principal = (c.totalLoan || 0) / (1 + interestRate / 100);
+                if (!startDate || (c.startDate?.seconds && new Date(c.startDate.seconds * 1000) >= startDate)) {
+                    return sum + principal;
+                }
+                return sum;
+            }, 0);
+
+            const interestGenerated = totalCollected - loansDeployed;
+
+            const lateClients = filteredClients.filter(c => c.status === 'late').length;
+            const delinquencyRate = filteredClients.length > 0 ? (lateClients / filteredClients.length) * 100 : 0;
+            
+            resultsContainer.innerHTML = `
+                <div class="kpi-grid">
+                    <div class="kpi-card"><h3 class="kpi-title" data-lang-key="capitalDeployed"></h3><p class="kpi-value">${money(loansDeployed)}</p></div>
+                    <div class="kpi-card"><h3 class="kpi-title" data-lang-key="interestGenerated"></h3><p class="kpi-value">${money(interestGenerated)}</p></div>
+                    <div class="kpi-card"><h3 class="kpi-title" data-lang-key="delinquencyRate"></h3><p class="kpi-value" style="color:${delinquencyRate > 20 ? 'var(--danger-color)' : 'var(--accent-green)'}">${delinquencyRate.toFixed(1)}%</p></div>
+                </div>
+            `;
+            applyLanguage(currentLang);
+        }
+
+        function showReportOptionsModal(collectorId) {
+             const modal = document.getElementById('reportOptionsModal');
+             modal.classList.add('active');
+             modal.innerHTML = `
+                <div class="modal-content">
+                    <button class="close-modal-btn" style="position: absolute; top: 10px; right: 10px; background: none; border: none; font-size: 24px; color: var(--text-secondary);">&times;</button>
+                    <h3>Selecione o Período do Relatório</h3>
+                    <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 20px;">
+                        <button class="btn-secondary" data-report-period="24h">Últimas 24h</button>
+                        <button class="btn-secondary" data-report-period="48h">Últimas 48h</button>
+                        <button class="btn-secondary" data-report-period="week">Última Semana</button>
+                        <button class="btn-secondary" data-report-period="month">Último Mês</button>
+                    </div>
+                </div>
+             `;
+             modal.querySelectorAll('[data-report-period]').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    generatePDFReport(collectorId, btn.dataset.reportPeriod);
+                    modal.classList.remove('active');
+                });
+             });
+        }
+        
+        async function generatePDFReport(collectorId, period) {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            const lang = currentLang;
+
+            const collector = allCollectors.find(c => c.id === collectorId);
+            if (!collector) return;
+
+            const now = new Date();
+            let startDate;
+            if (period === '24h') startDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+            else if (period === '48h') startDate = new Date(now.getTime() - 48 * 60 * 60 * 1000);
+            else if (period === 'week') startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+            else if (period === 'month') startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+            
+            const clients = allClients.filter(c => c.collectorId === collectorId);
+            const payments = clients.flatMap(c => (c.history || []).map(h => ({...h, clientName: c.name})))
+                                 .filter(p => p.date?.seconds && new Date(p.date.seconds * 1000) >= startDate)
+                                 .sort((a,b) => a.date.seconds - b.date.seconds);
+            const totalCollected = payments.reduce((sum,p) => sum + p.amount, 0);
+
+            doc.setFontSize(18);
+            doc.text(`Relatório de Cobrança`, 105, 20, { align: 'center' });
+            
+            doc.autoTable({
+                startY: 30,
+                head: [['Cliente', 'Valor', 'Hora']],
+                body: payments.map(p => [
+                    p.clientName, 
+                    money(p.amount), 
+                    new Date(p.date.seconds * 1000).toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'})
+                ]),
+                foot: [['Total', money(totalCollected), '']],
+                theme: 'striped',
+                headStyles: { fillColor: [111, 66, 193] }
+            });
+
+            doc.save(`relatorio-${collectorId}-${period}.pdf`);
+        }
+        
+        async function saveGlobalSettings() {
+            const saveBtn = document.getElementById('save-settings-btn');
+            saveBtn.disabled = true;
+            
+            try {
+                let logoUrl = globalSettings.companyLogo || '';
+                const logoFile = document.getElementById('settings-logo-input').files[0];
+                if (logoFile) {
+                    const formData = new FormData();
+                    formData.append('file', logoFile);
+                    formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+                    const response = await fetch(CLOUDINARY_URL, { method: 'POST', body: formData });
+                    if (!response.ok) throw new Error('Cloudinary logo upload failed');
+                    const data = await response.json();
+                    logoUrl = data.secure_url;
+                }
+
+                const newSettings = {
+                    companyName: document.getElementById('settings-company-name').value,
+                    companyLogo: logoUrl,
+                    defaultInterest: parseFloat(document.getElementById('settings-default-interest').value),
+                    requireGps: document.getElementById('settings-gps-toggle').checked,
+                };
+
+                await setDoc(doc(db, 'config', 'global'), newSettings);
+                showToast(translations[currentLang].settingsSaved);
+            } catch (error) {
+                console.error("Erro ao salvar ajustes:", error);
+                showToast('Erro ao salvar ajustes.', true);
+            } finally {
+                saveBtn.disabled = false;
+            }
+        }
+
         function updateProfileView() {
             if(!document.getElementById('kpi-distributed-capital')) return;
             const distributedCapital = allCollectors.reduce((sum, c) => sum + (c.startingCapital || 0), 0);
