@@ -520,6 +520,99 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
 #community-view .post-card .post-actions .action-btn span {
     line-height: 1;
 }
+
+/* Estilo para el botón de "Me Gusta" activo */
+#community-view .post-card .post-actions .action-btn.active {
+    color: var(--accent-blue);
+    font-weight: 700;
+}
+#community-view .post-card .post-actions .action-btn.active i {
+    fill: var(--accent-blue);
+}
+
+/* Sección de Comentarios (Contenedor) */
+#community-view .post-comments-section {
+    padding: 0 15px 15px 15px;
+    background-color: var(--bg);
+    border-top: 1px solid var(--border-color);
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+/* Cada comentario individual */
+#community-view .comment-item {
+    display: flex;
+    gap: 10px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border-color);
+}
+#community-view .comment-item:last-child {
+    border-bottom: none;
+}
+#community-view .comment-item img.comment-author-pic {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+#community-view .comment-item .comment-content {
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+    background-color: var(--surface);
+    border-radius: 8px;
+    padding: 8px 12px;
+}
+#community-view .comment-item .comment-author-name {
+    font-weight: 600;
+    font-size: 0.85em;
+    color: var(--text-primary);
+    margin-bottom: 3px;
+}
+#community-view .comment-item .comment-text {
+    font-size: 0.9em;
+    color: var(--text-primary);
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+/* Área para escribir un nuevo comentario */
+#community-view .post-comment-input-area {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    padding: 12px 15px;
+    border-top: 1px solid var(--border-color);
+}
+#community-view .post-comment-input-area img {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+#community-view .post-comment-input-area input {
+    flex-grow: 1;
+    border: 1px solid var(--border-color);
+    background-color: var(--bg);
+    border-radius: 20px;
+    padding: 8px 15px;
+    font-size: 0.9em;
+    color: var(--text-primary);
+    outline: none;
+}
+#community-view .post-comment-input-area input:focus {
+    border-color: var(--accent-blue);
+}
+#community-view .post-comment-input-area .submit-comment-btn {
+    background: none;
+    border: none;
+    color: var(--accent-blue);
+    cursor: pointer;
+    padding: 5px;
+}
+
 /* --- FIN ESTILOS COMUNIDAD (ULTRA ESPECÍFICO) --- */
         
 
@@ -572,7 +665,7 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
     <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.js"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
-        import { getFirestore, collection, onSnapshot, doc, query, where, setDoc, updateDoc, deleteDoc, Timestamp, addDoc, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+        import { getFirestore, collection, onSnapshot, doc, query, where, setDoc, updateDoc, deleteDoc, Timestamp, addDoc, orderBy, serverTimestamp, increment } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
         
         const firebaseConfig = {
             apiKey: "AIzaSyBRxJjpH6PBi-GRxOXS8klv-8v91sO4X-Y",
@@ -594,6 +687,7 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
         let allExpenses = [];
         let globalSettings = {};
         let allCommunityPosts = [];
+        let currentAdmin = { id: 'admin', name: 'Administrador', profilePic: '' };
         let currentLang = localStorage.getItem('adminLanguage') || 'pt';
         let mapInstance = null;
         let collectorMarkers = {};
@@ -782,6 +876,7 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             onSnapshot(doc(db, 'admins', 'admin'), (docSnap) => {
             const adminData = docSnap.exists() ? docSnap.data() : {};
             const profileUrl = adminData.profilePictureUrl; // Esto será undefined si no hay foto guardada
+            currentAdmin.profilePic = profileUrl || 'https://placehold.co/80x80/3b82f6/FFFFFF?text=A';
 
             // Seleccionamos ambas imágenes de perfil
             const headerImg = document.querySelector('.profile img');
@@ -1269,6 +1364,8 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
         const postDate = post.createdAt?.seconds ? new Date(post.createdAt.seconds * 1000).toLocaleString(currentLang) : 'agora mesmo';
         const placeholder = `https://placehold.co/80x80/0f172a/FFFFFF?text=${(post.adminName || 'A').charAt(0)}`;
 
+        const isLiked = (post.likedBy || []).includes(currentAdmin.id);
+
         return `
 <div class="post-card" data-post-id="${post.id}">
     <div class="post-header">
@@ -1290,15 +1387,30 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
     ` : ''}
 
     <div class="post-actions">
-        <button class="action-btn" data-action="like">
+        <button class="action-btn ${isLiked ? 'active' : ''}" data-action="like" data-post-id="${post.id}">
             <i data-lucide="thumbs-up"></i>
             <span>${post.likes || 0}</span>
         </button>
-        <button class="action-btn" data-action="comment">
+        <button class="action-btn" data-action="comment" data-post-id="${post.id}">
             <i data-lucide="message-circle"></i>
-            <span>${post.comments || 0}</span>
+            <span>${post.commentsCount || 0}</span>
         </button>
     </div>
+
+    <!-- Sección donde se cargarán los comentarios -->
+    <div class="post-comments-section" id="comments-for-${post.id}" style="display: none;">
+        <!-- Los comentarios se cargarán aquí por JS -->
+    </div>
+
+    <!-- Área para escribir un nuevo comentario -->
+    <div class="post-comment-input-area">
+        <img src="${currentAdmin.profilePic}" alt="Seu perfil">
+        <input type="text" class="comment-input" placeholder="Escreva um comentário...">
+        <button class="submit-comment-btn" data-post-id="${post.id}">
+            <i data-lucide="send"></i>
+        </button>
+    </div>
+
 </div>
 `;
     }).join('');
@@ -1340,13 +1452,13 @@ async function submitNewPost() {
         const adminProfilePic = document.querySelector('#header-profile-link img')?.src || '';
 
         const postData = {
-            adminName: 'Administrador', // (Por ahora, luego será dinámico)
-            adminProfilePic: adminProfilePic,
+            adminName: currentAdmin.name,
+            adminProfilePic: currentAdmin.profilePic,
             text: text,
             imageUrl: imageUrl,
             createdAt: serverTimestamp(),
             likes: 0,
-            comments: 0,
+            commentsCount: 0,
             likedBy: []
         };
 
@@ -1365,6 +1477,121 @@ async function submitNewPost() {
         submitBtn.disabled = true; // Sigue deshabilitado porque el texto está vacío
         submitBtn.innerHTML = `<i data-lucide="send"></i> Publicar`;
         lucide.createIcons({ nodes: [submitBtn.querySelector('i')] });
+    }
+}
+
+async function handlePostLike(postId) {
+    const postRef = doc(db, 'communityPosts', postId);
+    const post = allCommunityPosts.find(p => p.id === postId);
+    if (!post) return;
+
+    const adminId = currentAdmin.id;
+    let newLikedBy = post.likedBy || [];
+    const likeBtn = document.querySelector(`.post-card[data-post-id="${postId}"] .action-btn[data-action="like"]`);
+    let newLikesCount;
+
+    if (newLikedBy.includes(adminId)) {
+        // Ya le dio like -> Quitar like
+        newLikedBy = newLikedBy.filter(id => id !== adminId);
+        newLikesCount = increment(-1);
+        likeBtn?.classList.remove('active');
+    } else {
+        // No le ha dado like -> Añadir like
+        newLikedBy.push(adminId);
+        newLikesCount = increment(1);
+        likeBtn?.classList.add('active');
+    }
+
+    // Actualización visual optimista (asume que funcionará)
+    const span = likeBtn.querySelector('span');
+    const currentLikes = parseInt(span.textContent) || 0;
+    span.textContent = currentLikes + (newLikedBy.includes(adminId) ? 1 : -1);
+
+    try {
+        await updateDoc(postRef, {
+            likes: newLikesCount,
+            likedBy: newLikedBy
+        });
+    } catch (error) {
+        console.error("Error al actualizar like:", error);
+        showToast("Erro ao dar like.", true);
+        // Revertir el cambio visual en caso de error
+        span.textContent = post.likes || 0;
+        if (newLikedBy.includes(adminId)) likeBtn.classList.remove('active');
+        else likeBtn.classList.add('active');
+    }
+}
+
+function toggleCommentSection(postId) {
+    const commentSection = document.getElementById(`comments-for-${postId}`);
+    if (!commentSection) return;
+
+    if (commentSection.style.display === 'none') {
+        commentSection.style.display = 'block';
+        loadCommentsForPost(postId); // Carga los comentarios solo cuando se abre
+    } else {
+        commentSection.style.display = 'none';
+    }
+}
+
+async function loadCommentsForPost(postId) {
+    const container = document.getElementById(`comments-for-${postId}`);
+    container.innerHTML = `<p style="padding: 10px 0; text-align: center; color: var(--text-secondary);">Carregando comentários...</p>`;
+
+    const commentsQuery = query(collection(db, 'communityPosts', postId, 'comments'), orderBy('createdAt', 'asc'));
+
+    onSnapshot(commentsQuery, (snapshot) => {
+        if (snapshot.empty) {
+            container.innerHTML = `<p style="padding: 10px 0; text-align: center; color: var(--text-secondary);">Nenhum comentário.</p>`;
+            return;
+        }
+
+        container.innerHTML = snapshot.docs.map(doc => {
+            const comment = doc.data();
+            const placeholder = `https://placehold.co/64x64/0f172a/FFFFFF?text=${(comment.adminName || 'A').charAt(0)}`;
+
+            return `
+            <div class="comment-item">
+                <img src="${comment.adminProfilePic || placeholder}" alt="pic" class="comment-author-pic">
+                <div class="comment-content">
+                    <span class="comment-author-name">${comment.adminName || 'Admin'}</span>
+                    <span class="comment-text">${comment.text}</span>
+                </div>
+            </div>
+            `;
+        }).join('');
+    });
+}
+
+async function submitNewComment(postId, inputElement) {
+    const text = inputElement.value.trim();
+    if (text.length === 0) return;
+
+    const postRef = doc(db, 'communityPosts', postId);
+    const commentsCollectionRef = collection(db, 'communityPosts', postId, 'comments');
+
+    const commentData = {
+        text: text,
+        adminId: currentAdmin.id,
+        adminName: currentAdmin.name,
+        adminProfilePic: currentAdmin.profilePic,
+        createdAt: serverTimestamp()
+    };
+
+    try {
+        // Añade el nuevo comentario
+        await addDoc(commentsCollectionRef, commentData);
+
+        // Actualiza el contador de comentarios en la publicación principal
+        await updateDoc(postRef, {
+            commentsCount: increment(1)
+        });
+
+        // Limpia el input
+        inputElement.value = '';
+    } catch (error) {
+        console.error("Error al publicar comentario:", error);
+        showToast("Erro ao publicar comentário.", true);
     }
 }
         
@@ -2324,6 +2551,29 @@ async function submitNewPost() {
                 if (target.closest('#submit-post-btn')) {
                 submitNewPost();
                 }
+
+                // Listener para el botón "Me Gusta"
+            const likeBtn = target.closest('.action-btn[data-action="like"]');
+            if (likeBtn) {
+                e.preventDefault(); // Evita cualquier comportamiento por defecto
+                handlePostLike(likeBtn.dataset.postId);
+            }
+
+            // Listener para el botón "Comentar" (para mostrar/ocultar)
+            const commentBtn = target.closest('.action-btn[data-action="comment"]');
+            if (commentBtn) {
+                e.preventDefault();
+                toggleCommentSection(commentBtn.dataset.postId);
+            }
+
+            // Listener para el botón "Enviar Comentario"
+            const submitCommentBtn = target.closest('.submit-comment-btn');
+            if (submitCommentBtn) {
+                e.preventDefault();
+                const postId = submitCommentBtn.dataset.postId;
+                const inputElement = submitCommentBtn.closest('.post-comment-input-area').querySelector('.comment-input');
+                submitNewComment(postId, inputElement);
+            }
 
                 if (target.closest('#header-profile-link')) {
                 showView('profile');
