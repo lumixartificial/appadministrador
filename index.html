@@ -593,6 +593,8 @@
                 allCollectors = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 updateDashboard();
                 updateProfileView();
+                // [REPARACIÓN] Se llama a la función para actualizar los marcadores cada vez que los datos del cobrador cambian.
+                updateCollectorMarkers();
             });
 
             onSnapshot(collection(db, 'clients'), snapshot => {
@@ -648,11 +650,11 @@
             if (viewName === 'map') {
                 setTimeout(() => {
                     initMap();
-                    // updateCollectorMarkers(); // Esta función puede necesitar ser revisada
+                    updateCollectorMarkers(); 
                 }, 50);
             }
             if (viewName === 'reports') {
-                // updateReportsView(); // Esta función puede necesitar ser revisada
+                updateReportsView();
             }
         }
 
@@ -1040,7 +1042,8 @@
                 mapInstance.invalidateSize();
                 return;
             }
-            mapInstance = L.map('map-container').setView([-16.68, -49.25], 5);
+            // [REPARACIÓN] Se ajusta el centro del mapa a Goiânia y se aumenta el zoom para una vista local.
+            mapInstance = L.map('map-container').setView([-16.68, -49.25], 12);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             }).addTo(mapInstance);
@@ -1049,24 +1052,48 @@
         function updateCollectorMarkers() {
             if (!mapInstance) return;
 
+            const collectorIcon = L.icon({
+                iconUrl: 'https://firebasestorage.googleapis.com/v0/b/lumix-financas-app.firebasestorage.app/o/MotoIcono.png?alt=media&token=e8add7cd-e8d3-424d-8f05-5d04e0d10ec1',
+                iconSize: [40, 40],
+                iconAnchor: [20, 40],
+                popupAnchor: [0, -40]
+            });
+
             allCollectors.forEach(collector => {
                 const marker = collectorMarkers[collector.id];
-                if (collector.isRealtimeTrackingActive && collector.lastLocation) {
+
+                // Muestra un marcador si el cobrador tiene CUALQUIER ubicación registrada.
+                if (collector.lastLocation && collector.lastLocation.latitude && collector.lastLocation.longitude) {
                     const { latitude, longitude } = collector.lastLocation;
                     const status = calculateCollectorStatus(collector.id);
+                    const isTrackingActive = collector.isRealtimeTrackingActive;
+                    const lastSeenTime = formatTimestamp(collector.lastLocationUpdate);
                     
+                    // Lógica para calcular el capital en mano (evita re-cálculos)
+                    const collectorClients = allClients.filter(c => c.collectorId === collector.id);
+                    const totalPaidByCollector = collectorClients.reduce((sum, c) => (sum + (c.paid || 0)), 0);
+                    const totalPrincipalLoanedByCollector = collectorClients.reduce((sum, c) => {
+                        const interestRate = c.interestRate || globalSettings.defaultInterest || 20;
+                        return sum + ((c.totalLoan || 0) / (1 + interestRate/100));
+                    }, 0);
+                    const capitalOnHand = (collector.startingCapital || 0) + totalPaidByCollector - totalPrincipalLoanedByCollector;
+
                     const popupContent = `
                         <div class="map-popup-card">
                             <div class="popup-header">
                                 <img src="${collector.profilePictureUrl || `https://placehold.co/96x96/0f172a/FFFFFF?text=${(collector.name || 'C').charAt(0)}`}" class="popup-avatar">
                                 <div class="popup-info">
                                     <div class="popup-name">${collector.name}</div>
-                                    <div class="item-status-tag" style="background-color: ${status.color}20; color: ${status.color};"><i data-lucide="${status.icon}" style="width:12px; height:12px;"></i> ${translations[currentLang][status.textKey]}</div>
+                                    <div class="item-status-tag" style="background-color: ${isTrackingActive ? 'var(--accent-green)' : 'var(--text-secondary)'}20; color: ${isTrackingActive ? 'var(--accent-green)' : 'var(--text-secondary)'};">
+                                        <i data-lucide="${isTrackingActive ? 'wifi' : 'wifi-off'}" style="width:12px; height:12px;"></i>
+                                        ${isTrackingActive ? translations[currentLang].online : translations[currentLang].offline}
+                                        ${!isTrackingActive && lastSeenTime ? ` (${lastSeenTime})` : ''}
+                                    </div>
                                 </div>
                             </div>
                             <div class="popup-stats">
-                                <div><span class="stat-label" data-lang-key="clients"></span><span class="stat-value">${allClients.filter(c=>c.collectorId === collector.id).length}</span></div>
-                                <div><span class="stat-label" data-lang-key="capitalOnHand"></span><span class="stat-value">${money(collector.capitalOnHand || 0)}</span></div>
+                                <div><span class="stat-label" data-lang-key="clients"></span><span class="stat-value">${collectorClients.length}</span></div>
+                                <div><span class="stat-label" data-lang-key="capitalOnHand"></span><span class="stat-value">${money(capitalOnHand)}</span></div>
                             </div>
                             <div class="popup-actions">
                                 <a class="popup-action-link" data-collector-id="${collector.id}"><i data-lucide="user"></i> <span data-lang-key="viewProfile"></span></a>
@@ -1078,10 +1105,11 @@
                         marker.setLatLng([latitude, longitude]);
                         marker.getPopup().setContent(popupContent);
                     } else {
-                        const newMarker = L.marker([latitude, longitude]).addTo(mapInstance).bindPopup(popupContent);
+                        const newMarker = L.marker([latitude, longitude], { icon: collectorIcon }).addTo(mapInstance).bindPopup(popupContent);
                         collectorMarkers[collector.id] = newMarker;
                     }
                 } else {
+                    // Si no hay ubicación, elimina el marcador si existe.
                     if (marker) {
                         marker.remove();
                         delete collectorMarkers[collector.id];
@@ -1093,7 +1121,8 @@
 
             document.querySelectorAll('.popup-action-link').forEach(link => {
                 link.addEventListener('click', (e) => {
-                    showCollectorDetails(e.currentTarget.dataset.collectorId);
+                    const collectorId = e.currentTarget.dataset.collectorId;
+                    showCollectorDetails(collectorId);
                 });
             });
         }
@@ -1102,12 +1131,14 @@
             const collector = allCollectors.find(c => c.id === collectorId);
             if (collector && collector.lastLocation && mapInstance) {
                 const { latitude, longitude } = collector.lastLocation;
-                mapInstance.flyTo([latitude, longitude], 16);
-                
-                const marker = collectorMarkers[collectorId];
-                if (marker) {
-                    setTimeout(() => marker.openPopup(), 500);
-                }
+                showView('map');
+                setTimeout(() => {
+                    mapInstance.flyTo([latitude, longitude], 16);
+                    const marker = collectorMarkers[collectorId];
+                    if (marker) {
+                        setTimeout(() => marker.openPopup(), 500);
+                    }
+                }, 100);
             } else {
                 showToast("Localização do cobrador não disponível.", true);
             }
@@ -1453,8 +1484,8 @@
             });
             
             detailView.querySelector('#editCollectorBtn').addEventListener('click', (e) => {
-                showCollectorFormModal(e.currentTarget.dataset.collectorId);
-            });
+                    showCollectorFormModal(e.currentTarget.dataset.collectorId);
+                });
             
             detailView.querySelector('#download-report-btn').addEventListener('click', (e) => {
                 showReportOptionsModal(e.currentTarget.dataset.collectorId);
@@ -2157,3 +2188,4 @@
     </script>
 </body>
 </html>
+
