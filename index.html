@@ -618,7 +618,27 @@
                 allExpenses = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 updateProfileView();
             });
+
+            // [NUEVO CÓDIGO] Cargar la foto de perfil guardada del administrador
+onSnapshot(doc(db, 'admins', 'admin'), (docSnap) => {
+    const adminData = docSnap.exists() ? docSnap.data() : {};
+    const profileUrl = adminData.profilePictureUrl; // Esto será undefined si no hay foto guardada
+
+    // Seleccionamos ambas imágenes de perfil
+    const headerImg = document.querySelector('.profile img');
+    const profileViewImg = document.getElementById('profile-view-img');
+
+    // Aplicamos la URL guardada o el placeholder correspondiente
+    if (headerImg) {
+        headerImg.src = profileUrl || 'https://placehold.co/80x80/3b82f6/FFFFFF?text=A';
+    }
+    if (profileViewImg) {
+        profileViewImg.src = profileUrl || 'https://placehold.co/100x100/3b82f6/FFFFFF?text=A';
+    }
+});
         }
+
+
 
         function showToast(message, isError = false) {
             const toast = document.createElement('div');
@@ -646,6 +666,11 @@
             if(addCollectorFab) {
                 addCollectorFab.style.display = viewName === 'dashboard' ? 'flex' : 'none';
             }
+
+            if (viewName === 'profile') {
+    updateProfileView();
+    updateSettingsForm(globalSettings); // Carga los ajustes en el formulario
+}
 
             if (viewName === 'map') {
                 setTimeout(() => {
@@ -675,7 +700,7 @@
                             </div>
                         </div>
                         <button class="header-btn" id="theme-toggle"><i data-lucide="moon"></i></button>
-                        <div class="profile"><img src="https://placehold.co/80x80/3b82f6/FFFFFF?text=A" alt="Foto do Admin"></div>
+                        <div class="profile" id="header-profile-link" style="cursor: pointer;"><img src="https://placehold.co/80x80/3b82f6/FFFFFF?text=A" alt="Foto do Admin"></div>
                     </div>
                 </header>
                 <main>
@@ -733,7 +758,39 @@
                         </div>
                         <div id="report-results"></div>
                     </div>
-                    <div id="settings-view" class="view container">
+                    
+                        
+                    </div>
+                    <div id="profile-view" class="view container">
+                         <div style="display: flex; flex-direction: column; align-items: center; margin-bottom: 30px;">
+                            <label for="admin-profile-pic-input" class="profile-pic-wrapper">
+                                <img id="profile-view-img" src="https://placehold.co/100x100/3b82f6/FFFFFF?text=A" alt="Foto do Admin">
+                            </label>
+                            <input type="file" id="admin-profile-pic-input" accept="image/*" style="display: none;">
+                            <h2 style="margin: 15px 0 0; font-size: 1.5em;">Administrador</h2>
+                            <p style="margin: 5px 0 0; color: var(--text-secondary);">Painel de Controle</p>
+                        </div>
+                        <section>
+                             <h2 class="section-title" data-lang-key="globalFinances"></h2>
+                             <div class="kpi-grid">
+                                 <div class="kpi-card">
+                                     <h3 class="kpi-title" data-lang-key="distributedCapital"><i data-lucide="landmark"></i></h3>
+                                     <p class="kpi-value" id="kpi-distributed-capital"></p>
+                                 </div>
+                                 <div class="kpi-card">
+                                     <h3 class="kpi-title" data-lang-key="expectedToday"><i data-lucide="trending-up"></i></h3>
+                                     <p class="kpi-value" id="kpi-expected-today"></p>
+                                 </div>
+                                 <div class="kpi-card">
+                                     <h3 class="kpi-title" data-lang-key="fieldValue"><i data-lucide="circle-dollar-sign"></i></h3>
+                                     <p class="kpi-value" id="kpi-field-value"></p>
+                                 </div>
+                                 <div class="kpi-card">
+                                     <h3 class="kpi-title" data-lang-key="grossProfit"><i data-lucide="bar-chart-2"></i></h3>
+                                     <p class="kpi-value" id="kpi-gross-profit"></p>
+                                 </div>
+                             </div>
+                        </section>
                         <h1 class="section-title" data-lang-key="settings"></h1>
                         <div class="settings-section">
                             <h2 class="section-title" data-lang-key="companySettings"></h2>
@@ -776,44 +833,12 @@
                             <button id="save-settings-btn" class="btn-primary" disabled><i data-lucide="save"></i> <span data-lang-key="saveSettings"></span></button>
                         </div>
                     </div>
-                    <div id="profile-view" class="view container">
-                         <div style="display: flex; flex-direction: column; align-items: center; margin-bottom: 30px;">
-                            <label for="admin-profile-pic-input" class="profile-pic-wrapper">
-                                <img id="profile-view-img" src="https://placehold.co/100x100/3b82f6/FFFFFF?text=A" alt="Foto do Admin">
-                            </label>
-                            <input type="file" id="admin-profile-pic-input" accept="image/*" style="display: none;">
-                            <h2 style="margin: 15px 0 0; font-size: 1.5em;">Administrador</h2>
-                            <p style="margin: 5px 0 0; color: var(--text-secondary);">Painel de Controle</p>
-                        </div>
-                        <section>
-                             <h2 class="section-title" data-lang-key="globalFinances"></h2>
-                             <div class="kpi-grid">
-                                 <div class="kpi-card">
-                                     <h3 class="kpi-title" data-lang-key="distributedCapital"><i data-lucide="landmark"></i></h3>
-                                     <p class="kpi-value" id="kpi-distributed-capital"></p>
-                                 </div>
-                                 <div class="kpi-card">
-                                     <h3 class="kpi-title" data-lang-key="expectedToday"><i data-lucide="trending-up"></i></h3>
-                                     <p class="kpi-value" id="kpi-expected-today"></p>
-                                 </div>
-                                 <div class="kpi-card">
-                                     <h3 class="kpi-title" data-lang-key="fieldValue"><i data-lucide="circle-dollar-sign"></i></h3>
-                                     <p class="kpi-value" id="kpi-field-value"></p>
-                                 </div>
-                                 <div class="kpi-card">
-                                     <h3 class="kpi-title" data-lang-key="grossProfit"><i data-lucide="bar-chart-2"></i></h3>
-                                     <p class="kpi-value" id="kpi-gross-profit"></p>
-                                 </div>
-                             </div>
-                        </section>
-                    </div>
                 </main>
                 <nav class="bottom-nav">
                     <a class="nav-item active" data-view="dashboard"><i data-lucide="layout-dashboard"></i><span data-lang-key="dashboard"></span></a>
                     <a class="nav-item" data-view="map"><i data-lucide="map"></i><span data-lang-key="map"></span></a>
                     <a class="nav-item" data-view="reports"><i data-lucide="file-text"></i><span data-lang-key="reports"></span></a>
-                    <a class="nav-item" data-view="settings"><i data-lucide="settings"></i><span data-lang-key="settings"></span></a>
-                    <a class="nav-item" data-view="profile"><i data-lucide="user"></i><span data-lang-key="profile"></span></a>
+                    
                 </nav>
                 <button class="fab" id="addCollectorBtn" title="Adicionar Cobrador"><i data-lucide="plus"></i></button>
             `;
@@ -1988,6 +2013,10 @@
                     updateProfileView();
                 }
 
+                if (target.closest('#header-profile-link')) {
+    showView('profile');
+}
+
                 const collectorCard = target.closest('.collector-card');
                 if (collectorCard) {
                     showCollectorDetails(collectorCard.dataset.collectorId);
@@ -2078,7 +2107,7 @@
                 if (target.id === 'collector-search-input') {
                     updateDashboard();
                 }
-                if (target.closest('#settings-view')) {
+                if (target.closest('.settings-section')) {
                     document.getElementById('save-settings-btn').disabled = false;
                     if(target.id === 'settings-company-name'){
                          document.getElementById('header-logo-text').textContent = target.value;
@@ -2095,6 +2124,20 @@
                 lucide.createIcons({ nodes: [themeToggle] });
             }
         }
+
+        function updateSettingsForm(settings) {
+    // Aborta si la vista de perfil (que ahora contiene los ajustes) no está renderizada
+    if (!document.getElementById('settings-company-name')) return; 
+
+    document.getElementById('settings-company-name').value = settings.companyName || '';
+    document.getElementById('settings-logo-preview').src = settings.companyLogo || DEFAULT_LOGO_URL;
+    document.getElementById('settings-default-interest').value = settings.defaultInterest || 20;
+    document.getElementById('settings-gps-toggle').checked = settings.requireGps || false;
+
+    // Deshabilita el botón de guardar hasta que se haga un cambio
+    const saveBtn = document.getElementById('save-settings-btn');
+    if (saveBtn) saveBtn.disabled = true;
+}
 
         function loadGlobalSettings(settings) {
             const companyName = settings.companyName || 'LUMIX Finanças';
@@ -2164,7 +2207,9 @@
             
             onSnapshot(doc(db, 'config', 'global'), (docSnap) => {
                 if (docSnap.exists()) {
-                    loadGlobalSettings(docSnap.data());
+                    globalSettings = docSnap.data(); // <--- AÑADE ESTA LÍNEA
+    loadGlobalSettings(globalSettings); // <--- Modifica esta línea
+    updateSettingsForm(globalSettings); // <--- AÑADE ESTA LÍNEA
                 } else {
                     loadGlobalSettings({}); // Load with defaults if no doc exists
                 }
@@ -2188,4 +2233,3 @@
     </script>
 </body>
 </html>
-
