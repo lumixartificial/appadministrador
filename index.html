@@ -368,6 +368,149 @@
             border: 1px solid var(--border-color);
             text-align: center;
         }
+
+        /* ... */
+        #install-banner {
+        /* --- ESTILOS DE LA COMUNIDAD (NUEVO) --- */
+#community-view {
+    padding-bottom: 80px; /* Espacio para la barra de navegación inferior */
+}
+
+.community-post-creator {
+    background-color: var(--surface);
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+    margin-bottom: 20px;
+    padding: 15px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+}
+body.dark-mode .community-post-creator { box-shadow: none; }
+
+.community-post-creator textarea {
+    width: 100%;
+    border: none;
+    background: transparent;
+    color: var(--text-primary);
+    min-height: 60px;
+    resize: vertical; /* Permite redimensionar verticalmente */
+    font-size: 1.1em;
+    outline: none;
+    padding: 0;
+    margin-bottom: 10px;
+}
+.community-post-creator-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--border-color);
+}
+.community-post-image-preview {
+    display: block; /* Oculto por JS si no hay imagen */
+    width: 100%;
+    max-height: 250px; /* Altura máxima para la vista previa */
+    object-fit: contain; /* Asegura que la imagen completa sea visible */
+    border-radius: 8px;
+    margin-top: 10px;
+    border: 1px solid var(--border-color);
+}
+
+
+/* ESTILOS PARA LAS TARJETAS DE PUBLICACIÓN INDIVIDUALES (TIPO INSTAGRAM) */
+.post-card {
+    background-color: var(--surface);
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+    margin-bottom: 25px; /* Más espacio entre publicaciones */
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08); /* Sombra más pronunciada */
+    overflow: hidden; /* Importante para bordes redondeados */
+}
+body.dark-mode .post-card { box-shadow: none; }
+
+.post-header {
+    display: flex;
+    align-items: center;
+    padding: 12px 15px; /* Espaciado uniforme */
+    gap: 10px;
+}
+.post-header-img {
+    width: 36px; /* Tamaño más pequeño para la foto de perfil */
+    height: 36px;
+    border-radius: 50%; /* Redondo perfecto */
+    object-fit: cover;
+    border: 1px solid var(--border-color);
+    flex-shrink: 0; /* Evita que la imagen se encoja */
+}
+.post-header-info {
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1; /* Permite que la información crezca */
+}
+.post-admin-name {
+    font-weight: 700; /* Negrita para el nombre */
+    font-size: 0.9em;
+    color: var(--text-primary);
+}
+.post-admin-date {
+    font-size: 0.75em; /* Fecha más pequeña */
+    color: var(--text-secondary);
+    margin-top: 2px;
+}
+
+.post-image {
+    display: block;
+    width: 100%;
+    max-height: 60vh; /* Limita la altura para evitar imágenes gigantes */
+    object-fit: cover; /* Cubre el área, puede recortar un poco */
+    border-top: 1px solid var(--border-color); /* Separador visual */
+    border-bottom: 1px solid var(--border-color); /* Separador visual */
+}
+
+.post-text-content {
+    padding: 10px 15px; /* Relleno para el texto */
+    font-size: 0.95em;
+    line-height: 1.5;
+    color: var(--text-primary);
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+.post-actions {
+    display: flex;
+    justify-content: flex-start; /* Alinea los botones a la izquierda */
+    gap: 20px;
+    padding: 10px 15px;
+    border-top: 1px solid var(--border-color);
+    background-color: var(--bg-color); /* Fondo ligeramente diferente para la barra de acciones */
+}
+.action-btn {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 5px; /* Menos espacio entre icono y número */
+    font-weight: 600;
+    font-size: 0.85em; /* Tamaño de fuente ligeramente más pequeño */
+    padding: 5px 8px; /* Pequeño padding para el botón */
+    border-radius: 6px;
+    transition: all 0.2s ease;
+}
+.action-btn:hover {
+    background-color: var(--hover-color); /* Fondo al pasar el ratón */
+    color: var(--accent-blue);
+}
+.action-btn i {
+    width: 20px; /* Tamaño de iconos */
+    height: 20px;
+    stroke-width: 2; /* Grosor del trazo de los iconos */
+}
+/* --- FIN ESTILOS COMUNIDAD (NUEVO) --- */
+        text-align: center;
+        }
+
     </style>
 </head>
 <body>
@@ -417,7 +560,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.js"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
-        import { getFirestore, collection, onSnapshot, doc, query, where, setDoc, updateDoc, deleteDoc, Timestamp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+        import { getFirestore, collection, onSnapshot, doc, query, where, setDoc, updateDoc, deleteDoc, Timestamp, addDoc, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
         
         const firebaseConfig = {
             apiKey: "AIzaSyBRxJjpH6PBi-GRxOXS8klv-8v91sO4X-Y",
@@ -438,6 +581,7 @@
         let allClients = [];
         let allExpenses = [];
         let globalSettings = {};
+        let allCommunityPosts = [];
         let currentLang = localStorage.getItem('adminLanguage') || 'pt';
         let mapInstance = null;
         let collectorMarkers = {};
@@ -488,7 +632,8 @@
             reputationPerfect: 'Excelente',
             installAppTitle: 'Instale nosso aplicativo',
             installAppMsg: 'Uma experiência mais rápida e completa.',
-            installBtn: 'Instalar'
+            installBtn: 'Instalar',
+            community: 'Comunidade'
         },
         es: {
             dashboard: 'Dashboard', reports: 'Reportes', settings: 'Ajustes', profile: 'Perfil', map: 'Mapa',
@@ -530,7 +675,8 @@
             trackingUnavailableShort: 'Rastreo No Disp.',
             installAppTitle: 'Instala nuestra aplicación',
             installAppMsg: 'Una experiencia más rápida y completa.',
-            installBtn: 'Instalar'
+            installBtn: 'Instalar',
+            community: 'Comunidad'
         },
         en: {
             dashboard: 'Dashboard', reports: 'Reports', settings: 'Settings', profile: 'Profile', map: 'Map',
@@ -572,7 +718,8 @@
             trackingUnavailableShort: 'Track. Unavail.',
             installAppTitle: 'Install our app',
             installAppMsg: 'A faster, more complete experience.',
-            installBtn: 'Install'
+            installBtn: 'Install',
+            community: 'Community'
         }
     };
 // ... código existente ...
@@ -620,23 +767,32 @@
             });
 
             // [NUEVO CÓDIGO] Cargar la foto de perfil guardada del administrador
-onSnapshot(doc(db, 'admins', 'admin'), (docSnap) => {
-    const adminData = docSnap.exists() ? docSnap.data() : {};
-    const profileUrl = adminData.profilePictureUrl; // Esto será undefined si no hay foto guardada
+            onSnapshot(doc(db, 'admins', 'admin'), (docSnap) => {
+            const adminData = docSnap.exists() ? docSnap.data() : {};
+            const profileUrl = adminData.profilePictureUrl; // Esto será undefined si no hay foto guardada
 
-    // Seleccionamos ambas imágenes de perfil
-    const headerImg = document.querySelector('.profile img');
-    const profileViewImg = document.getElementById('profile-view-img');
+            // Seleccionamos ambas imágenes de perfil
+            const headerImg = document.querySelector('.profile img');
+            const profileViewImg = document.getElementById('profile-view-img');
 
-    // Aplicamos la URL guardada o el placeholder correspondiente
-    if (headerImg) {
-        headerImg.src = profileUrl || 'https://placehold.co/80x80/3b82f6/FFFFFF?text=A';
-    }
-    if (profileViewImg) {
-        profileViewImg.src = profileUrl || 'https://placehold.co/100x100/3b82f6/FFFFFF?text=A';
-    }
-});
+            // Aplicamos la URL guardada o el placeholder correspondiente
+            if (headerImg) {
+            headerImg.src = profileUrl || 'https://placehold.co/80x80/3b82f6/FFFFFF?text=A';
+            }
+            if (profileViewImg) {
+            profileViewImg.src = profileUrl || 'https://placehold.co/100x100/3b82f6/FFFFFF?text=A';
+            }
+            });
+
+            // [NUEVO CÓDIGO] Cargar publicaciones de la comunidad
+            const postsQuery = query(collection(db, 'communityPosts'), orderBy('createdAt', 'desc'));
+            onSnapshot(postsQuery, (snapshot) => {
+            allCommunityPosts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            // ¡YA NO RENDERIZAMOS AQUÍ! Solo actualizamos los datos.
+            });
         }
+
+        
 
 
 
@@ -668,9 +824,9 @@ onSnapshot(doc(db, 'admins', 'admin'), (docSnap) => {
             }
 
             if (viewName === 'profile') {
-    updateProfileView();
-    updateSettingsForm(globalSettings); // Carga los ajustes en el formulario
-}
+            updateProfileView();
+            updateSettingsForm(globalSettings); // Carga los ajustes en el formulario
+            }
 
             if (viewName === 'map') {
                 setTimeout(() => {
@@ -681,6 +837,11 @@ onSnapshot(doc(db, 'admins', 'admin'), (docSnap) => {
             if (viewName === 'reports') {
                 updateReportsView();
             }
+
+            if (viewName === 'community') {
+            renderCommunityView();
+            }
+
         }
 
         function renderMainLayout() {
@@ -833,12 +994,35 @@ onSnapshot(doc(db, 'admins', 'admin'), (docSnap) => {
                             <button id="save-settings-btn" class="btn-primary" disabled><i data-lucide="save"></i> <span data-lang-key="saveSettings"></span></button>
                         </div>
                     </div>
+
+                    <div id="community-view" class="view container">
+                            <h1 class="section-title" data-lang-key="community"></h1>
+
+                            
+                            <!-- Formulario para crear post --><div class="community-post-creator">
+                            <textarea id="post-text-input" placeholder="O que você está pensando, Administrador?"></textarea>
+                            <img id="post-image-preview" class="community-post-image-preview" style="display: none;">
+                            <div class="community-post-creator-actions">
+                                <label for="post-image-input" class="header-btn" style="cursor: pointer;" title="Anexar Imagem">
+                                    <i data-lucide="image"></i>
+                                </label>
+                                <input type="file" id="post-image-input" accept="image/*" style="display: none;">
+                                <button id="submit-post-btn" class="btn-primary" disabled><i data-lucide="send"></i> Publicar</button>
+                            </div>
+                        </div>
+
+                            <!-- Contenedor para las publicaciones -->
+                            <div id="community-posts-list">
+                                <p style="text-align: center; color: var(--text-secondary); padding: 20px;">Carregando publicações...</p>
+                            /div>
+                    </div>
+
                 </main>
                 <nav class="bottom-nav">
                     <a class="nav-item active" data-view="dashboard"><i data-lucide="layout-dashboard"></i><span data-lang-key="dashboard"></span></a>
                     <a class="nav-item" data-view="map"><i data-lucide="map"></i><span data-lang-key="map"></span></a>
                     <a class="nav-item" data-view="reports"><i data-lucide="file-text"></i><span data-lang-key="reports"></span></a>
-                    
+                    <a class="nav-item" data-view="community"><i data-lucide="users"></i><span data-lang-key="community"></span></a>
                 </nav>
                 <button class="fab" id="addCollectorBtn" title="Adicionar Cobrador"><i data-lucide="plus"></i></button>
             `;
@@ -1059,6 +1243,118 @@ onSnapshot(doc(db, 'admins', 'admin'), (docSnap) => {
 
             applyLanguage(currentLang);
         }
+
+        function renderCommunityView() {
+    const container = document.getElementById('community-posts-list');
+    if (!container) return;
+
+    if (allCommunityPosts.length === 0) {
+        container.innerHTML = `<div class="no-items" style="text-align: center; padding: 20px; color: var(--text-secondary);">Nenhuma publicação ainda. Seja o primeiro!</div>`;
+        return;
+    }
+
+    container.innerHTML = allCommunityPosts.map(post => {
+        const postDate = post.createdAt?.seconds ? new Date(post.createdAt.seconds * 1000).toLocaleString(currentLang) : 'agora mesmo';
+        const placeholder = `https://placehold.co/80x80/0f172a/FFFFFF?text=${(post.adminName || 'A').charAt(0)}`;
+
+        return `
+<div class="post-card" data-post-id="${post.id}">
+    <div class="post-header">
+        <img src="${post.adminProfilePic || placeholder}" alt="Admin pic" class="post-header-img">
+        <div class="post-header-info">
+            <div class="post-admin-name">${post.adminName || 'Administrador'}</div>
+            <div class="post-admin-date">${postDate}</div>
+        </div>
+    </div>
+
+    ${post.imageUrl ? `
+    <img src="${post.imageUrl}" class="post-image" alt="Imagem do post">
+    ` : ''}
+
+    ${post.text ? `
+    <div class="post-text-content">
+        ${post.text}
+    </div>
+    ` : ''}
+
+    <div class="post-actions">
+        <button class="action-btn" data-action="like">
+            <i data-lucide="thumbs-up"></i>
+            <span>${post.likes || 0}</span>
+        </button>
+        <button class="action-btn" data-action="comment">
+            <i data-lucide="message-circle"></i>
+            <span>${post.comments || 0}</span>
+        </button>
+    </div>
+</div>
+`;
+    }).join('');
+
+    lucide.createIcons({ nodes: container.querySelectorAll('[data-lucide]') });
+}
+
+async function submitNewPost() {
+    const submitBtn = document.getElementById('submit-post-btn');
+    const textInput = document.getElementById('post-text-input');
+    const fileInput = document.getElementById('post-image-input');
+    const preview = document.getElementById('post-image-preview');
+
+    const text = textInput.value.trim();
+    const file = fileInput.files[0];
+
+    if (!text && !file) {
+        showToast("Escreva algo ou adicione uma imagem.", true);
+        return;
+    }
+
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = `<i data-lucide="loader-circle" style="animation: spin 1s linear infinite;"></i>`;
+    lucide.createIcons({ nodes: [submitBtn.querySelector('i')] });
+
+    try {
+        let imageUrl = '';
+        if (file) {
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+            const response = await fetch(CLOUDINARY_URL, { method: 'POST', body: formData });
+            if (!response.ok) throw new Error('Cloudinary post image upload failed');
+            const data = await response.json();
+            imageUrl = data.secure_url;
+        }
+
+        // Obtenemos la foto de perfil actual del admin desde el DOM
+        const adminProfilePic = document.querySelector('#header-profile-link img')?.src || '';
+
+        const postData = {
+            adminName: 'Administrador', // (Por ahora, luego será dinámico)
+            adminProfilePic: adminProfilePic,
+            text: text,
+            imageUrl: imageUrl,
+            createdAt: serverTimestamp(),
+            likes: 0,
+            comments: 0,
+            likedBy: []
+        };
+
+        await addDoc(collection(db, 'communityPosts'), postData);
+
+        // Limpiar formulario
+        textInput.value = '';
+        fileInput.value = '';
+        preview.src = '';
+        preview.style.display = 'none';
+
+    } catch (error) {
+        console.error("Error al publicar:", error);
+        showToast("Erro ao publicar o post.", true);
+    } finally {
+        submitBtn.disabled = true; // Sigue deshabilitado porque el texto está vacío
+        submitBtn.innerHTML = `<i data-lucide="send"></i> Publicar`;
+        lucide.createIcons({ nodes: [submitBtn.querySelector('i')] });
+    }
+}
         
         // --- [REPARACIÓN 2] Se restauran las funciones del mapa y reportes ---
         
@@ -2013,9 +2309,13 @@ onSnapshot(doc(db, 'admins', 'admin'), (docSnap) => {
                     updateProfileView();
                 }
 
+                if (target.closest('#submit-post-btn')) {
+                submitNewPost();
+                }
+
                 if (target.closest('#header-profile-link')) {
-    showView('profile');
-}
+                showView('profile');
+        }
 
                 const collectorCard = target.closest('.collector-card');
                 if (collectorCard) {
@@ -2045,21 +2345,7 @@ onSnapshot(doc(db, 'admins', 'admin'), (docSnap) => {
                     if (mapInstance) {
                         mapInstance.closePopup();
                     }
-                    document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
-                    navItem.classList.add('active');
-                    document.querySelectorAll('.view').forEach(view => view.classList.remove('active'));
-                    const viewId = `${navItem.dataset.view}-view`;
-                    document.getElementById(viewId).classList.add('active');
-
-                    if(viewId === 'map-view'){
-                         setTimeout(() => {
-                            initMap();
-                            updateCollectorMarkers();
-                        }, 50);
-                    }
-                    if(viewId === 'reports-view'){
-                        updateReportsView();
-                    }
+                    showView(navItem.dataset.view); // Llama a la función centralizada
                 }
                  if (target.closest('#addCollectorBtn')) {
                     showCollectorFormModal();
@@ -2100,6 +2386,14 @@ onSnapshot(doc(db, 'admins', 'admin'), (docSnap) => {
                         document.getElementById('save-settings-btn').disabled = false;
                     }
                 }
+
+                if (e.target.id === 'post-image-input' && e.target.files && e.target.files[0]) {
+                const preview = document.getElementById('post-image-preview');
+                preview.src = URL.createObjectURL(e.target.files[0]);
+                preview.style.display = 'block';
+                document.getElementById('submit-post-btn').disabled = false; // Habilita el botón si se añade imagen
+                }
+
             });
             
             document.body.addEventListener('input', e => {
@@ -2113,6 +2407,13 @@ onSnapshot(doc(db, 'admins', 'admin'), (docSnap) => {
                          document.getElementById('header-logo-text').textContent = target.value;
                     }
                 }
+
+                if (target.id === 'post-text-input') {
+                // Habilita el botón solo si hay texto o si ya hay una imagen cargada
+                const hasImage = document.getElementById('post-image-preview').style.display === 'block';
+                document.getElementById('submit-post-btn').disabled = target.value.trim().length === 0 && !hasImage;
+                }
+
             });
         }
         
@@ -2233,3 +2534,4 @@ onSnapshot(doc(db, 'admins', 'admin'), (docSnap) => {
     </script>
 </body>
 </html>
+
