@@ -466,6 +466,8 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
     color: var(--text-secondary);
 }
 
+
+
 /* Imagen de la publicación */
 #community-view .post-card img.post-image {
     display: block;
@@ -611,6 +613,29 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
     color: var(--accent-blue);
     cursor: pointer;
     padding: 5px;
+}
+
+/* Botón para eliminar publicación */
+#community-view .post-card .post-header {
+    position: relative; /* Necesario para posicionar el botón */
+}
+#community-view .post-card .post-delete-btn {
+    position: absolute;
+    top: 8px;
+    right: 12px;
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+#community-view .post-card .post-delete-btn:hover {
+    background-color: var(--bg);
+    color: var(--danger-color);
 }
 
 /* --- FIN ESTILOS COMUNIDAD (ULTRA ESPECÍFICO) --- */
@@ -1364,6 +1389,8 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
         const postDate = post.createdAt?.seconds ? new Date(post.createdAt.seconds * 1000).toLocaleString(currentLang) : 'agora mesmo';
         const placeholder = `https://placehold.co/80x80/0f172a/FFFFFF?text=${(post.adminName || 'A').charAt(0)}`;
 
+        const canDelete = (currentAdmin.id === 'admin' || post.adminId === currentAdmin.id);
+
         const isLiked = (post.likedBy || []).includes(currentAdmin.id);
 
         return `
@@ -1374,6 +1401,17 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             <div class="post-admin-name">${post.adminName || 'Administrador'}</div>
             <div class="post-admin-date">${postDate}</div>
         </div>
+
+        ${canDelete ? `  
+
+<button class="post-delete-btn" data-action="delete-post" data-post-id="${post.id}" title="Eliminar publicação">
+
+    <i data-lucide="trash-2" style="width: 18px; height: 18px;"></i>
+
+</button>
+
+` : ''}
+
     </div>
 
     ${post.imageUrl ? `
@@ -1452,6 +1490,7 @@ async function submitNewPost() {
         const adminProfilePic = document.querySelector('#header-profile-link img')?.src || '';
 
         const postData = {
+            adminId: currentAdmin.id, // <--- AÑADE ESTA LÍNEA
             adminName: currentAdmin.name,
             adminProfilePic: currentAdmin.profilePic,
             text: text,
@@ -1592,6 +1631,44 @@ async function submitNewComment(postId, inputElement) {
     } catch (error) {
         console.error("Error al publicar comentario:", error);
         showToast("Erro ao publicar comentário.", true);
+    }
+}
+
+function showDeleteConfirmationModal(postId) {
+    // Reutilizamos el 'reportOptionsModal' para la confirmación
+    const modal = document.getElementById('reportOptionsModal');
+    modal.classList.add('active');
+    modal.innerHTML = `
+    <div class="modal-content" style="text-align: center;">
+        <h3 style="margin-bottom: 10px;">Confirmar Exclusão</h3>
+        <p style="color: var(--text-secondary); margin-bottom: 25px;">Tem certeza que deseja excluir esta publicação? Esta ação não pode ser desfeita.</p>
+        <div style="display: flex; gap: 10px; justify-content: center;">
+            <button class="btn-secondary" id="cancel-delete-btn" style="flex-grow: 1;">Cancelar</button>
+            <button class="btn-danger" id="confirm-delete-btn" data-post-id="${postId}" style="flex-grow: 1;">Excluir</button>
+        </div>
+    </div>
+    `;
+}
+
+async function handlePostDelete(postId) {
+    const confirmBtn = document.getElementById('confirm-delete-btn');
+    if (confirmBtn) confirmBtn.disabled = true;
+
+    try {
+        // NOTA: Esto no elimina la imagen de Cloudinary ni la sub-colección
+        // de comentarios (que quedan huérfanos). Se necesitarían
+        // funciones de Cloud para una limpieza completa.
+        // Por ahora, solo eliminamos el post principal.
+        await deleteDoc(doc(db, 'communityPosts', postId));
+
+        showToast("Publicação excluída com sucesso.");
+        renderCommunityView(); // Re-renderiza la vista para que desaparezca
+    } catch (error) {
+        console.error("Erro ao excluir publicação:", error);
+        showToast("Erro ao excluir a publicação.", true);
+    } finally {
+        // Cierra el modal de confirmación
+        document.getElementById('reportOptionsModal').classList.remove('active');
     }
 }
         
@@ -2573,6 +2650,25 @@ async function submitNewComment(postId, inputElement) {
                 const postId = submitCommentBtn.dataset.postId;
                 const inputElement = submitCommentBtn.closest('.post-comment-input-area').querySelector('.comment-input');
                 submitNewComment(postId, inputElement);
+            }
+
+            // Listener para el botón "Eliminar Publicación" (abre el modal)
+            const deletePostBtn = target.closest('.post-delete-btn[data-action="delete-post"]');
+            if (deletePostBtn) {
+                e.preventDefault();
+                showDeleteConfirmationModal(deletePostBtn.dataset.postId);
+            }
+
+            // Listener para el botón "Cancelar" en el modal
+            const cancelDeleteBtn = target.closest('#cancel-delete-btn');
+            if (cancelDeleteBtn) {
+                document.getElementById('reportOptionsModal').classList.remove('active');
+            }
+
+            // Listener para el botón "Confirmar Eliminación" en el modal
+            const confirmDeleteBtn = target.closest('#confirm-delete-btn');
+            if (confirmDeleteBtn) {
+                handlePostDelete(confirmDeleteBtn.dataset.postId);
             }
 
                 if (target.closest('#header-profile-link')) {
