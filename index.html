@@ -639,6 +639,68 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
 }
 
 /* --- FIN ESTILOS COMUNIDAD (ULTRA ESPECÍFICO) --- */
+
+/* --- Estilos para Verificación de Cobrador --- */
+#collector-verification-results .verification-card {
+    padding: 15px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    text-align: center;
+}
+#collector-verification-results .verification-loading {
+    background-color: var(--surface);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    color: var(--text-secondary);
+}
+#collector-verification-results .verification-clean {
+    background-color: color-mix(in srgb, var(--accent-green) 10%, var(--surface));
+    border-color: var(--accent-green);
+    color: var(--text-primary);
+}
+#collector-verification-results .verification-clean i {
+    color: var(--accent-green);
+}
+#collector-verification-results .verification-conflict {
+    background-color: color-mix(in srgb, var(--warning-color) 10%, var(--surface));
+    border-color: var(--warning-color);
+    color: var(--text-primary);
+    text-align: left; /* Alineado a la izquierda para listas */
+}
+#collector-verification-results .verification-conflict .conflict-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    margin-bottom: 12px;
+    color: var(--warning-color);
+}
+#collector-verification-results .verification-conflict ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+#collector-verification-results .verification-conflict li {
+    font-size: 0.9em;
+    padding-left: 1.5em; /* Espacio para el icono */
+    position: relative;
+}
+#collector-verification-results .verification-conflict li::before {
+    content: '•'; /* O un icono si prefieres */
+    position: absolute;
+    left: 0.5em;
+    color: var(--warning-color);
+    font-weight: bold;
+}
+#collector-verification-results .verification-conflict li strong {
+    color: var(--text-primary);
+}
+/* --- Fin Estilos Verificación --- */
         
 
     </style>
@@ -690,7 +752,7 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
     <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.js"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
-        import { getFirestore, collection, onSnapshot, doc, query, where, setDoc, updateDoc, deleteDoc, Timestamp, addDoc, orderBy, serverTimestamp, increment } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+        import { getFirestore, collection, onSnapshot, doc, query, where, setDoc, updateDoc, deleteDoc, Timestamp, addDoc, orderBy, serverTimestamp, increment, getDocs } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
         
         const firebaseConfig = {
             apiKey: "AIzaSyBRxJjpH6PBi-GRxOXS8klv-8v91sO4X-Y",
@@ -715,6 +777,32 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
         let currentAdmin = { id: 'admin', name: 'Administrador', profilePic: '' };
         let currentLang = localStorage.getItem('adminLanguage') || 'pt';
         let mapInstance = null;
+
+        const CURRENCY_CONFIGS = {
+    // Suramérica
+    "BRL": { name: "Real Brasileiro", symbol: "R$" },
+    "ARS": { name: "Peso Argentino", symbol: "ARS$" },
+    "BOB": { name: "Boliviano", symbol: "Bs." },
+    "CLP": { name: "Peso Chileno", symbol: "CLP$" },
+    "COP": { name: "Peso Colombiano", symbol: "COP$" },
+    "USD_EC": { name: "Dólar (Ecuador)", symbol: "$" },
+    "PYG": { name: "Guaraní Paraguayo", symbol: "₲" },
+    "PEN": { name: "Sol Peruano", symbol: "S/" },
+    "UYU": { name: "Peso Uruguayo", symbol: "$U" },
+    "VES": { name: "Bolívar Venezuelano", symbol: "Bs." },
+    // Centroamérica
+    "CRC": { name: "Colón Costarricense", symbol: "₡" },
+    "GTQ": { name: "Quetzal Guatemalteco", symbol: "Q" },
+    "HNL": { name: "Lempira Hondureña", symbol: "L" },
+    "NIO": { name: "Córdoba Nicaragüense", symbol: "C$" },
+    "PAB": { name: "Balboa Panameño / USD", symbol: "B/." },
+    "USD_SV": { name: "Dólar (El Salvador)", symbol: "$" },
+    // Norteamérica y General
+    "USD": { name: "Dólar Americano (General)", symbol: "$" },
+    "MXN": { name: "Peso Mexicano", symbol: "MXN$" },
+    "CAD": { name: "Dólar Canadiense", symbol: "CAD$" }
+};
+
         let collectorMarkers = {};
         let deferredPrompt; // Para la instalación de PWA
         const money = val => (typeof val !== 'number' || isNaN(val)) ? 'R$ 0,00' : val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -1671,6 +1759,136 @@ async function handlePostDelete(postId) {
         document.getElementById('reportOptionsModal').classList.remove('active');
     }
 }
+
+async function verifyCollectorInSystem(collectorIdToExclude = null) {
+    const nameInput = document.getElementById('collector-name');
+    const docInput = document.getElementById('collector-document');
+    const phoneInput = document.getElementById('collector-phone');
+    const whatsappInput = document.getElementById('collector-whatsapp');
+    const resultsContainer = document.getElementById('collector-verification-results');
+
+    const name = nameInput?.value.trim().toLowerCase();
+    const documentNumber = docInput?.value.trim();
+    const phone = phoneInput?.value.replace(/\D/g, ''); // Limpia no numéricos
+    const whatsapp = whatsappInput?.value.replace(/\D/g, ''); // Limpia no numéricos
+
+    // No buscar si los campos clave están vacíos
+    if (!name && !documentNumber && !phone && !whatsapp) {
+        resultsContainer.style.display = 'none';
+        return;
+    }
+
+    resultsContainer.style.display = 'block';
+    resultsContainer.innerHTML = `
+        <div class="verification-card verification-loading">
+            <i data-lucide="loader-circle" style="animation: spin 1s linear infinite;"></i>
+            <span>Verificando no sistema...</span>
+        </div>`;
+    lucide.createIcons({ nodes: resultsContainer.querySelectorAll('[data-lucide]') });
+
+    try {
+        // Firestore no soporta queries 'OR' complejas directamente.
+        // Haremos varias queries pequeñas y uniremos los resultados.
+        let potentialConflicts = [];
+        const checkedIds = new Set(); // Para evitar duplicados si coinciden varios campos
+
+        // Query por Nombre (más genérica, puede traer falsos positivos)
+        // Se podría hacer más específica si es necesario
+        if (name) {
+            // No podemos hacer query por 'includes', así que traemos todos y filtramos
+            // En una app real, esto sería ineficiente y necesitaría un backend o Algolia/Elasticsearch
+        }
+
+        // Query por Número de Documento (si existe)
+        if (documentNumber) {
+            const docQuery = query(collection(db, "collectors"), where("documentNumber", "==", documentNumber));
+            const docSnapshot = await getDocs(docQuery);
+            docSnapshot.forEach(doc => {
+                if (doc.id !== collectorIdToExclude && !checkedIds.has(doc.id)) {
+                    potentialConflicts.push({ id: doc.id, data: doc.data(), matchedField: 'Documento' });
+                    checkedIds.add(doc.id);
+                }
+            });
+        }
+
+        // Query por Teléfono (si existe)
+        if (phone) {
+            const phoneQuery = query(collection(db, "collectors"), where("phone", "==", phone));
+            const phoneSnapshot = await getDocs(phoneQuery);
+            phoneSnapshot.forEach(doc => {
+                if (doc.id !== collectorIdToExclude && !checkedIds.has(doc.id)) {
+                    potentialConflicts.push({ id: doc.id, data: doc.data(), matchedField: 'Telefone' });
+                    checkedIds.add(doc.id);
+                }
+            });
+        }
+
+        // Query por WhatsApp (si existe)
+        if (whatsapp) {
+            const whatsappQuery = query(collection(db, "collectors"), where("whatsapp", "==", whatsapp));
+            const whatsappSnapshot = await getDocs(whatsappQuery);
+            whatsappSnapshot.forEach(doc => {
+                if (doc.id !== collectorIdToExclude && !checkedIds.has(doc.id)) {
+                    potentialConflicts.push({ id: doc.id, data: doc.data(), matchedField: 'WhatsApp' });
+                    checkedIds.add(doc.id);
+                }
+            });
+        }
+
+        // Simulación de búsqueda por nombre (Filtrado manual, ineficiente para muchos datos)
+        if (name) {
+            const allCollectorsSnapshot = await getDocs(collection(db, "collectors"));
+            allCollectorsSnapshot.forEach(doc => {
+                const collectorData = doc.data();
+                if (collectorData.name && collectorData.name.toLowerCase().includes(name)) {
+                    if (doc.id !== collectorIdToExclude && !checkedIds.has(doc.id)) {
+                        potentialConflicts.push({ id: doc.id, data: doc.data(), matchedField: 'Nome similar' });
+                         checkedIds.add(doc.id);
+                    }
+                }
+            });
+        }
+
+
+        renderCollectorVerificationResults(potentialConflicts);
+
+    } catch (error) {
+        console.error("Erro ao verificar cobrador:", error);
+        resultsContainer.innerHTML = `<div class="verification-card verification-conflict">Erro ao verificar. Tente novamente.</div>`;
+    }
+}
+
+function renderCollectorVerificationResults(conflicts) {
+    const resultsContainer = document.getElementById('collector-verification-results');
+    if (!resultsContainer) return;
+
+    if (conflicts.length === 0) {
+        resultsContainer.innerHTML = `
+            <div class="verification-card verification-clean">
+                <i data-lucide="check-circle" style="width: 32px; height: 32px; margin-bottom: 8px;"></i>
+                <p style="font-weight: 600; margin: 0;">Cobrador Limpo</p>
+                <p style="color: var(--text-secondary); font-size: 0.9em; margin: 5px 0 0;">Nenhuma coincidência encontrada no sistema.</p>
+            </div>`;
+    } else {
+        const conflictsListHtml = conflicts.map(conflict =>
+            `<li><strong>${conflict.data.name || 'Nome não disponível'} (${conflict.id})</strong> - Coincidência encontrada no campo: <strong>${conflict.matchedField}</strong>.</li>`
+        ).join('');
+
+        resultsContainer.innerHTML = `
+            <div class="verification-card verification-conflict">
+                <div class="conflict-title">
+                    <i data-lucide="alert-triangle"></i>
+                    <span>Atenção: Possíveis Coincidências Encontradas!</span>
+                </div>
+                <p style="color: var(--text-secondary); font-size: 0.9em; margin-bottom: 15px;">Verifique os seguintes registros antes de continuar. Podem indicar um cobrador duplicado ou já existente:</p>
+                <ul>
+                    ${conflictsListHtml}
+                </ul>
+                <p style="color: var(--text-secondary); font-size: 0.8em; margin-top: 15px;"><i>Recomendamos confirmar a identidade antes de salvar.</i></p>
+            </div>`;
+    }
+    lucide.createIcons({ nodes: resultsContainer.querySelectorAll('[data-lucide]') });
+}
         
         // --- [REPARACIÓN 2] Se restauran las funciones del mapa y reportes ---
         
@@ -2283,10 +2501,23 @@ async function handlePostDelete(postId) {
                 </header>
                 <div class="modal-content-wrapper container">
                     <form id="collector-form">
+
+                        <h3 class="section-title" style="margin-top: 10px; border-bottom: none; font-size: 1.1em;">
+                        <i data-lucide="user-round" style="width: 18px; height: 18px; margin-right: 8px;"></i>
+                        DADOS PESSOAIS
+                        </h3>
+                        <hr style="border: 1px solid var(--border-color); margin-top: 10px; margin-bottom: 25px;">
+
                         <div class="form-group">
                             <label for="collector-name" data-lang-key="fullName"></label>
                             <input type="text" id="collector-name" required value="${collector.name || ''}">
                         </div>
+
+                        <div class="form-group">
+                            <label for="collector-document">Número de Documento</label>
+                            <input type="text" id="collector-document" value="${collector.documentNumber || ''}">
+                        </div>
+
                         <div class="form-group">
                             <label for="collector-address" data-lang-key="address"></label>
                             <input type="text" id="collector-address" value="${collector.address || ''}">
@@ -2301,7 +2532,18 @@ async function handlePostDelete(postId) {
                                 <input type="tel" id="collector-whatsapp" value="${collector.whatsapp || ''}">
                             </div>
                         </div>
-                        <hr style="border: 1px solid var(--border-color); margin: 30px 0;">
+
+                        <!-- Contenedor para los resultados de la verificación -->
+                        <div id="collector-verification-results" style="margin-top: 20px; margin-bottom: 20px; display: none;"> 
+                        <!-- Los resultados se mostrarán aquí -->
+                        </div>
+
+                        <h3 class="section-title" style="margin-top: 30px; border-bottom: none; font-size: 1.1em;">
+                        <i data-lucide="smartphone" style="width: 18px; height: 18px; margin-right: 8px;"></i>
+                        ACESSO AO APP DO COBRADOR
+                        </h3>
+                        <hr style="border: 1px solid var(--border-color); margin-top: 10px; margin-bottom: 25px;">
+
                         <div class="form-group">
                             <label for="collector-username" data-lang-key="username"></label>
                             <input type="text" id="collector-username" required value="${collector.id || ''}" ${isEditMode ? 'readonly' : ''}>
@@ -2310,9 +2552,24 @@ async function handlePostDelete(postId) {
                             <label for="collector-password" data-lang-key="password"></label>
                             <input type="password" id="collector-password" ${!isEditMode ? 'required' : ''} placeholder="${isEditMode ? 'Deixe em branco para não alterar' : ''}">
                         </div>
+
+                        <h3 class="section-title" style="margin-top: 30px; border-bottom: none; font-size: 1.1em;">
+                        <i data-lucide="dollar-sign" style="width: 18px; height: 18px; margin-right: 8px;"></i>
+                        CONFIGURAÇÃO FINANCEIRA
+                        </h3>
+                        <hr style="border: 1px solid var(--border-color); margin-top: 10px; margin-bottom: 25px;">
+
                         <div class="form-group">
-                            <label for="collector-capital" data-lang-key="initialCapital"></label>
-                            <input type="number" id="collector-capital" step="0.01" required value="${collector.startingCapital || ''}">
+                        <label for="collector-currency">Moeda de Operação</label>
+                        <select id="collector-currency">
+                        <!-- As opções de moeda serão adicionadas por JavaScript -->
+                        </select>
+                        </div>
+
+<!-- Ahora viene el campo de Capital Inicial -->
+                        <div class="form-group">
+                        <label for="collector-capital"><span id="capital-currency-symbol" style="font-weight: bold;">(R$)</span> <span data-lang-key="initialCapital"></span></label>
+                        <input type="number" id="collector-capital" step="0.01" required value="${collector.startingCapital || ''}" placeholder="0.00">
                         </div>
                     </form>
                 </div>
@@ -2321,6 +2578,45 @@ async function handlePostDelete(postId) {
                 </div>
             `;
             formModal.classList.add('active');
+
+            // --- Lógica de Moeda ---
+            const currencySelect = formModal.querySelector('#collector-currency');
+            const capitalSymbolSpan = formModal.querySelector('#capital-currency-symbol');
+
+            // Poblar el select de monedas
+            currencySelect.innerHTML = Object.entries(CURRENCY_CONFIGS).map(([code, config]) => 
+                `<option value="${code}" ${ (collector.operatingCurrency || 'BRL') === code ? 'selected' : '' }>${code} - ${config.name}</option>`
+            ).join('');
+
+            // Función para actualizar el símbolo
+            const updateCurrencySymbol = () => {
+                const selectedCurrencyCode = currencySelect.value;
+                const config = CURRENCY_CONFIGS[selectedCurrencyCode];
+                if (config && capitalSymbolSpan) {
+                    capitalSymbolSpan.textContent = `(${config.symbol})`;
+                 }
+            };
+
+            // Actualizar al cargar y al cambiar
+            updateCurrencySymbol(); 
+            currencySelect.addEventListener('change', updateCurrencySymbol);
+            // --- Fin Lógica de Moeda ---
+
+            // --- Lógica de Verificación ---
+            const fieldsToVerify = ['collector-name', 'collector-document', 'collector-phone', 'collector-whatsapp'];
+            fieldsToVerify.forEach(fieldId => {
+            const input = formModal.querySelector(`#${fieldId}`);
+            if (input) {
+            // Usamos 'blur' para verificar cuando el usuario sale del campo
+            input.addEventListener('blur', () => verifyCollectorInSystem(collectorId));
+            }
+            });
+
+            // Ejecuta una verificación inicial si estamos en modo edición y ya hay datos
+            if (isEditMode) {
+            verifyCollectorInSystem(collectorId);
+            }
+// --- Fin Lógica de Verificación ---
             lucide.createIcons({nodes: formModal.querySelectorAll('[data-lucide]')});
             applyLanguage(currentLang);
             
@@ -2338,9 +2634,11 @@ async function handlePostDelete(postId) {
 
                 const collectorData = {
                     name,
+                    documentNumber: document.getElementById('collector-document').value.trim(),
                     address: document.getElementById('collector-address').value,
                     phone: document.getElementById('collector-phone').value,
                     whatsapp: document.getElementById('collector-whatsapp').value,
+                    operatingCurrency: document.getElementById('collector-currency').value, 
                     startingCapital: capital,
                 };
 
