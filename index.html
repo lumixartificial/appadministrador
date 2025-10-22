@@ -371,34 +371,35 @@
 
         /* ... */
         #install-banner {
-        /* --- ESTILOS DE LA COMUNIDAD (NUEVO) --- */
+        /* --- ESTILOS DE LA COMUNIDAD (REFORZADO) --- */
 #community-view {
     padding-bottom: 80px; /* Espacio para la barra de navegación inferior */
 }
 
-.community-post-creator {
+/* --- Creador de Publicaciones --- */
+#community-view .community-post-creator {
     background-color: var(--surface);
     border-radius: 12px;
     border: 1px solid var(--border-color);
-    margin-bottom: 20px;
+    margin-bottom: 25px; /* Más espacio */
     padding: 15px;
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
 }
-body.dark-mode .community-post-creator { box-shadow: none; }
+body.dark-mode #community-view .community-post-creator { box-shadow: none; }
 
-.community-post-creator textarea {
+#community-view .community-post-creator textarea {
     width: 100%;
     border: none;
     background: transparent;
     color: var(--text-primary);
     min-height: 60px;
-    resize: vertical; /* Permite redimensionar verticalmente */
+    resize: vertical;
     font-size: 1.1em;
     outline: none;
     padding: 0;
     margin-bottom: 10px;
 }
-.community-post-creator-actions {
+#community-view .community-post-creator-actions {
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -406,108 +407,114 @@ body.dark-mode .community-post-creator { box-shadow: none; }
     padding-top: 10px;
     border-top: 1px solid var(--border-color);
 }
-.community-post-image-preview {
+#community-view .community-post-image-preview {
     display: block; /* Oculto por JS si no hay imagen */
     width: 100%;
-    max-height: 250px; /* Altura máxima para la vista previa */
-    object-fit: contain; /* Asegura que la imagen completa sea visible */
+    max-height: 250px;
+    object-fit: contain;
     border-radius: 8px;
     margin-top: 10px;
     border: 1px solid var(--border-color);
 }
 
 
-/* ESTILOS PARA LAS TARJETAS DE PUBLICACIÓN INDIVIDUALES (TIPO INSTAGRAM) */
-.post-card {
+/* --- Tarjetas de Publicación Individuales --- */
+#community-view .post-card {
     background-color: var(--surface);
     border-radius: 12px;
     border: 1px solid var(--border-color);
-    margin-bottom: 25px; /* Más espacio entre publicaciones */
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08); /* Sombra más pronunciada */
-    overflow: hidden; /* Importante para bordes redondeados */
+    margin-bottom: 25px;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+    overflow: hidden; /* Muy importante */
 }
-body.dark-mode .post-card { box-shadow: none; }
+body.dark-mode #community-view .post-card { box-shadow: none; }
 
-.post-header {
+#community-view .post-header {
     display: flex;
     align-items: center;
-    padding: 12px 15px; /* Espaciado uniforme */
-    gap: 10px;
+    padding: 12px 15px;
+    gap: 12px; /* Aumentamos un poco el gap */
 }
-.post-header-img {
-    width: 36px; /* Tamaño más pequeño para la foto de perfil */
-    height: 36px;
-    border-radius: 50%; /* Redondo perfecto */
-    object-fit: cover;
+/* Estilo CLAVE para la imagen de perfil */
+#community-view .post-header-img {
+    width: 40px !important; /* Forzamos tamaño */
+    height: 40px !important; /* Forzamos tamaño */
+    border-radius: 50% !important; /* Forzamos forma redonda */
+    object-fit: cover !important; /* Forzamos que cubra */
     border: 1px solid var(--border-color);
-    flex-shrink: 0; /* Evita que la imagen se encoja */
+    flex-shrink: 0;
 }
-.post-header-info {
+#community-view .post-header-info {
     display: flex;
     flex-direction: column;
-    flex-grow: 1; /* Permite que la información crezca */
+    flex-grow: 1;
+    gap: 2px; /* Espacio entre nombre y fecha */
 }
-.post-admin-name {
-    font-weight: 700; /* Negrita para el nombre */
-    font-size: 0.9em;
+#community-view .post-admin-name {
+    font-weight: 600; /* Más grueso que negrita normal */
+    font-size: 0.95em;
     color: var(--text-primary);
 }
-.post-admin-date {
-    font-size: 0.75em; /* Fecha más pequeña */
+#community-view .post-admin-date {
+    font-size: 0.8em; /* Un poco más grande */
     color: var(--text-secondary);
-    margin-top: 2px;
 }
 
-.post-image {
-    display: block;
-    width: 100%;
-    max-height: 60vh; /* Limita la altura para evitar imágenes gigantes */
-    object-fit: cover; /* Cubre el área, puede recortar un poco */
-    border-top: 1px solid var(--border-color); /* Separador visual */
-    border-bottom: 1px solid var(--border-color); /* Separador visual */
+/* Estilo CLAVE para la imagen de la publicación */
+#community-view .post-image {
+    display: block; /* Asegura que no tenga espacio extra */
+    width: 100%; /* Ocupa todo el ancho */
+    max-height: 70vh; /* Aumentamos un poco la altura máxima */
+    object-fit: cover; /* Cubre el área */
+    border-top: 1px solid var(--border-color); /* Separador */
+    border-bottom: 1px solid var(--border-color); /* Separador */
+    background-color: var(--bg); /* Fondo por si la imagen no carga */
 }
 
-.post-text-content {
-    padding: 10px 15px; /* Relleno para el texto */
-    font-size: 0.95em;
-    line-height: 1.5;
+#community-view .post-text-content {
+    padding: 15px; /* Más padding para el texto */
+    font-size: 1em; /* Tamaño estándar */
+    line-height: 1.6;
     color: var(--text-primary);
     white-space: pre-wrap;
     word-wrap: break-word;
 }
 
-.post-actions {
+#community-view .post-actions {
     display: flex;
-    justify-content: flex-start; /* Alinea los botones a la izquierda */
-    gap: 20px;
-    padding: 10px 15px;
+    justify-content: flex-start;
+    gap: 25px; /* Más espacio entre botones */
+    padding: 12px 15px;
     border-top: 1px solid var(--border-color);
-    background-color: var(--bg-color); /* Fondo ligeramente diferente para la barra de acciones */
+    /* Quitamos background-color: var(--bg-color); */
 }
-.action-btn {
+#community-view .action-btn {
     background: none;
     border: none;
     color: var(--text-secondary);
     cursor: pointer;
     display: flex;
     align-items: center;
-    gap: 5px; /* Menos espacio entre icono y número */
+    gap: 6px; /* Espacio icono-número */
     font-weight: 600;
-    font-size: 0.85em; /* Tamaño de fuente ligeramente más pequeño */
-    padding: 5px 8px; /* Pequeño padding para el botón */
+    font-size: 0.9em;
+    padding: 5px 0; /* Solo padding vertical */
     border-radius: 6px;
-    transition: all 0.2s ease;
+    transition: color 0.2s ease; /* Solo transición de color */
 }
-.action-btn:hover {
-    background-color: var(--hover-color); /* Fondo al pasar el ratón */
+#community-view .action-btn:hover {
+    /* Quitamos background-color: var(--hover-color); */
     color: var(--accent-blue);
 }
-.action-btn i {
-    width: 20px; /* Tamaño de iconos */
-    height: 20px;
-    stroke-width: 2; /* Grosor del trazo de los iconos */
+#community-view .action-btn i {
+    width: 22px; /* Iconos un poco más grandes */
+    height: 22px;
+    stroke-width: 2;
 }
-/* --- FIN ESTILOS COMUNIDAD (NUEVO) --- */
+#community-view .action-btn span {
+    line-height: 1; /* Asegura alineación vertical del número */
+}
+/* --- FIN ESTILOS COMUNIDAD (REFORZADO) --- */
         text-align: center;
         }
 
@@ -2534,4 +2541,3 @@ async function submitNewPost() {
     </script>
 </body>
 </html>
-
