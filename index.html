@@ -2711,6 +2711,16 @@ const lateClientsCount = clients.filter(c => (c.loans || []).some(l => l.status 
                             `}).join('') : '<p>Nenhum cliente para este cobrador.</p>'
                         }
                     </div>
+
+                    <!-- --- INICIO NUEVA SECCIÓN: HISTÓRICO DE LIQUIDAÇÕES --- -->
+                    <section style="margin-top: 30px;">
+                    <h2 class="section-title">Histórico de Liquidações</h2>
+                    <div class="item-list" id="settlements-history-list">
+                    <!-- Las liquidaciones se cargarán aquí -->
+                </div>
+            </section>
+            <!-- --- FIN NUEVA SECCIÓN --- -->
+
                 </div>
                     
                  <div class="action-buttons">
@@ -2720,6 +2730,39 @@ const lateClientsCount = clients.filter(c => (c.loans || []).some(l => l.status 
                     </button>
                 </div>
             `;
+
+            // --- INICIO CÓDIGO PARA LLENAR HISTORIAL DE LIQUIDAÇÕES ---
+    const settlementsListContainer = detailView.querySelector('#settlements-history-list');
+    const collectorSettlements = allSettlements
+        .filter(s => s.collectorId === collectorId)
+        .sort((a, b) => (b.date?.seconds || 0) - (a.date?.seconds || 0)); // Ordena por fecha descendente
+
+    if (settlementsListContainer) {
+        if (collectorSettlements.length === 0) {
+            settlementsListContainer.innerHTML = `<p class="no-items">Nenhuma liquidação registrada para este cobrador.</p>`;
+        } else {
+            settlementsListContainer.innerHTML = collectorSettlements.map(settlement => {
+                const date = settlement.date?.seconds ? new Date(settlement.date.seconds * 1000) : null;
+                const dateString = date ? date.toLocaleDateString('pt-BR') : 'Data inválida';
+                const timeString = date ? date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '';
+
+                return `
+                <div class="payment-history-item" style="cursor: default;"> <!-- Reutilizamos estilo -->
+                    <div class="payment-history-details">
+                        <h4 class="payment-history-title">${dateString} - ${timeString}</h4>
+                        ${settlement.notes ? `<p class="payment-history-description" style="font-style: italic;">${settlement.notes}</p>` : ''}
+                    </div>
+                    <div class="payment-history-info">
+                        <span class="payment-history-amount" style="color: var(--text-primary); font-size: 1.1em;">${money(settlement.amount)}</span>
+                    </div>
+                </div>
+                `;
+            }).join('');
+        }
+    }
+    // --- FIN CÓDIGO PARA LLENAR HISTORIAL ---
+
+
             detailView.classList.add('active');
             lucide.createIcons({nodes: detailView.querySelectorAll('[data-lucide]')});
             applyLanguage(currentLang);
