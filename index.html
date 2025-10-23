@@ -2307,6 +2307,89 @@ async function submitCollectorReport(collectorId) {
 
             doc.save(`relatorio-${collectorId}-${period}.pdf`);
         }
+
+        function showSettlementModal(collectorId, collectorName, currentCapitalOnHand) {
+    // Reutilizamos el modal overlay genérico 'reportOptionsModal'
+    const modal = document.getElementById('reportOptionsModal');
+    modal.classList.add('active'); // Muestra el overlay oscuro
+
+    modal.innerHTML = `
+    <div class="modal-content" style="max-width: 400px;">
+        <button class="close-modal-btn" style="position: absolute; top: 10px; right: 10px; background: none; border: none; font-size: 24px; color: var(--text-secondary);">&times;</button>
+
+        <h3 style="margin-bottom: 15px; text-align: center;">Registrar Liquidación</h3>
+        <p style="text-align: center; color: var(--text-secondary); margin-bottom: 25px;">
+            Para: <strong>${collectorName}</strong><br>
+            (Capital em Mãos Atual: ${money(currentCapitalOnHand)})
+        </p>
+
+        <div class="form-group">
+            <label for="settlement-amount">Valor Recebido do Cobrador:</label>
+            <input type="number" id="settlement-amount" step="0.01" placeholder="0.00" required style="font-size: 1.5em; text-align: center; padding: 15px;">
+        </div>
+
+        <div class="form-group">
+            <label for="settlement-notes">Observações (Opcional):</label>
+            <textarea id="settlement-notes" rows="2" placeholder="Ex: Referente à cobrança de hoje..."></textarea>
+        </div>
+
+        <div style="display: flex; gap: 10px; justify-content: center; margin-top: 25px;">
+            <button class="btn-secondary" id="cancel-settlement-btn" style="flex-grow: 1;">Cancelar</button>
+            <button class="btn-primary" id="confirm-settlement-btn" style="flex-grow: 1;">Confirmar Registro</button>
+        </div>
+    </div>
+    `;
+
+    // --- Lógica de los Botones del Modal ---
+    const confirmBtn = modal.querySelector('#confirm-settlement-btn');
+    const cancelBtn = modal.querySelector('#cancel-settlement-btn');
+    const closeModalBtn = modal.querySelector('.close-modal-btn');
+    const amountInput = modal.querySelector('#settlement-amount');
+    const notesInput = modal.querySelector('#settlement-notes');
+
+    // Cerrar modal
+    const closeModal = () => modal.classList.remove('active');
+    cancelBtn.addEventListener('click', closeModal);
+    closeModalBtn.addEventListener('click', closeModal);
+
+    // Confirmar y Guardar
+    confirmBtn.addEventListener('click', async () => {
+        const amount = parseFloat(amountInput.value);
+        if (isNaN(amount) || amount <= 0) {
+            showToast('Por favor, insira um valor válido.', true);
+            amountInput.style.borderColor = 'var(--danger-color)';
+            setTimeout(() => { amountInput.style.borderColor = ''; }, 2000);
+            return;
+        }
+
+        confirmBtn.disabled = true;
+        confirmBtn.innerHTML = `<i data-lucide="loader-circle" style="animation: spin 1s linear infinite;"></i> Registrando...`;
+        lucide.createIcons({ nodes: [confirmBtn.querySelector('i')] });
+
+        const settlementData = {
+            collectorId: collectorId,
+            collectorName: collectorName, // Guarda el nombre para facilitar reportes
+            amount: amount,
+            notes: notesInput.value.trim(),
+            date: serverTimestamp(), // Fecha y hora del servidor
+            adminId: auth.currentUser ? auth.currentUser.uid : 'admin_manual' // Quién registró
+        };
+
+        try {
+            // Añade el documento a la nueva colección 'settlements'
+            await addDoc(collection(db, 'settlements'), settlementData);
+            showToast('Liquidación registrada com sucesso!');
+            closeModal();
+            // Opcional: Podrías forzar una actualización de la vista de detalles aquí si fuera necesario
+            // showCollectorDetails(collectorId);
+        } catch (error) {
+            console.error("Erro ao registrar liquidação:", error);
+            showToast('Erro ao salvar a liquidação.', true);
+            confirmBtn.disabled = false;
+            confirmBtn.innerHTML = `Confirmar Registro`;
+        }
+    });
+} // Fin de showSettlementModal
         
         async function saveGlobalSettings() {
             const saveBtn = document.getElementById('save-settings-btn');
@@ -2444,6 +2527,7 @@ document.getElementById('kpi-gross-profit').textContent = money(grossProfit); //
             const lastSeenTime = formatTimestamp(collector.lastLocationUpdate);
 
             // --- INICIO NUEVO CÁLCULO DETALLADO DEL COBRADOR ---
+
 const collectorExpenses = allExpenses.filter(e => e.collectorId === collectorId);
 const totalExpensesByCollector = collectorExpenses.reduce((sum, e) => sum + (e.value || 0), 0);
 
@@ -2583,6 +2667,9 @@ const lateClientsCount = clients.filter(c => (c.loans || []).some(l => l.status 
                     
                  <div class="action-buttons">
                     <button id="download-report-btn" data-collector-id="${collectorId}" class="btn-secondary"><i data-lucide="download"></i> <span data-lang-key="downloadReport"></span></button>
+                    <button id="register-settlement-btn" data-collector-id="${collectorId}" class="btn-primary">
+                    <i data-lucide="arrow-down-circle"></i> Registrar Liquidación
+                    </button>
                 </div>
             `;
             detailView.classList.add('active');
@@ -2610,6 +2697,16 @@ const lateClientsCount = clients.filter(c => (c.loans || []).some(l => l.status 
                 const collectorId = e.currentTarget.dataset.collectorId;
                 focusOnCollector(collectorId);
             });
+
+            const registerSettlementBtn = detailView.querySelector('#register-settlement-btn');
+    if (registerSettlementBtn) {
+        registerSettlementBtn.addEventListener('click', (e) => {
+            const collectorId = e.currentTarget.dataset.collectorId;
+            const collector = allCollectors.find(c => c.id === collectorId);
+            // Pasamos el capitalOnHand que YA calculamos en esta función
+            showSettlementModal(collectorId, collector.name, capitalOnHand);
+        });
+    }
         }
         
         function showClientDetails(clientId) {
@@ -3717,3 +3814,4 @@ finally {
     </script>
 </body>
 </html>
+
