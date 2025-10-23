@@ -801,7 +801,7 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             apiKey: "AIzaSyBRxJjpH6PBi-GRxOXS8klv-8v91sO4X-Y",
             authDomain: "lumix-financas-app.firebaseapp.com",
             projectId: "lumix-financas-app",
-            storageBucket: "lumix-financas-app.firebasestorage.app",
+            storageBucket: "gs://lumix-financas-app.firebasestorage.app/",
             messagingSenderId: "463777495321",
             appId: "1:463777495321:web:106118f53f56abd206ed88"
         };
@@ -1218,21 +1218,7 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                              </div>
                         </section>
                         <h1 class="section-title" data-lang-key="settings"></h1>
-                        <div class="settings-section">
-                            <h2 class="section-title" data-lang-key="companySettings"></h2>
-                            <div class="form-group">
-                                <label data-lang-key="companyName"></label>
-                                <input type="text" id="settings-company-name">
-                            </div>
-                            <div class="form-group">
-                                <label data-lang-key="companyLogo"></label>
-                                <div class="settings-logo-preview">
-                                    <img id="settings-logo-preview" src="${DEFAULT_LOGO_URL}">
-                                    <label for="settings-logo-input" class="btn-secondary" style="cursor:pointer; text-align:center;"><i data-lucide="upload"></i> <span data-lang-key="changeLogo"></span></label>
-                                    <input type="file" id="settings-logo-input" accept="image/*" style="display:none;">
-                                </div>
-                            </div>
-                        </div>
+                        
                         <div class="settings-section">
                             <h2 class="section-title" data-lang-key="financialSettings"></h2>
                             <div class="form-group">
@@ -3600,3 +3586,4 @@ finally {
     </script>
 </body>
 </html>
+
