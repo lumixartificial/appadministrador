@@ -701,6 +701,47 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
     color: var(--text-primary);
 }
 /* --- Fin Estilos Verificación --- */
+
+/* --- Estilos para Modal de Reporte --- */
+#reportOptionsModal .modal-content textarea {
+    width: 100%;
+    min-height: 80px;
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    background-color: var(--bg);
+    color: var(--text-primary);
+    font-size: 0.95em;
+    margin-bottom: 20px;
+    resize: vertical;
+}
+#reportOptionsModal .modal-content label {
+    display: block;
+    text-align: left;
+    margin-bottom: 8px;
+    font-weight: 500;
+    color: var(--text-secondary);
+}
+/* Estilo adicional para cobradores reportados en verificación */
+#collector-verification-results .verification-conflict.reported {
+    background-color: color-mix(in srgb, var(--danger-color) 15%, var(--surface));
+    border-color: var(--danger-color);
+}
+#collector-verification-results .verification-conflict.reported .conflict-title {
+    color: var(--danger-color);
+}
+#collector-verification-results .verification-conflict.reported li::before {
+     content: '⚠'; /* Ícono de advertencia */
+     color: var(--danger-color);
+}
+#collector-verification-results .verification-conflict .report-reason {
+    font-style: italic;
+    color: var(--danger-color);
+    font-size: 0.85em;
+    margin-top: 5px;
+    display: block; /* Asegura que esté en una nueva línea */
+}
+/* --- Fin Estilos Reporte --- */
         
 
     </style>
@@ -727,8 +768,8 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             <p>Gerencie sua equipe e operações com eficiência.</p>
             <form id="login-form">
                 <div class="form-group">
-                    <label for="username">Usuário</label>
-                    <input type="text" id="username" required>
+                <label for="username">Email</label> <!-- <--- CAMBIO AQUÍ -->
+                <input type="text" id="username" required>
                 </div>
                     <div class="form-group">
                     <label for="password">Senha</label>
@@ -752,7 +793,9 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
     <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.js"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
-        import { getFirestore, collection, onSnapshot, doc, query, where, setDoc, updateDoc, deleteDoc, Timestamp, addDoc, orderBy, serverTimestamp, increment, getDocs } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+        import { getFirestore, collection, onSnapshot, doc, query, where, setDoc, updateDoc, deleteDoc, Timestamp, addDoc, orderBy, serverTimestamp, increment, getDocs, arrayUnion } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+        import { getAuth, createUserWithEmailAndPassword, updateProfile, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
+        import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-storage.js";
         
         const firebaseConfig = {
             apiKey: "AIzaSyBRxJjpH6PBi-GRxOXS8klv-8v91sO4X-Y",
@@ -764,6 +807,8 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
         };
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
+        const auth = getAuth(app);     
+        const storage = getStorage(app);
 
         const CLOUDINARY_CLOUD_NAME = "dc6as14p0";
         const CLOUDINARY_UPLOAD_PRESET = "lumix-financas-uploads";
@@ -1212,6 +1257,9 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                         </div>
                         <div class="action-buttons" style="position: static; margin-top: 20px;">
                             <button id="save-settings-btn" class="btn-primary" disabled><i data-lucide="save"></i> <span data-lang-key="saveSettings"></span></button>
+                            <button id="logout-btn" class="btn-danger" style="background-color: transparent; border: 2px solid var(--danger-color); color: var(--danger-color);">
+                                <i data-lucide="log-out"></i> Sair (Log Out)
+                            </button>
                         </div>
                     </div>
 
@@ -1805,7 +1853,16 @@ async function verifyCollectorInSystem(collectorIdToExclude = null) {
             const docSnapshot = await getDocs(docQuery);
             docSnapshot.forEach(doc => {
                 if (doc.id !== collectorIdToExclude && !checkedIds.has(doc.id)) {
-                    potentialConflicts.push({ id: doc.id, data: doc.data(), matchedField: 'Documento' });
+                    const reports = doc.data().reports;
+                    const hasReports = Array.isArray(reports) && reports.length > 0;
+                    const lastReport = hasReports ? reports[reports.length - 1] : null; // Obtiene el último reporte
+                    potentialConflicts.push({ 
+                        id: doc.id, 
+                        data: doc.data(), 
+                        matchedField: 'documentNumber', // Mantén el campo original aquí
+                        hasReports: hasReports,
+                        lastReportReason: lastReport ? lastReport.reason : null 
+                    });
                     checkedIds.add(doc.id);
                 }
             });
@@ -1817,7 +1874,16 @@ async function verifyCollectorInSystem(collectorIdToExclude = null) {
             const phoneSnapshot = await getDocs(phoneQuery);
             phoneSnapshot.forEach(doc => {
                 if (doc.id !== collectorIdToExclude && !checkedIds.has(doc.id)) {
-                    potentialConflicts.push({ id: doc.id, data: doc.data(), matchedField: 'Telefone' });
+                    const reports = doc.data().reports;
+                    const hasReports = Array.isArray(reports) && reports.length > 0;
+                    const lastReport = hasReports ? reports[reports.length - 1] : null; // Obtiene el último reporte
+                    potentialConflicts.push({ 
+                        id: doc.id, 
+                        data: doc.data(), 
+                        matchedField: 'phone', // Mantén el campo original aquí
+                        hasReports: hasReports,
+                        lastReportReason: lastReport ? lastReport.reason : null 
+                    });
                     checkedIds.add(doc.id);
                 }
             });
@@ -1829,7 +1895,16 @@ async function verifyCollectorInSystem(collectorIdToExclude = null) {
             const whatsappSnapshot = await getDocs(whatsappQuery);
             whatsappSnapshot.forEach(doc => {
                 if (doc.id !== collectorIdToExclude && !checkedIds.has(doc.id)) {
-                    potentialConflicts.push({ id: doc.id, data: doc.data(), matchedField: 'WhatsApp' });
+                    const reports = doc.data().reports;
+                    const hasReports = Array.isArray(reports) && reports.length > 0;
+                    const lastReport = hasReports ? reports[reports.length - 1] : null; // Obtiene el último reporte
+                    potentialConflicts.push({ 
+                        id: doc.id, 
+                        data: doc.data(), 
+                        matchedField: 'whatsapp', // Mantén el campo original aquí
+                        hasReports: hasReports,
+                        lastReportReason: lastReport ? lastReport.reason : null 
+                    });
                     checkedIds.add(doc.id);
                 }
             });
@@ -1842,7 +1917,16 @@ async function verifyCollectorInSystem(collectorIdToExclude = null) {
                 const collectorData = doc.data();
                 if (collectorData.name && collectorData.name.toLowerCase().includes(name)) {
                     if (doc.id !== collectorIdToExclude && !checkedIds.has(doc.id)) {
-                        potentialConflicts.push({ id: doc.id, data: doc.data(), matchedField: 'Nome similar' });
+                        const reports = doc.data().reports;
+                        const hasReports = Array.isArray(reports) && reports.length > 0;
+                        const lastReport = hasReports ? reports[reports.length - 1] : null; // Obtiene el último reporte
+                        potentialConflicts.push({ 
+                            id: doc.id, 
+                            data: doc.data(), 
+                            matchedField: '...', // Mantén el campo original aquí
+                            hasReports: hasReports,
+                            lastReportReason: lastReport ? lastReport.reason : null 
+                        });
                          checkedIds.add(doc.id);
                     }
                 }
@@ -1871,11 +1955,16 @@ function renderCollectorVerificationResults(conflicts) {
             </div>`;
     } else {
         const conflictsListHtml = conflicts.map(conflict =>
-            `<li><strong>${conflict.data.name || 'Nome não disponível'} (${conflict.id})</strong> - Coincidência encontrada no campo: <strong>${conflict.matchedField}</strong>.</li>`
+            `<li>
+    <strong>${conflict.data.name || 'Nome não disponível'} (${conflict.id})</strong> - Coincidência: <strong>${conflict.matchedField}</strong>.
+    ${conflict.hasReports ? `<span class="report-reason">(Reportado: ${conflict.lastReportReason || 'Motivo não especificado'})</span>` : ''}
+    </li>`
         ).join('');
 
+        const hasAnyReported = conflicts.some(c => c.hasReports);
+
         resultsContainer.innerHTML = `
-            <div class="verification-card verification-conflict">
+            <div class="verification-card verification-conflict ${hasAnyReported ? 'reported' : ''}">
                 <div class="conflict-title">
                     <i data-lucide="alert-triangle"></i>
                     <span>Atenção: Possíveis Coincidências Encontradas!</span>
@@ -1888,6 +1977,67 @@ function renderCollectorVerificationResults(conflicts) {
             </div>`;
     }
     lucide.createIcons({ nodes: resultsContainer.querySelectorAll('[data-lucide]') });
+}
+
+function showReportCollectorModal(collectorId, collectorName) {
+    const modal = document.getElementById('reportOptionsModal');
+    modal.classList.add('active');
+    modal.innerHTML = `
+    <div class="modal-content" style="text-align: center;">
+        <h3 style="margin-bottom: 10px;">Reportar Cobrador: ${collectorName}</h3>
+        <p style="color: var(--text-secondary); margin-bottom: 25px;">Por favor, descreva o motivo do reporte. Esta informação ficará registrada no sistema.</p>
+
+        <div class="form-group">
+            <label for="report-reason">Motivo do Reporte:</label>
+            <textarea id="report-reason" placeholder="Descreva o incidente ou problema..." required></textarea>
+        </div>
+
+        <div style="display: flex; gap: 10px; justify-content: center;">
+            <button class="btn-secondary" id="cancel-report-btn" style="flex-grow: 1;">Cancelar</button>
+            <button class="btn-danger" id="confirm-report-btn" data-collector-id="${collectorId}" style="flex-grow: 1;">Confirmar Reporte</button>
+        </div>
+    </div>
+    `;
+}
+
+async function submitCollectorReport(collectorId) {
+    const reasonInput = document.getElementById('report-reason');
+    const reason = reasonInput?.value.trim();
+    const confirmBtn = document.getElementById('confirm-report-btn');
+
+    if (!reason) {
+        showToast("Por favor, insira o motivo do reporte.", true);
+        reasonInput.style.borderColor = 'var(--danger-color)';
+        setTimeout(() => { reasonInput.style.borderColor = ''; }, 2000);
+        return;
+    }
+
+    if (confirmBtn) confirmBtn.disabled = true;
+
+    const reportData = {
+        reason: reason,
+        reporterId: currentAdmin.id, // Guarda quién hizo el reporte
+        timestamp: serverTimestamp() // Usa el timestamp del servidor
+    };
+
+    try {
+        const collectorRef = doc(db, 'collectors', collectorId);
+        // Usamos arrayUnion para añadir el reporte a un array existente o crear uno nuevo.
+        await updateDoc(collectorRef, {
+            reports: arrayUnion(reportData)
+        });
+
+        showToast("Cobrador reportado com sucesso. O registro foi salvo.");
+        document.getElementById('reportOptionsModal').classList.remove('active');
+
+        // Opcional: Cerrar también el modal de edición si se desea
+        // document.getElementById('collectorFormModal').classList.remove('active');
+
+    } catch (error) {
+        console.error("Erro ao reportar cobrador:", error);
+        showToast("Erro ao salvar o reporte.", true);
+        if (confirmBtn) confirmBtn.disabled = false;
+    }
 }
         
         // --- [REPARACIÓN 2] Se restauran las funciones del mapa y reportes ---
@@ -2566,18 +2716,101 @@ function renderCollectorVerificationResults(conflicts) {
                         </select>
                         </div>
 
-<!-- Ahora viene el campo de Capital Inicial -->
+                        <!-- Ahora viene el campo de Capital Inicial -->
                         <div class="form-group">
                         <label for="collector-capital"><span id="capital-currency-symbol" style="font-weight: bold;">(R$)</span> <span data-lang-key="initialCapital"></span></label>
                         <input type="number" id="collector-capital" step="0.01" required value="${collector.startingCapital || ''}" placeholder="0.00">
                         </div>
+
+                        <!-- --- INICIA NUEVA SECCIÓN: DOCUMENTAÇÃO --- -->
+                    <h3 class="section-title" style="margin-top: 30px; border-bottom: none; font-size: 1.1em;">
+                        <i data-lucide="file-check" style="width: 18px; height: 18px; margin-right: 8px;"></i>
+                        DOCUMENTAÇÃO
+                    </h3>
+                    <hr style="border: 1px solid var(--border-color); margin-top: 10px; margin-bottom: 25px;">
+
+                    <div class="form-group grid-2">
+                        <!-- Campo Foto de Perfil -->
+                        <div>
+                            <label for="collector-profile-pic">Foto de Perfil</label>
+                            <div style="display: flex; align-items: center; gap: 15px; margin-top: 8px;">
+                                <!-- Esta es la imagen de vista previa -->
+                                <img id="profile-preview" src="https://placehold.co/80x80/0f172a/FFFFFF?text=?" alt="Preview" style="width: 80px; height: 80px; border-radius: 50%; object-fit: cover; border: 1px solid var(--border-color);">
+                                <!-- Este es el botón falso que activa el input real -->
+                                <label for="collector-profile-pic" class="btn-secondary" style="cursor:pointer; padding: 8px 12px; font-size: 0.9em;">
+                                    <i data-lucide="upload" style="width: 14px; height: 14px;"></i> Carregar
+                                </label>
+                                <!-- Este es el input real (oculto) -->
+                                <input type="file" id="collector-profile-pic" accept="image/*" style="display: none;">
+                            </div>
+                        </div>
+
+                        <!-- Campo Foto del Documento -->
+                        <div>
+                            <label for="collector-document-pic">Foto do Documento</label>
+                            <div style="display: flex; align-items: center; gap: 15px; margin-top: 8px;">
+                                <!-- Vista previa del documento -->
+                                <img id="document-preview" src="https://placehold.co/120x80/0f172a/FFFFFF?text=DOC" alt="Preview" style="width: 120px; height: 80px; border-radius: 8px; object-fit: cover; border: 1px solid var(--border-color);">
+                                <label for="collector-document-pic" class="btn-secondary" style="cursor:pointer; padding: 8px 12px; font-size: 0.9em;">
+                                    <i data-lucide="upload" style="width: 14px; height: 14px;"></i> Carregar
+                                </label>
+                                <!-- Input real del documento (oculto) -->
+                                <input type="file" id="collector-document-pic" accept="image/*" style="display: none;">
+                            </div>
+                        </div>
+                    </div>
+
                     </form>
-                </div>
+                
                 <div class="action-buttons">
-                    <button id="saveCollectorBtn" class="btn-primary"><i data-lucide="save"></i> <span data-lang-key="${saveButtonKey}"></span></button>
-                </div>
+                ${isEditMode ? `
+                <button id="reportCollectorBtn" class="btn-danger" style="background-color: transparent; border-color: var(--danger-color); color: var(--danger-color);"><i data-lucide="alert-octagon"></i> Reportar Cobrador</button>
+                ` : ''}
+                <button id="saveCollectorBtn" class="btn-primary"><i data-lucide="save"></i> <span data-lang-key="${saveButtonKey}"></span></button>
+            </div>
             `;
             formModal.classList.add('active');
+
+            formModal.classList.add('active');
+
+// --- INICIA NUEVO CÓDIGO PARA VISTA PREVIA DE IMAGEN ---
+const profileInput = formModal.querySelector('#collector-profile-pic');
+const profilePreview = formModal.querySelector('#profile-preview');
+const documentInput = formModal.querySelector('#collector-document-pic');
+const documentPreview = formModal.querySelector('#document-preview');
+
+// Escucha si se selecciona una foto de PERFIL
+if (profileInput) {
+    profileInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            // Muestra la imagen seleccionada en el <img> de 'profile-preview'
+            profilePreview.src = URL.createObjectURL(file);
+        }
+    });
+}
+
+// Escucha si se selecciona una foto de DOCUMENTO
+if (documentInput) {
+    documentInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            // Muestra la imagen seleccionada en el <img> de 'document-preview'
+            documentPreview.src = URL.createObjectURL(file);
+        }
+    });
+}
+
+// Si estamos en modo EDICIÓN, muestra las fotos que ya están guardadas
+if (isEditMode && collector.profilePictureUrl) {
+    profilePreview.src = collector.profilePictureUrl;
+}
+if (isEditMode && collector.documentPictureUrl) {
+    documentPreview.src = collector.documentPictureUrl;
+}
+// --- FIN NUEVO CÓDIGO PARA VISTA PREVIA DE IMAGEN ---
+
+
 
             // --- Lógica de Moeda ---
             const currencySelect = formModal.querySelector('#collector-currency');
@@ -2622,14 +2855,20 @@ function renderCollectorVerificationResults(conflicts) {
             
             formModal.querySelector('#closeCollectorForm').addEventListener('click', () => formModal.classList.remove('active'));
             formModal.querySelector('#saveCollectorBtn').addEventListener('click', async () => {
+                const profileFile = document.getElementById('collector-profile-pic')?.files[0];
+                const documentFile = document.getElementById('collector-document-pic')?.files[0];
                 const username = document.getElementById('collector-username').value.trim();
                 const name = document.getElementById('collector-name').value.trim();
                 const password = document.getElementById('collector-password').value.trim();
                 const capital = parseFloat(document.getElementById('collector-capital').value);
 
-                if (!username || !name || isNaN(capital) || (!isEditMode && !password)) {
-                    showToast(translations[currentLang].fillFields, true);
-                    return;
+                if (!username || !name || isNaN(capital) || 
+                (!isEditMode && !password) || 
+                (!isEditMode && (!profileFile || !documentFile)) // <-- ¡NUEVA VALIDACIÓN!
+                 ) {
+                // Actualizamos el mensaje de error para incluir las fotos
+                showToast(translations[currentLang].fillFields + " (E fotos)", true); 
+                return;
                 }
 
                 const collectorData = {
@@ -2646,23 +2885,126 @@ function renderCollectorVerificationResults(conflicts) {
                     collectorData.password = password;
                 }
                 
-                try {
-                    if(isEditMode) {
-                        await updateDoc(doc(db, "collectors", collectorId), collectorData);
-                        showToast(translations[currentLang].collectorUpdated);
-                    } else {
-                        await setDoc(doc(db, "collectors", username), {
-                            ...collectorData,
-                            profilePictureUrl: '',
-                            isRealtimeTrackingActive: false,
-                        });
-                        showToast(translations[currentLang].collectorAdded);
-                    }
-                    formModal.classList.remove('active');
-                } catch (error) {
-                    console.error("Erro ao salvar cobrador: ", error);
-                    showToast(translations[currentLang].errorSaving, true);
-                }
+                // --- INICIA EL NUEVO BLOQUE TRY/CATCH ---
+const saveBtn = formModal.querySelector('#saveCollectorBtn');
+saveBtn.disabled = true; // Deshabilitamos el botón mientras se guarda
+
+try {
+    // Preparamos las variables para las URLs de las fotos
+    let profilePicUrl = collector.profilePictureUrl || ''; // Mantiene la foto antigua si estamos editando
+    let documentPicUrl = collector.documentPictureUrl || ''; // Mantiene el doc antiguo si estamos editando
+
+    // --- 1. SUBIR FOTOS (SI SE SELECCIONARON NUEVAS) ---
+    if (profileFile) {
+        showToast("Subindo foto de perfil...", false);
+        // Creamos una "carpeta" en Storage para este cobrador
+        const profileStorageRef = ref(storage, `collectors/${username}/profile.jpg`);
+        await uploadBytes(profileStorageRef, profileFile); // Subimos el archivo
+        profilePicUrl = await getDownloadURL(profileStorageRef); // Obtenemos el link (URL)
+    }
+
+    if (documentFile) {
+        showToast("Subindo foto de documento...", false);
+        const documentStorageRef = ref(storage, `collectors/${username}/document.jpg`);
+        await uploadBytes(documentStorageRef, documentFile);
+        documentPicUrl = await getDownloadURL(documentStorageRef);
+    }
+
+    // --- 2. PREPARAR DATOS (AHORA INCLUYE LAS URLs) ---
+    // (Esto reemplaza el 'collectorData' que borraste)
+    const collectorData = {
+        name,
+        documentNumber: document.getElementById('collector-document').value.trim(),
+        address: document.getElementById('collector-address').value,
+        phone: document.getElementById('collector-phone').value,
+        whatsapp: document.getElementById('collector-whatsapp').value,
+        operatingCurrency: document.getElementById('collector-currency').value, 
+        startingCapital: capital,
+        profilePictureUrl: profilePicUrl,   // <-- ¡URL de perfil guardada!
+        documentPictureUrl: documentPicUrl  // <-- ¡URL de documento guardada!
+    };
+
+    // --- 3. GUARDAR/ACTUALIZAR ---
+    if (isEditMode) {
+        // MODO EDICIÓN: Solo actualizamos los datos en Firestore
+        await updateDoc(doc(db, "collectors", collectorId), collectorData);
+
+        // (Opcional: Si se actualizó la foto en modo edición, 
+        // también deberíamos actualizar el perfil de Auth del cobrador. 
+        // Esto es más avanzado, pero se haría aquí.)
+
+        showToast(translations[currentLang].collectorUpdated);
+    } else {
+        // MODO CREACIÓN (AQUÍ CUMPLIMOS TU REQUISITO)
+
+        // 1. Crear el usuario en Firebase Authentication
+        // Firebase Auth necesita un email. Crearemos uno "ficticio" 
+        // (ej: usuario@tuempresa.com) para que el cobrador inicie sesión.
+        const companyDomain = (globalSettings.companyName || 'lumix').replace(/\s+/g, '').toLowerCase() + '.com';
+        const tempEmail = `${username}@${companyDomain}`;
+
+        const userCredential = await createUserWithEmailAndPassword(auth, tempEmail, password);
+        const user = userCredential.user;
+
+        // 2. ¡AQUÍ ESTÁ LA MAGIA!
+        // Actualizamos el perfil de Auth con la foto y nombre
+        // Esto es lo que hará que su app muestre la foto automáticamente
+        await updateProfile(user, {
+            displayName: name,
+            photoURL: profilePicUrl 
+        });
+
+        // 3. Guardar en Firestore (ahora con el UID de Auth)
+        await setDoc(doc(db, "collectors", username), {
+            ...collectorData, // Ya contiene las URLs
+            isRealtimeTrackingActive: false,
+            authUid: user.uid // Guardamos el ID de Auth como referencia
+        });
+        showToast(translations[currentLang].collectorAdded);
+    }
+
+    formModal.classList.remove('active'); // Cerramos el modal
+
+} catch (error) {
+    // Este es el catch correcto para GUARDAR UN COBRADOR
+    console.error("ERRO DETALHADO AO SALVAR COBRADOR: ", error);
+
+    let userMessage = translations[currentLang].errorSaving; // Mensaje por defecto
+
+    if (error.code) {
+        switch (error.code) {
+            // Erros de Autenticação (al crear el cobrador)
+            case 'auth/email-already-in-use':
+                userMessage = "Erro: Esse nome de usuário (email) já existe.";
+                break;
+            case 'auth/weak-password':
+                userMessage = "Erro: A senha deve ter pelo menos 6 caracteres.";
+                break;
+
+            // ¡ERROS DE STORAGE! (Esta es la parte importante)
+            case 'storage/unauthorized':
+                userMessage = "Erro de Permissão: Verifique suas Regras do Storage (storage/unauthorized)";
+                break;
+            case 'storage/retry-limit-exceeded':
+                 userMessage = "Erro de Conexão com Storage (Tente novamente)";
+                 break;
+
+            // Erro genérico do Firebase
+            default:
+                // Muestra el código de erro real
+                userMessage = `Erro desconhecido: ${error.code}`;
+        }
+    }
+
+    showToast(userMessage, true); // Muestra el mensaje de error detallado
+}
+
+finally {
+    saveBtn.disabled = false; // Volvemos a habilitar el botón, incluso si hay error
+}
+// --- FIN DEL NUEVO BLOQUE TRY/CATCH ---
+
+
             });
         }
         
@@ -2969,6 +3311,31 @@ function renderCollectorVerificationResults(conflicts) {
                 handlePostDelete(confirmDeleteBtn.dataset.postId);
             }
 
+            // Listener para el botón "Reportar Cobrador" (abre modal de reporte)
+            const reportCollectorBtn = target.closest('#reportCollectorBtn');
+            if (reportCollectorBtn) {
+                e.preventDefault();
+                // Necesitamos el ID y Nombre del cobrador que se está editando
+                const formModal = document.getElementById('collectorFormModal');
+                const collectorIdInput = formModal.querySelector('#collector-username'); // El ID está en el username
+                const collectorNameInput = formModal.querySelector('#collector-name');
+                if (collectorIdInput && collectorNameInput) {
+                    showReportCollectorModal(collectorIdInput.value, collectorNameInput.value);
+                }
+            }
+
+            // Listener para "Cancelar" en el modal de reporte
+            const cancelReportBtn = target.closest('#cancel-report-btn');
+            if (cancelReportBtn) {
+                document.getElementById('reportOptionsModal').classList.remove('active');
+            }
+
+            // Listener para "Confirmar Reporte" en el modal de reporte
+            const confirmReportBtn = target.closest('#confirm-report-btn');
+            if (confirmReportBtn) {
+                submitCollectorReport(confirmReportBtn.dataset.collectorId);
+            }
+
                 if (target.closest('#header-profile-link')) {
                 showView('profile');
         }
@@ -3009,6 +3376,18 @@ function renderCollectorVerificationResults(conflicts) {
                 if (target.closest('#save-settings-btn')) {
                     saveGlobalSettings();
                 }
+
+                // --- BLOQUE AÑADIDO ---
+                if (target.closest('#logout-btn')) {
+                signOut(auth).catch((error) => {
+                    console.error("Erro ao sair:", error);
+                    showToast('Erro ao tentar sair.', true);
+                });
+                // onAuthStateChanged (del Paso 5) se encargará
+                // automáticamente de mostrar la pantalla de login.
+}
+// --- FIN BLOQUE AÑADIDO ---
+
                  if (target.closest('#reportOptionsModal')) {
                     if (target.classList.contains('modal-overlay') || target.closest('.close-modal-btn')) {
                         document.getElementById('reportOptionsModal').classList.remove('active');
@@ -3115,77 +3494,108 @@ function renderCollectorVerificationResults(conflicts) {
             if (elements.installBannerLogo) elements.installBannerLogo.src = companyLogo; // Añadido
         }
 
-        function handleLogin(event) {
-            event.preventDefault();
-            const user = document.getElementById('username').value;
-            const pass = document.getElementById('password').value;
+        async function handleLogin(event) {
+    event.preventDefault();
+    const email = document.getElementById('username').value; // Ahora es un email
+    const pass = document.getElementById('password').value;
 
-            if (user === 'admin' && pass === '0000') {
-                sessionStorage.setItem('isAdminLoggedIn', 'true');
-                showMainApp();
-            } else {
-                showToast('Usuário ou senha inválidos.', true);
-            }
-        }
+    try {
+        // ¡AQUÍ ESTÁ LA MAGIA!
+        // Intentamos iniciar sesión con Firebase Auth
+        await signInWithEmailAndPassword(auth, email, pass);
 
+        // No necesitamos llamar a showMainApp() aquí.
+        // El 'listener' del Paso 5 se encargará automáticamente.
+
+    } catch (error) {
+    // Este es el catch correcto para el LOGIN
+    console.error("Erro de login:", error.code);
+    if (error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password' || error.code === 'auth/user-not-found') {
+        showToast('Email ou senha inválidos.', true);
+    } else if (error.code === 'auth/invalid-email') {
+        showToast('Formato de email inválido.', true);
+    } else {
+        showToast('Erro ao tentar fazer login.', true);
+    }
+}
+}
+
+        
         function init() {
-            document.body.classList.add('dark-mode');
-            
-            // Lógica del Banner de Instalación PWA
-            window.addEventListener('beforeinstallprompt', (e) => {
-                e.preventDefault();
-                deferredPrompt = e;
-                const installBanner = document.getElementById('install-banner');
-                if (installBanner) {
-                    installBanner.style.display = 'block';
-                    applyLanguage(currentLang); // Aplica el idioma al nuevo contenido
-                }
-            });
-            const installBtn = document.getElementById('install-btn');
-            if (installBtn) {
-                installBtn.addEventListener('click', async () => {
-                    const installBanner = document.getElementById('install-banner');
-                    if (installBanner) installBanner.style.display = 'none';
-                    if (deferredPrompt) {
-                        deferredPrompt.prompt();
-                        const { outcome } = await deferredPrompt.userChoice;
-                        console.log(`User response to the install prompt: ${outcome}`);
-                        deferredPrompt = null;
-                    }
-                });
-            }
-            const closeInstallBtn = document.getElementById('close-install-banner');
-            if (closeInstallBtn) {
-                closeInstallBtn.addEventListener('click', () => {
-                    const installBanner = document.getElementById('install-banner');
-                    if (installBanner) installBanner.style.display = 'none';
-                });
-            }
-            
-            onSnapshot(doc(db, 'config', 'global'), (docSnap) => {
-                if (docSnap.exists()) {
-                    globalSettings = docSnap.data(); // <--- AÑADE ESTA LÍNEA
-    loadGlobalSettings(globalSettings); // <--- Modifica esta línea
-    updateSettingsForm(globalSettings); // <--- AÑADE ESTA LÍNEA
-                } else {
-                    loadGlobalSettings({}); // Load with defaults if no doc exists
-                }
-            });
+    document.body.classList.add('dark-mode');
 
-            setTimeout(() => {
-                const splash = document.getElementById('splash-screen');
-                splash.style.opacity = '0';
-                setTimeout(() => {
-                    splash.style.display = 'none';
-                    if (sessionStorage.getItem('isAdminLoggedIn') === 'true') {
-                        showMainApp();
-                    } else {
-                        document.getElementById('login-view').style.display = 'flex';
-                        document.getElementById('login-form').addEventListener('submit', handleLogin);
-                    }
-                }, 500);
-            }, 1500);
+    // Lógica del Banner de Instalación PWA (se queda igual)
+    window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+        const installBanner = document.getElementById('install-banner');
+        if (installBanner) {
+            installBanner.style.display = 'block';
+            applyLanguage(currentLang); // Aplica el idioma al nuevo contenido
         }
+    });
+    const installBtn = document.getElementById('install-btn');
+    if (installBtn) {
+        installBtn.addEventListener('click', async () => {
+            const installBanner = document.getElementById('install-banner');
+            if (installBanner) installBanner.style.display = 'none';
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                const { outcome } = await deferredPrompt.userChoice;
+                console.log(`User response to the install prompt: ${outcome}`);
+                deferredPrompt = null;
+            }
+        });
+    }
+    const closeInstallBtn = document.getElementById('close-install-banner');
+    if (closeInstallBtn) {
+        closeInstallBtn.addEventListener('click', () => {
+            const installBanner = document.getElementById('install-banner');
+            if (installBanner) installBanner.style.display = 'none';
+        });
+    }
+
+    // Lógica de Global Settings (se queda igual)
+    onSnapshot(doc(db, 'config', 'global'), (docSnap) => {
+        if (docSnap.exists()) {
+            globalSettings = docSnap.data(); 
+            loadGlobalSettings(globalSettings); 
+            updateSettingsForm(globalSettings); 
+        } else {
+            loadGlobalSettings({}); 
+        }
+    });
+
+    // --- ¡AQUÍ ESTÁ EL GRAN CAMBIO! ---
+    // Quitamos el setTimeout y usamos onAuthStateChanged.
+    // Esto escucha si el usuario está logueado o no CADA VEZ que se carga la app.
+    const splash = document.getElementById('splash-screen');
+
+    onAuthStateChanged(auth, (user) => {
+        // Ocultamos el splash AHORA
+        splash.style.opacity = '0';
+        setTimeout(() => {
+            splash.style.display = 'none';
+        }, 500);
+
+        if (user) {
+            // ¡El usuario SÍ está logueado! (Es el admin)
+            // Ocultamos el login y mostramos la app
+            document.getElementById('login-view').style.display = 'none';
+            showMainApp(); // <-- ¡Llamamos a la app principal!
+        } else {
+            // El usuario NO está logueado
+            // Mostramos la pantalla de login
+            document.getElementById('app-container').style.display = 'none';
+            document.getElementById('login-view').style.display = 'flex';
+            // Añadimos el listener para el formulario de login
+            document.getElementById('login-form').addEventListener('submit', handleLogin);
+        }
+    });
+    // --- FIN DEL GRAN CAMBIO ---
+}
+
+
         init();
     </script>
 </body>
