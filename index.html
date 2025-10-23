@@ -1424,10 +1424,17 @@ allClients.forEach(client => {
 const totalCapital = totalStartingCapital + totalPaidFromHistory - totalPrincipalFromLoans;
 // --- FIN NUEVO CÁLCULO ---
 
+            // --- INICIO CÓDIGO AÑADIDO ---
+            // Calcula el total de todos los gastos registrados en el sistema
+            const totalExpensesGlobal = allExpenses.reduce((sum, expense) => sum + (expense.value || 0), 0);
+
+            // Ahora, ajusta la fórmula de totalCapital para restar los gastos
+            const finalTotalCapital = totalCapital - totalExpensesGlobal;
+            // --- FIN CÓDIGO AÑADIDO ---
 
             const activeClientsCount = allClients.filter(c => (c.loans || []).some(l => l.status !== 'finished')).length;
 
-            document.getElementById('kpi-total-capital').textContent = money(totalCapital);
+            document.getElementById('kpi-total-capital').textContent = money(finalTotalCapital); // <-- USA finalTotalCapital
             document.getElementById('kpi-active-collectors').textContent = allCollectors.length;
             document.getElementById('kpi-active-clients').textContent = activeClientsCount;
 
@@ -2390,14 +2397,23 @@ allClients.forEach(client => {
 // fieldValue ahora es lo que falta por cobrar del principal REAL
 const fieldValue = totalPrincipalGlobal - totalPaidGlobal;
 // grossProfit usa los valores calculados correctamente
-const grossProfit = totalPaidGlobal - totalPrincipalGlobal;
+
+const grossProfitBeforeExpenses = totalPaidGlobal - totalPrincipalGlobal; // <-- Renombramos para claridad
+
+// --- INICIO CÓDIGO AÑADIDO ---
+// Calcula el total de todos los gastos (igual que en updateDashboard)
+const totalExpensesGlobal = allExpenses.reduce((sum, expense) => sum + (expense.value || 0), 0);
+
+// Ajusta el beneficio bruto restando los gastos
+const grossProfit = grossProfitBeforeExpenses - totalExpensesGlobal;
+// --- FIN CÓDIGO AÑADIDO ---
 // --- FIN NUEVO CÁLCULO ---
 
 // Actualiza los elementos del DOM (estas líneas se quedan igual)
 document.getElementById('kpi-distributed-capital').textContent = money(distributedCapital);
 document.getElementById('kpi-expected-today').textContent = money(expectedToday);
 document.getElementById('kpi-field-value').textContent = money(fieldValue);
-document.getElementById('kpi-gross-profit').textContent = money(grossProfit);
+document.getElementById('kpi-gross-profit').textContent = money(grossProfit); // <-- Usa el 'grossProfit' ajustado
 
             document.getElementById('kpi-distributed-capital').textContent = money(distributedCapital);
             document.getElementById('kpi-expected-today').textContent = money(expectedToday);
