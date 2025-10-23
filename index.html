@@ -819,6 +819,7 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
         let allExpenses = [];
         let globalSettings = {};
         let allCommunityPosts = [];
+        let allSettlements = [];
         let currentAdmin = { id: 'admin', name: 'Administrador', profilePic: '' };
         let currentLang = localStorage.getItem('adminLanguage') || 'pt';
         let mapInstance = null;
@@ -1025,10 +1026,26 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                 updateDashboard();
                 updateProfileView();
             });
+            
             onSnapshot(collection(db, 'expenses'), snapshot => {
-                allExpenses = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                updateProfileView();
-            });
+        allExpenses = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        updateProfileView(); 
+        updateDashboard(); // Llamamos también a updateDashboard por si acaso
+    });
+
+    // --- LISTENER AÑADIDO PARA LIQUIDACIONES ---
+    onSnapshot(collection(db, 'settlements'), snapshot => {
+        allSettlements = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        // Actualizamos las vistas que dependen del capital en mano
+        updateDashboard(); 
+        // Si la vista de detalles está abierta, la actualizamos también
+        const detailView = document.getElementById('collectorDetailView');
+        if (detailView && detailView.classList.contains('active')) {
+            const collectorId = detailView.querySelector('#editCollectorBtn')?.dataset.collectorId; // Intenta obtener el ID del cobrador actual
+            if (collectorId) showCollectorDetails(collectorId); // Vuelve a renderizar los detalles
+        }
+    });
+    // --- FIN DEL LISTENER AÑADIDO ---
 
             // [NUEVO CÓDIGO] Cargar la foto de perfil guardada del administrador
             onSnapshot(doc(db, 'admins', 'admin'), (docSnap) => {
@@ -1490,11 +1507,21 @@ collectorClients.forEach(client => {
     });
 });
 // Resta también los gastos del cobrador (si los tuviéramos aquí, por ahora no los tenemos)
-const collectorExpensesTotal = allExpenses.filter(e => e.collectorId === collector.id).reduce((sum, e) => sum + (e.value || 0), 0);
-const capitalOnHand = (collector.startingCapital || 0) + collectorTotalPaid - collectorTotalPrincipal - collectorExpensesTotal;
+
+            const collectorExpensesTotal = allExpenses.filter(e => e.collectorId === collector.id).reduce((sum, e) => sum + (e.value || 0), 0);
+
+// --- CÁLCULO AÑADIDO PARA LIQUIDACIONES ---
+const totalSettledByCollector = allSettlements
+    .filter(s => s.collectorId === collector.id)
+    .reduce((sum, s) => sum + (s.amount || 0), 0);
+// --- FIN CÁLCULO AÑADIDO ---
+
+// Ajusta la fórmula final de capitalOnHand
+const capitalOnHand = (collector.startingCapital || 0) + collectorTotalPaid - collectorTotalPrincipal - collectorExpensesTotal - totalSettledByCollector; // <-- RESTA totalSettledByCollector
 // --- FIN NUEVO CÁLCULO ---
 
-                return { ...collector, capitalOnHand, clientCount: collectorClients.length };
+        return { ...collector, capitalOnHand, clientCount: collectorClients.length };
+
             });
             
             // --- 4. SORTING ---
@@ -2564,7 +2591,14 @@ clients.forEach(c => { // 'clients' ya está filtrado para este cobrador
 });
 
 // La fórmula de capital en mano ahora usa los valores calculados correctamente
-const capitalOnHand = (collector.startingCapital || 0) + totalPaidByCollector - totalPrincipalLoanedByCollector - totalExpensesByCollector;
+// --- CÁLCULO AÑADIDO PARA LIQUIDACIONES (DETALLES) ---
+const totalSettledByCollector = allSettlements
+    .filter(s => s.collectorId === collectorId) // Usa collectorId aquí
+    .reduce((sum, s) => sum + (s.amount || 0), 0);
+// --- FIN CÁLCULO AÑADIDO ---
+
+// Ajusta la fórmula final de capitalOnHand
+const capitalOnHand = (collector.startingCapital || 0) + totalPaidByCollector - totalPrincipalLoanedByCollector - totalExpensesByCollector - totalSettledByCollector; // <-- RESTA totalSettledByCollector
 // --- FIN NUEVO CÁLCULO DETALLADO ---
 
 // Estas líneas se calculan después, igual que antes
@@ -3814,4 +3848,3 @@ finally {
     </script>
 </body>
 </html>
-
