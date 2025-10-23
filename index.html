@@ -1419,39 +1419,33 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
 
 let totalPaidFromHistory = 0;
 let totalPrincipalFromLoans = 0;
+let totalLateFeesGlobal = 0; // <-- AÑADE ESTA LÍNEA
 
 allClients.forEach(client => {
     (client.loans || []).forEach(loan => {
-        // Suma el principal FIJO si existe, si no, calcula como antes (fallback)
-        if (loan.principalAmount) {
-            totalPrincipalFromLoans += loan.principalAmount;
-        } else if (loan.totalLoan && client.interestRate) { 
-            totalPrincipalFromLoans += (loan.totalLoan / (1 + (client.interestRate / 100)));
-        }
+        // Suma el principal FIJO si existe...
+        if (loan.principalAmount) { /* ... código principal sin cambios ... */ }
+        // Suma los pagos APROBADOS del historial...
+        (loan.history || []).forEach(h => { /* ... código historial sin cambios ... */ });
 
-        // Suma los pagos APROBADOS del historial
-        (loan.history || []).forEach(h => {
-            if (h.status !== 'pending_verification' && h.status !== 'rejected' && h.status !== 'postponed') {
-                totalPaidFromHistory += (h.amount || 0);
-            }
-        });
+        // --- CÁLCULO AÑADIDO PARA MORA GLOBAL ---
+        totalLateFeesGlobal += (loan.lateFeesAccumulated || 0); // Suma la mora acumulada de este préstamo
+        // --- FIN CÁLCULO AÑADIDO ---
     });
 });
 
-const totalCapital = totalStartingCapital + totalPaidFromHistory - totalPrincipalFromLoans;
-// --- FIN NUEVO CÁLCULO ---
+const totalCapitalBeforeExpenses = totalStartingCapital + totalPaidFromHistory - totalPrincipalFromLoans; // Renombrado para claridad
 
-            // --- INICIO CÓDIGO AÑADIDO ---
-            // Calcula el total de todos los gastos registrados en el sistema
-            const totalExpensesGlobal = allExpenses.reduce((sum, expense) => sum + (expense.value || 0), 0);
+// Calcula el total de todos los gastos...
+const totalExpensesGlobal = allExpenses.reduce((sum, expense) => sum + (expense.value || 0), 0);
 
-            // Ahora, ajusta la fórmula de totalCapital para restar los gastos
-            const finalTotalCapital = totalCapital - totalExpensesGlobal;
-            // --- FIN CÓDIGO AÑADIDO ---
+// Ahora, ajusta la fórmula de totalCapital para restar gastos Y SUMAR MORA
+const finalTotalCapital = totalCapitalBeforeExpenses - totalExpensesGlobal + totalLateFeesGlobal; // <-- SUMA totalLateFeesGlobal
+// --- FIN AJUSTE ---
 
             const activeClientsCount = allClients.filter(c => (c.loans || []).some(l => l.status !== 'finished')).length;
 
-            document.getElementById('kpi-total-capital').textContent = money(finalTotalCapital); // <-- USA finalTotalCapital
+            document.getElementById('kpi-total-capital').textContent = money(finalTotalCapital); // <-- Ya usa finalTotalCapital
             document.getElementById('kpi-active-collectors').textContent = allCollectors.length;
             document.getElementById('kpi-active-clients').textContent = activeClientsCount;
 
@@ -1515,6 +1509,13 @@ const totalSettledByCollector = allSettlements
     .filter(s => s.collectorId === collector.id)
     .reduce((sum, s) => sum + (s.amount || 0), 0);
 // --- FIN CÁLCULO AÑADIDO ---
+
+let collectorTotalLateFees = 0;
+collectorClients.forEach(client => {
+    (client.loans || []).forEach(loan => {
+        collectorTotalLateFees += (loan.lateFeesAccumulated || 0);
+    });
+});
 
 // Ajusta la fórmula final de capitalOnHand
 const capitalOnHand = (collector.startingCapital || 0) + collectorTotalPaid - collectorTotalPrincipal - collectorExpensesTotal - totalSettledByCollector; // <-- RESTA totalSettledByCollector
@@ -2461,6 +2462,7 @@ const distributedCapital = allCollectors.reduce((sum, c) => sum + (c.startingCap
 let totalPaidGlobal = 0; // Calculado desde historial
 let totalPrincipalGlobal = 0; // Calculado desde principalAmount
 let expectedToday = 0;
+let totalLateFeesGlobal = 0;
 const today = new Date();
 const dayOfWeek = today.getDay();
 const dayOfMonth = today.getDate(); // Para frecuencia mensual
@@ -2482,6 +2484,8 @@ allClients.forEach(client => {
                 totalPaidGlobal += (h.amount || 0);
             }
         });
+  
+        totalLateFeesGlobal += (loan.lateFeesAccumulated || 0);
 
         // Calcula lo esperado para hoy (basado en el estado del *préstamo*)
         // Asegura usar loan.status y loan.amount (valor de la cuota)
@@ -2505,25 +2509,25 @@ allClients.forEach(client => {
 });
 
 // fieldValue ahora es lo que falta por cobrar del principal REAL
-const fieldValue = totalPrincipalGlobal - totalPaidGlobal;
+const fieldValue = totalPrincipalGlobal - totalPaidGlobal; // Esto se queda igual
+
 // grossProfit usa los valores calculados correctamente
+const grossProfitBeforeExpensesAndFees = totalPaidGlobal - totalPrincipalGlobal; // Renombrado
 
-const grossProfitBeforeExpenses = totalPaidGlobal - totalPrincipalGlobal; // <-- Renombramos para claridad
-
-// --- INICIO CÓDIGO AÑADIDO ---
-// Calcula el total de todos los gastos (igual que en updateDashboard)
+// Calcula el total de todos los gastos...
 const totalExpensesGlobal = allExpenses.reduce((sum, expense) => sum + (expense.value || 0), 0);
 
-// Ajusta el beneficio bruto restando los gastos
-const grossProfit = grossProfitBeforeExpenses - totalExpensesGlobal;
-// --- FIN CÓDIGO AÑADIDO ---
+// Ajusta el beneficio bruto restando gastos Y SUMANDO MORA
+const grossProfit = grossProfitBeforeExpensesAndFees - totalExpensesGlobal + totalLateFeesGlobal; // <-- SUMA totalLateFeesGlobal
+// --- FIN AJUSTE ---
+
 // --- FIN NUEVO CÁLCULO ---
 
-// Actualiza los elementos del DOM (estas líneas se quedan igual)
+// Actualiza los elementos del DOM ...
 document.getElementById('kpi-distributed-capital').textContent = money(distributedCapital);
 document.getElementById('kpi-expected-today').textContent = money(expectedToday);
-document.getElementById('kpi-field-value').textContent = money(fieldValue);
-document.getElementById('kpi-gross-profit').textContent = money(grossProfit); // <-- Usa el 'grossProfit' ajustado
+document.getElementById('kpi-field-value').textContent = money(fieldValue); // Sin cambios
+document.getElementById('kpi-gross-profit').textContent = money(grossProfit); // <-- Usa el grossProfit ajustado
 
             document.getElementById('kpi-distributed-capital').textContent = money(distributedCapital);
             document.getElementById('kpi-expected-today').textContent = money(expectedToday);
@@ -2597,9 +2601,19 @@ const totalSettledByCollector = allSettlements
     .reduce((sum, s) => sum + (s.amount || 0), 0);
 // --- FIN CÁLCULO AÑADIDO ---
 
-// Ajusta la fórmula final de capitalOnHand
-const capitalOnHand = (collector.startingCapital || 0) + totalPaidByCollector - totalPrincipalLoanedByCollector - totalExpensesByCollector - totalSettledByCollector; // <-- RESTA totalSettledByCollector
-// --- FIN NUEVO CÁLCULO DETALLADO ---
+// --- CÁLCULO AÑADIDO/VERIFICADO PARA MORA DEL COBRADOR (DETALLES) ---
+let collectorTotalLateFees = 0;
+clients.forEach(c => { // Asegúrate de que este loop exista o añade la suma aquí
+     (c.loans || []).forEach(loan => {
+         collectorTotalLateFees += (loan.lateFeesAccumulated || 0);
+     });
+});
+// --- FIN CÁLCULO AÑADIDO/VERIFICADO ---
+
+
+// Ajusta la fórmula final de capitalOnHand para SUMAR MORA
+const capitalOnHand = (collector.startingCapital || 0) + totalPaidByCollector - totalPrincipalLoanedByCollector - totalExpensesByCollector - totalSettledByCollector + collectorTotalLateFees; // <-- SUMA collectorTotalLateFees
+// --- FIN AJUSTE ---
 
 // Estas líneas se calculan después, igual que antes
 const status = calculateCollectorStatus(collectorId);
