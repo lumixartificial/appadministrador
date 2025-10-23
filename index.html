@@ -1398,16 +1398,33 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
         function updateDashboard() {
             if(!document.getElementById('kpi-total-capital')) return;
             
-            // --- [REPARACIÓN 1] Lógica de cálculo de capital total corregida para multi-préstamos ---
             const totalStartingCapital = allCollectors.reduce((sum, c) => sum + (c.startingCapital || 0), 0);
-            const allLoans = allClients.flatMap(c => c.loans || []);
-            const totalPaid = allLoans.reduce((sum, l) => sum + (l.paid || 0), 0);
-            const totalPrincipal = allClients.flatMap(c => {
-                const interestRate = c.interestRate || globalSettings.defaultInterest || 20;
-                return (c.loans || []).map(l => (l.totalLoan || 0) / (1 + interestRate / 100));
-            }).reduce((sum, principal) => sum + principal, 0);
 
-            const totalCapital = totalStartingCapital + totalPaid - totalPrincipal;
+let totalPaidFromHistory = 0;
+let totalPrincipalFromLoans = 0;
+
+allClients.forEach(client => {
+    (client.loans || []).forEach(loan => {
+        // Suma el principal FIJO si existe, si no, calcula como antes (fallback)
+        if (loan.principalAmount) {
+            totalPrincipalFromLoans += loan.principalAmount;
+        } else if (loan.totalLoan && client.interestRate) { 
+            totalPrincipalFromLoans += (loan.totalLoan / (1 + (client.interestRate / 100)));
+        }
+
+        // Suma los pagos APROBADOS del historial
+        (loan.history || []).forEach(h => {
+            if (h.status !== 'pending_verification' && h.status !== 'rejected' && h.status !== 'postponed') {
+                totalPaidFromHistory += (h.amount || 0);
+            }
+        });
+    });
+});
+
+const totalCapital = totalStartingCapital + totalPaidFromHistory - totalPrincipalFromLoans;
+// --- FIN NUEVO CÁLCULO ---
+
+
             const activeClientsCount = allClients.filter(c => (c.loans || []).some(l => l.status !== 'finished')).length;
 
             document.getElementById('kpi-total-capital').textContent = money(totalCapital);
@@ -1445,7 +1462,31 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             // --- 3. PREPARE DATA FOR SORTING & RENDERING ---
             let collectorsWithData = filteredCollectors.map(collector => {
                 const collectorClients = allClients.filter(c => c.collectorId === collector.id);
-                const capitalOnHand = (collector.startingCapital || 0) + collectorClients.reduce((sum, c) => sum + (c.paid || 0), 0) - collectorClients.reduce((sum, c) => sum + (c.totalLoan / (1 + (c.interestRate || 0)/100)), 0);
+                
+                // --- INICIO NUEVO CÁLCULO DE CAPITAL EN MANO (COBRADOR) ---
+let collectorTotalPaid = 0;
+let collectorTotalPrincipal = 0;
+collectorClients.forEach(client => {
+    (client.loans || []).forEach(loan => {
+        // Suma principal fijo o calcula
+        if (loan.principalAmount) {
+            collectorTotalPrincipal += loan.principalAmount;
+        } else if (loan.totalLoan && client.interestRate) {
+            collectorTotalPrincipal += (loan.totalLoan / (1 + (client.interestRate / 100)));
+        }
+        // Suma historial aprobado
+        (loan.history || []).forEach(h => {
+            if (h.status !== 'pending_verification' && h.status !== 'rejected' && h.status !== 'postponed') {
+                collectorTotalPaid += (h.amount || 0);
+            }
+        });
+    });
+});
+// Resta también los gastos del cobrador (si los tuviéramos aquí, por ahora no los tenemos)
+const collectorExpensesTotal = allExpenses.filter(e => e.collectorId === collector.id).reduce((sum, e) => sum + (e.value || 0), 0);
+const capitalOnHand = (collector.startingCapital || 0) + collectorTotalPaid - collectorTotalPrincipal - collectorExpensesTotal;
+// --- FIN NUEVO CÁLCULO ---
+
                 return { ...collector, capitalOnHand, clientCount: collectorClients.length };
             });
             
@@ -2296,17 +2337,67 @@ async function submitCollectorReport(collectorId) {
 
         function updateProfileView() {
             if(!document.getElementById('kpi-distributed-capital')) return;
-            const distributedCapital = allCollectors.reduce((sum, c) => sum + (c.startingCapital || 0), 0);
             
-            const today = new Date();
-            const dayOfWeek = today.getDay();
-            const expectedToday = allClients.filter(c => (c.paymentDays || []).includes(dayOfWeek) && (c.status === 'pending' || c.status === 'late')).reduce((sum, c) => sum + c.amount, 0);
+            // --- INICIO NUEVO CÁLCULO DE FINANZAS GLOBALES ---
+const distributedCapital = allCollectors.reduce((sum, c) => sum + (c.startingCapital || 0), 0);
 
-            const fieldValue = allClients.reduce((sum, c) => sum + ((c.totalLoan || 0) - (c.paid || 0)), 0);
+let totalPaidGlobal = 0; // Calculado desde historial
+let totalPrincipalGlobal = 0; // Calculado desde principalAmount
+let expectedToday = 0;
+const today = new Date();
+const dayOfWeek = today.getDay();
+const dayOfMonth = today.getDate(); // Para frecuencia mensual
 
-            const totalPaid = allClients.reduce((sum, c) => sum + (c.paid || 0), 0);
-            const totalPrincipal = allClients.reduce((sum, c) => sum + ((c.totalLoan || 0) / (1 + (c.interestRate || 0)/100)), 0);
-            const grossProfit = totalPaid - totalPrincipal;
+allClients.forEach(client => {
+    (client.loans || []).forEach(loan => {
+        let principal = 0;
+        // Suma principal fijo o calcula como fallback
+        if (loan.principalAmount) {
+            principal = loan.principalAmount;
+        } else if (loan.totalLoan && client.interestRate) { // Fallback para préstamos antiguos
+            principal = (loan.totalLoan / (1 + (client.interestRate / 100)));
+        }
+        totalPrincipalGlobal += principal;
+
+        // Suma historial aprobado
+        (loan.history || []).forEach(h => {
+            if (h.status !== 'pending_verification' && h.status !== 'rejected' && h.status !== 'postponed') {
+                totalPaidGlobal += (h.amount || 0);
+            }
+        });
+
+        // Calcula lo esperado para hoy (basado en el estado del *préstamo*)
+        // Asegura usar loan.status y loan.amount (valor de la cuota)
+        if (loan.status === 'pending' || loan.status === 'late') {
+            let isPaymentDay = false;
+            const frequency = loan.paymentFrequency || 'daily'; // Asume diario si no está definido
+             if (frequency === 'daily') {
+                isPaymentDay = (loan.paymentDays || []).includes(dayOfWeek);
+            } else if (frequency === 'weekly') {
+                isPaymentDay = (loan.paymentDays || [])[0] === dayOfWeek;
+            } else if (frequency === 'monthly') {
+                isPaymentDay = (loan.paymentDays || [])[0] === dayOfMonth;
+            }
+
+            if (isPaymentDay) {
+                 // Suma el valor original de la cuota, no el total del préstamo
+                 expectedToday += (loan.amount || 0);
+            }
+        }
+    });
+});
+
+// fieldValue ahora es lo que falta por cobrar del principal REAL
+const fieldValue = totalPrincipalGlobal - totalPaidGlobal;
+// grossProfit usa los valores calculados correctamente
+const grossProfit = totalPaidGlobal - totalPrincipalGlobal;
+// --- FIN NUEVO CÁLCULO ---
+
+// Actualiza los elementos del DOM (estas líneas se quedan igual)
+document.getElementById('kpi-distributed-capital').textContent = money(distributedCapital);
+document.getElementById('kpi-expected-today').textContent = money(expectedToday);
+document.getElementById('kpi-field-value').textContent = money(fieldValue);
+document.getElementById('kpi-gross-profit').textContent = money(grossProfit);
 
             document.getElementById('kpi-distributed-capital').textContent = money(distributedCapital);
             document.getElementById('kpi-expected-today').textContent = money(expectedToday);
@@ -2336,32 +2427,49 @@ async function submitCollectorReport(collectorId) {
             const isTrackingActive = collector.isRealtimeTrackingActive;
             const lastSeenTime = formatTimestamp(collector.lastLocationUpdate);
 
-            const collectorExpenses = allExpenses.filter(e => e.collectorId === collectorId);
-            const totalPaidByCollector = clients.reduce((sum, c) => sum + (c.paid || 0), 0);
-            const totalPrincipalLoanedByCollector = clients.reduce((sum, c) => sum + ((c.totalLoan || 0) / (1 + (c.interestRate || 0)/100)), 0);
-            const totalExpensesByCollector = collectorExpenses.reduce((sum, e) => sum + (e.value || 0), 0);
-            const capitalOnHand = (collector.startingCapital || 0) + totalPaidByCollector - totalPrincipalLoanedByCollector - totalExpensesByCollector;
+            // --- INICIO NUEVO CÁLCULO DETALLADO DEL COBRADOR ---
+const collectorExpenses = allExpenses.filter(e => e.collectorId === collectorId);
+const totalExpensesByCollector = collectorExpenses.reduce((sum, e) => sum + (e.value || 0), 0);
 
-            let dailyCollected = 0, weeklyCollected = 0, monthlyCollected = 0;
-            const now = new Date();
-            const todayStart = new Date(new Date().setHours(0, 0, 0, 0));
-            const weekStart = new Date(todayStart);
-            weekStart.setDate(weekStart.getDate() - weekStart.getDay());
-            const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+let totalPaidByCollector = 0; // Calculado desde historial
+let totalPrincipalLoanedByCollector = 0; // Calculado desde principalAmount
+let dailyCollected = 0, weeklyCollected = 0, monthlyCollected = 0;
+const now = new Date();
+const todayStart = new Date(new Date().setHours(0, 0, 0, 0));
+const weekStart = new Date(todayStart);
+weekStart.setDate(weekStart.getDate() - weekStart.getDay()); // Inicio de la semana (Domingo)
+const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
-            clients.forEach(c => {
-                (c.history || []).forEach(h => {
-                    if (h.date && h.date.seconds) {
-                        const paymentDate = new Date(h.date.seconds * 1000);
-                        if (paymentDate >= todayStart) dailyCollected += h.amount;
-                        if (paymentDate >= weekStart) weeklyCollected += h.amount;
-                        if (paymentDate >= monthStart) monthlyCollected += h.amount;
-                    }
-                });
-            });
+clients.forEach(c => { // 'clients' ya está filtrado para este cobrador
+    (c.loans || []).forEach(loan => {
+        // Suma principal fijo o calcula como fallback
+        if (loan.principalAmount) {
+            totalPrincipalLoanedByCollector += loan.principalAmount;
+        } else if (loan.totalLoan && c.interestRate) { // Fallback para préstamos antiguos
+            totalPrincipalLoanedByCollector += (loan.totalLoan / (1 + (c.interestRate / 100)));
+        }
+        // Suma historial aprobado y clasifica por fecha
+        (loan.history || []).forEach(h => {
+            if (h.date?.seconds && h.status !== 'pending_verification' && h.status !== 'rejected' && h.status !== 'postponed') {
+                const paymentAmount = h.amount || 0;
+                totalPaidByCollector += paymentAmount; // Suma al total del cobrador
 
-            const status = calculateCollectorStatus(collectorId);
-            const lateClientsCount = clients.filter(c => c.status === 'late').length;
+                const paymentDate = new Date(h.date.seconds * 1000);
+                if (paymentDate >= todayStart) dailyCollected += paymentAmount;
+                if (paymentDate >= weekStart) weeklyCollected += paymentAmount;
+                if (paymentDate >= monthStart) monthlyCollected += paymentAmount;
+            }
+        });
+    });
+});
+
+// La fórmula de capital en mano ahora usa los valores calculados correctamente
+const capitalOnHand = (collector.startingCapital || 0) + totalPaidByCollector - totalPrincipalLoanedByCollector - totalExpensesByCollector;
+// --- FIN NUEVO CÁLCULO DETALLADO ---
+
+// Estas líneas se calculan después, igual que antes
+const status = calculateCollectorStatus(collectorId);
+const lateClientsCount = clients.filter(c => (c.loans || []).some(l => l.status === 'late')).length; // Asegura revisar loans
 
 
             detailView.innerHTML = `
@@ -2496,6 +2604,11 @@ async function submitCollectorReport(collectorId) {
             }
 
             const detailModal = document.getElementById('clientDetailModal');
+            // --- INICIO CÁLCULO DEL TOTAL PAGADO (PARA MOSTRAR) ---
+const displayTotalPaid = (loan.history || [])
+    .filter(h => h.status !== 'pending_verification' && h.status !== 'rejected' && h.status !== 'postponed')
+    .reduce((sum, h) => sum + (h.amount || 0), 0);
+// --- FIN CÁLCULO ---
             const historyHtml = (client.history && client.history.length > 0) ? 
                 [...client.history].sort((a,b) => b.date.seconds - a.date.seconds).map(p => `
                     <div class="payment-history-item">
@@ -2513,9 +2626,9 @@ async function submitCollectorReport(collectorId) {
                     </a>
                 `).join('') : '<p>Nenhum documento anexado.</p>';
             
-            const remainingBalance = (client.totalLoan || 0) - (client.paid || 0);
+            const remainingBalance = (loan.totalLoan || 0) - displayTotalPaid; // Usa displayTotalPaid
             const totalInstallments = client.installments ? client.installments.split('/')[1] : 'N/A';
-            const paidInstallments = (client.history || []).filter(h => h.status !== 'pending_verification').length;
+            const paidInstallments = loan.amount > 0 ? Math.floor(displayTotalPaid / loan.amount) : 0; // Usa displayTotalPaid y loan.amount
             
             const progressPercentage = totalInstallments > 0 && totalInstallments !== 'N/A' ? (paidInstallments / totalInstallments) * 100 : 0;
             const circleCircumference = 2 * Math.PI * 54;
@@ -2573,10 +2686,12 @@ async function submitCollectorReport(collectorId) {
                         <h3 class="kpi-title" data-lang-key="totalValue" style="margin: 0; font-size: 0.95em;"></h3>
                         <p class="kpi-value" style="font-size: 1.2em;">${money(client.totalLoan)}</p>
                     </div>
+                    
                     <div class="kpi-card" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 15px;">
-                        <h3 class="kpi-title" data-lang-key="totalPaid" style="margin: 0; font-size: 0.95em;"></h3>
-                        <p class="kpi-value" style="font-size: 1.2em; color: var(--accent-green);">${money(client.paid)}</p>
+                    <h3 class="kpi-title" data-lang-key="totalPaid" style="margin: 0; font-size: 0.95em;"></h3>
+                    <p class="kpi-value" style="font-size: 1.2em; color: var(--accent-green);">${money(displayTotalPaid)}</p> <!-- Usa displayTotalPaid -->
                     </div>
+
                     <div class="kpi-card" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 15px;">
                         <h3 class="kpi-title" data-lang-key="installmentValue" style="margin: 0; font-size: 0.95em;"></h3>
                         <p class="kpi-value" style="font-size: 1.2em; color: var(--accent-blue);">${money(client.amount)}</p>
@@ -3586,4 +3701,3 @@ finally {
     </script>
 </body>
 </html>
-
