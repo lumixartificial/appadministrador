@@ -3239,34 +3239,78 @@ try {
         // Esto es más avanzado, pero se haría aquí.)
 
         showToast(translations[currentLang].collectorUpdated);
+    
     } else {
-        // MODO CREACIÓN (AQUÍ CUMPLIMOS TU REQUISITO)
+    // --- MODO CREACIÓN (NUEVA LÓGICA) ---
 
-        // 1. Crear el usuario en Firebase Authentication
-        // Firebase Auth necesita un email. Crearemos uno "ficticio" 
-        // (ej: usuario@tuempresa.com) para que el cobrador inicie sesión.
-        const companyDomain = (globalSettings.companyName || 'lumix').replace(/\s+/g, '').toLowerCase() + '.com';
-        const tempEmail = `${username}@${companyDomain}`;
+    // 1. Define el Email para Firebase Auth (derivado del username)
+    // Usamos un dominio fijo o el nombre de la empresa si está configurado
+    const companyDomain = (globalSettings.companyName || 'lumix').replace(/\s+/g, '').toLowerCase() + '.com';
+    const collectorEmailForAuth = `${username}@${companyDomain}`;
 
-        const userCredential = await createUserWithEmailAndPassword(auth, tempEmail, password);
-        const user = userCredential.user;
+    // --- Variables para guardar el UID ---
+    let newUserUid = null; 
 
-        // 2. ¡AQUÍ ESTÁ LA MAGIA!
-        // Actualizamos el perfil de Auth con la foto y nombre
-        // Esto es lo que hará que su app muestre la foto automáticamente
-        await updateProfile(user, {
-            displayName: name,
-            photoURL: profilePicUrl 
+    try {
+        // 2. Intenta CREAR el usuario en Firebase Authentication
+        console.log(`Intentando crear usuario Auth para ${collectorEmailForAuth}`);
+        const userCredential = await createUserWithEmailAndPassword(auth, collectorEmailForAuth, password);
+        const newUser = userCredential.user;
+        newUserUid = newUser.uid; // Guarda el UID único generado por Firebase
+        console.log(`Usuario Auth creado con UID: ${newUserUid}`);
+
+        // 3. Actualiza el PERFIL de Firebase Auth (Nombre y Foto) - ¡Importante!
+        console.log("Actualizando perfil de Auth (nombre y foto)...");
+        await updateProfile(newUser, {
+            displayName: name,    // Nombre del cobrador
+            photoURL: profilePicUrl // URL de la foto de perfil subida
         });
+        console.log("Perfil de Auth actualizado.");
 
-        // 3. Guardar en Firestore (ahora con el UID de Auth)
-        await setDoc(doc(db, "collectors", username), {
-            ...collectorData, // Ya contiene las URLs
-            isRealtimeTrackingActive: false,
-            authUid: user.uid // Guardamos el ID de Auth como referencia
-        });
+        // 4. Prepara los datos COMPLETOS para Firestore (incluyendo el authUid)
+        const finalCollectorDataForFirestore = {
+            ...collectorData, // Contiene nombre, capital, URLs de fotos, etc.
+            isRealtimeTrackingActive: false, // Valor inicial
+            authUid: newUserUid // <-- GUARDA EL ID DE AUTH EN FIRESTORE
+        };
+
+        // 5. Guarda el documento del cobrador en Firestore (usando el username como ID)
+        console.log(`Guardando datos del cobrador ${username} en Firestore...`);
+        await setDoc(doc(db, "collectors", username), finalCollectorDataForFirestore);
+        console.log("Datos guardados en Firestore.");
+
         showToast(translations[currentLang].collectorAdded);
+        formModal.classList.remove('active'); // Cierra el modal SÓLO si todo fue exitoso
+
+    } catch (authError) {
+        // --- Manejo de Errores Específico para createUser ---
+        console.error("ERRO ao criar usuário Auth ou salvar em Firestore:", authError);
+        let errorMessage = translations[currentLang].errorSaving; // Mensaje genérico
+
+        if (authError.code) {
+            switch (authError.code) {
+                case 'auth/email-already-in-use':
+                    errorMessage = `Erro: O nome de usuário '${username}' (email ${collectorEmailForAuth}) já está em uso.`;
+                    break;
+                case 'auth/weak-password':
+                    errorMessage = "Erro: A senha deve ter pelo menos 6 caracteres.";
+                    break;
+                case 'auth/invalid-email':
+                    errorMessage = "Erro: O nome de usuário gerou um email inválido. Tente outro nome de usuário.";
+                    break;
+                // Puedes añadir más casos de error de Firebase Auth aquí
+            }
+        }
+        showToast(errorMessage, true);
+        // IMPORTANTE: No cerramos el modal si hubo un error al crear el usuario Auth
+
+        // Si el usuario Auth se creó pero falló Firestore (raro, pero posible)
+        // Podríamos intentar borrar el usuario Auth aquí, pero es complejo.
+        // Por ahora, solo informamos el error.
     }
+    // El bloque 'finally' (fuera de este 'else') se encargará de rehabilitar el botón.
+}
+
 
     formModal.classList.remove('active'); // Cerramos el modal
 
