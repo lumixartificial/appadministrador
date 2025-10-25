@@ -1004,7 +1004,8 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             const initialView = location.hash.substring(1) || 'dashboard';
             showView(initialView);
 
-            onSnapshot(collection(db, 'collectors'), snapshot => {
+            const collectorsQuery = query(collection(db, 'collectors'), where('companyId', '==', currentCompanyId));
+            onSnapshot(collectorsQuery, snapshot => {
                 allCollectors = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 updateDashboard();
                 updateProfileView();
@@ -1012,7 +1013,7 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                 updateCollectorMarkers();
             });
 
-            onSnapshot(collection(db, 'clients'), snapshot => {
+            onSnapshot(collection(db, 'companies', currentCompanyId, 'clients'), snapshot => {
                 allClients = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                  allClients.forEach(client => {
                     // Capa de compatibilidad para clientes antiguos
@@ -1030,14 +1031,14 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                 updateProfileView();
             });
             
-            onSnapshot(collection(db, 'expenses'), snapshot => {
+            onSnapshot(collection(db, 'companies', currentCompanyId, 'expenses'), snapshot => {
         allExpenses = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         updateProfileView(); 
         updateDashboard(); // Llamamos también a updateDashboard por si acaso
     });
 
     // --- LISTENER AÑADIDO PARA LIQUIDACIONES ---
-    onSnapshot(collection(db, 'settlements'), snapshot => {
+        onSnapshot(collection(db, 'companies', currentCompanyId, 'settlements'), snapshot => {
         allSettlements = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         // Actualizamos las vistas que dependen del capital en mano
         updateDashboard(); 
@@ -1050,24 +1051,28 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
     });
     // --- FIN DEL LISTENER AÑADIDO ---
 
-            // [NUEVO CÓDIGO] Cargar la foto de perfil guardada del administrador
-            onSnapshot(doc(db, 'admins', 'admin'), (docSnap) => {
-            const adminData = docSnap.exists() ? docSnap.data() : {};
-            const profileUrl = adminData.profilePictureUrl; // Esto será undefined si no hay foto guardada
-            currentAdmin.profilePic = profileUrl || 'https://placehold.co/80x80/3b82f6/FFFFFF?text=A';
+           const logoUrl = currentCompanyData.plan?.companyLogo || DEFAULT_LOGO_URL;
+currentAdmin.profilePic = logoUrl; 
 
-            // Seleccionamos ambas imágenes de perfil
-            const headerImg = document.querySelector('.profile img');
-            const profileViewImg = document.getElementById('profile-view-img');
+// 2. Usar el nombre de la empresa
+const companyName = currentCompanyData.name || "Painel Admin";
 
-            // Aplicamos la URL guardada o el placeholder correspondiente
-            if (headerImg) {
-            headerImg.src = profileUrl || 'https://placehold.co/80x80/3b82f6/FFFFFF?text=A';
-            }
-            if (profileViewImg) {
-            profileViewImg.src = profileUrl || 'https://placehold.co/100x100/3b82f6/FFFFFF?text=A';
-            }
-            });
+// 3. Aplicar en la UI (Header y Vista de Perfil)
+const headerImg = document.querySelector('.profile img');
+const profileViewImg = document.getElementById('profile-view-img');
+const headerLogoImg = document.getElementById('header-logo');
+const headerLogoText = document.getElementById('header-logo-text');
+
+if (headerImg) headerImg.src = logoUrl;
+if (profileViewImg) profileViewImg.src = logoUrl;
+if (headerLogoImg) headerLogoImg.src = logoUrl;
+if (headerLogoText) headerLogoText.textContent = companyName;
+
+// 4. Actualizamos el objeto 'currentAdmin' para la comunidad
+// (Usará el nombre del dueño si existe, o el de la empresa)
+currentAdmin.name = currentCompanyData.owner?.name || companyName;
+// currentAdmin.id se queda como 'admin' por ahora.
+// --- TAREA 2: FIN ---
 
             // [NUEVO CÓDIGO] Cargar publicaciones de la comunidad
             const postsQuery = query(collection(db, 'communityPosts'), orderBy('createdAt', 'desc'));
@@ -2443,7 +2448,7 @@ async function submitCollectorReport(collectorId) {
 
         try {
             // Añade el documento a la nueva colección 'settlements'
-            await addDoc(collection(db, 'settlements'), settlementData);
+            await addDoc(collection(db, 'companies', currentCompanyId, 'settlements'), settlementData);
             showToast('Liquidación registrada com sucesso!');
             closeModal();
             // Opcional: Podrías forzar una actualización de la vista de detalles aquí si fuera necesario
@@ -2481,7 +2486,7 @@ async function submitCollectorReport(collectorId) {
                     requireGps: document.getElementById('settings-gps-toggle').checked,
                 };
 
-                await setDoc(doc(db, 'config', 'global'), newSettings);
+                await updateDoc(doc(db, 'companies', currentCompanyId), newSettings);
                 showToast(translations[currentLang].settingsSaved);
             } catch (error) {
                 console.error("Erro ao salvar ajustes:", error);
@@ -3256,6 +3261,7 @@ try {
     // --- 2. PREPARAR DATOS (AHORA INCLUYE LAS URLs) ---
     // (Esto reemplaza el 'collectorData' que borraste)
     const collectorData = {
+        username: username,
         name,
         documentNumber: document.getElementById('collector-document').value.trim(),
         address: document.getElementById('collector-address').value,
@@ -3279,75 +3285,74 @@ try {
         showToast(translations[currentLang].collectorUpdated);
     
     } else {
-    // --- MODO CREACIÓN (NUEVA LÓGICA) ---
+        // --- TAREA 5: INICIO (MODO CREACIÓN con Cloud Function) ---
 
-    // 1. Define el Email para Firebase Auth (derivado del username)
-    // Usamos un dominio fijo o el nombre de la empresa si está configurado
-    const companyDomain = (globalSettings.companyName || 'lumix').replace(/\s+/g, '').toLowerCase() + '.com';
-    const collectorEmailForAuth = `${username}@${companyDomain}`;
+        // 1. Obtenemos el password (ya validamos que no está vacío)
+        const password = document.getElementById('collector-password').value.trim();
+        
+        // 2. Define el Email para Firebase Auth (derivado del username)
+        const username = document.getElementById('collector-username').value.trim();
+        // (Usamos un dominio ficticio, ya que el email real no es importante, solo el authUid)
+        const companyDomain = (globalSettings.companyName || 'lumix').replace(/\s+/g, '').toLowerCase() + '.com';
+        const collectorEmailForAuth = `${username}@${companyDomain}`;
 
-    // --- Variables para guardar el UID ---
-    let newUserUid = null; 
+        try {
+            // 3. Obtener el Token de Autenticación del Admin
+            if (!auth.currentUser) throw new Error("Admin não está autenticado.");
+            const idToken = await auth.currentUser.getIdToken(true); // 'true' para forçar atualização
 
-    try {
-        // 2. Intenta CREAR el usuario en Firebase Authentication
-        console.log(`Intentando crear usuario Auth para ${collectorEmailForAuth}`);
-        const userCredential = await createUserWithEmailAndPassword(auth, collectorEmailForAuth, password);
-        const newUser = userCredential.user;
-        newUserUid = newUser.uid; // Guarda el UID único generado por Firebase
-        console.log(`Usuario Auth creado con UID: ${newUserUid}`);
+            // 4. Preparar los datos para enviar a la Cloud Function
+            // 'collectorData' ya contiene las URLs de las fotos y otros datos (preparado en la línea 1515)
+            const dataToSend = {
+                collectorEmail: collectorEmailForAuth,
+                collectorPassword: password,
+                collectorData: collectorData // Este objeto ya lo preparamos arriba
+            };
 
-        // 3. Actualiza el PERFIL de Firebase Auth (Nombre y Foto) - ¡Importante!
-        console.log("Actualizando perfil de Auth (nombre y foto)...");
-        await updateProfile(newUser, {
-            displayName: name,    // Nombre del cobrador
-            photoURL: profilePicUrl // URL de la foto de perfil subida
-        });
-        console.log("Perfil de Auth actualizado.");
+            // 5. Definir la URL de la Cloud Function
+            // (Asegúrate que coincida con tu proyecto: lumix-financas-app)
+            const functionUrl = "https://us-central1-lumix-financas-app.cloudfunctions.net/createCollector";
 
-        // 4. Prepara los datos COMPLETOS para Firestore (incluyendo el authUid)
-        const finalCollectorDataForFirestore = {
-            ...collectorData, // Contiene nombre, capital, URLs de fotos, etc.
-            isRealtimeTrackingActive: false, // Valor inicial
-            authUid: newUserUid // <-- GUARDA EL ID DE AUTH EN FIRESTORE
-        };
+            // 6. Llamar a la Cloud Function
+            console.log("Chamando Cloud Function 'createCollector'...");
+            const response = await fetch(functionUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${idToken}`
+                },
+                body: JSON.stringify({ data: dataToSend }) // Envuelve en 'data'
+            });
 
-        // 5. Guarda el documento del cobrador en Firestore (usando el username como ID)
-        console.log(`Guardando datos del cobrador ${username} en Firestore...`);
-        await setDoc(doc(db, "collectors", username), finalCollectorDataForFirestore);
-        console.log("Datos guardados en Firestore.");
-
-        showToast(translations[currentLang].collectorAdded);
-        formModal.classList.remove('active'); // Cierra el modal SÓLO si todo fue exitoso
-
-    } catch (authError) {
-        // --- Manejo de Errores Específico para createUser ---
-        console.error("ERRO ao criar usuário Auth ou salvar em Firestore:", authError);
-        let errorMessage = translations[currentLang].errorSaving; // Mensaje genérico
-
-        if (authError.code) {
-            switch (authError.code) {
-                case 'auth/email-already-in-use':
-                    errorMessage = `Erro: O nome de usuário '${username}' (email ${collectorEmailForAuth}) já está em uso.`;
-                    break;
-                case 'auth/weak-password':
-                    errorMessage = "Erro: A senha deve ter pelo menos 6 caracteres.";
-                    break;
-                case 'auth/invalid-email':
-                    errorMessage = "Erro: O nome de usuário gerou um email inválido. Tente outro nome de usuário.";
-                    break;
-                // Puedes añadir más casos de error de Firebase Auth aquí
+            // 7. Manejar la respuesta
+            if (!response.ok) {
+                // Si la respuesta no es 200, lee el error
+                const errorData = await response.json().catch(() => ({})); // Intenta leer el JSON
+                const errorCode = errorData.error?.code;
+                
+                // Manejar errores específicos devueltos por nuestra función
+                if (response.status === 409 && errorCode === 'auth/email-already-in-use') {
+                     throw new Error(`Erro: O nome de usuário '${username}' (email ${collectorEmailForAuth}) já está em uso.`);
+                } else {
+                    throw new Error(errorData.error?.message || `Error HTTP ${response.status}`);
+                }
             }
-        }
-        showToast(errorMessage, true);
-        // IMPORTANTE: No cerramos el modal si hubo un error al crear el usuario Auth
 
-        // Si el usuario Auth se creó pero falló Firestore (raro, pero posible)
-        // Podríamos intentar borrar el usuario Auth aquí, pero es complejo.
-        // Por ahora, solo informamos el error.
+            // 8. Éxito
+            const result = await response.json();
+            console.log("Cloud Function 'createCollector' bem-sucedida:", result);
+
+            showToast(translations[currentLang].collectorAdded);
+            formModal.classList.remove('active'); // Cierra el modal SÓLO si todo fue exitoso
+
+        } catch (error) {
+            // Captura errores de la llamada 'fetch' o del token
+            console.error("ERRO ao chamar 'createCollector':", error);
+            showToast(error.message, true);
+            // No cerramos el modal si hay un error
+        }
+        // --- TAREA 5: FIN ---
     }
-    // El bloque 'finally' (fuera de este 'else') se encargará de rehabilitar el botón.
-}
 
 
     formModal.classList.remove('active'); // Cerramos el modal
@@ -3512,7 +3517,7 @@ finally {
                  };
 
                 try {
-                    await updateDoc(doc(db, "clients", clientId), updatedData);
+                    await updateDoc(doc(db, 'companies', currentCompanyId, "clients", clientId), updatedData);
                     showToast(translations[currentLang].clientUpdated);
                     formModal.classList.remove('active');
                     document.getElementById('clientDetailModal').classList.remove('active');
@@ -3538,7 +3543,7 @@ finally {
                 }
 
                 try {
-                    await deleteDoc(doc(db, "clients", clientId));
+                    await deleteDoc(doc(db, 'companies', currentCompanyId, "clients", clientId));
                     showToast(translations[currentLang].clientDeleted);
                     formModal.classList.remove('active');
                     document.getElementById('clientDetailModal').classList.remove('active');
@@ -3608,7 +3613,9 @@ finally {
                 const data = await response.json();
                 const downloadURL = data.secure_url;
                 
-                await setDoc(doc(db, 'admins', 'admin'), { profilePictureUrl: downloadURL }, { merge: true });
+                await updateDoc(doc(db, 'companies', currentCompanyId), { 
+                'plan.companyLogo': downloadURL 
+            });
                 showToast('Foto de perfil atualizada!');
             } catch (error) {
                 console.error("Erro ao atualizar foto de perfil: ", error);
@@ -3943,15 +3950,7 @@ finally {
     }
 
     // Lógica de Global Settings (se queda igual)
-    onSnapshot(doc(db, 'config', 'global'), (docSnap) => {
-        if (docSnap.exists()) {
-            globalSettings = docSnap.data(); 
-            loadGlobalSettings(globalSettings); 
-            updateSettingsForm(globalSettings); 
-        } else {
-            loadGlobalSettings({}); 
-        }
-    });
+    
 
     // --- ¡AQUÍ ESTÁ EL GRAN CAMBIO! ---
     // Quitamos el setTimeout y usamos onAuthStateChanged.
@@ -4020,6 +4019,11 @@ finally {
             // ¡TODAS LAS VERIFICACIONES PASARON!
             console.log(`Acesso concedido para: ${currentCompanyData.name} (Status: ${currentCompanyData.status})`);
             document.getElementById('login-view').style.display = 'none';
+
+            globalSettings = currentCompanyData; 
+            loadGlobalSettings(globalSettings); 
+            updateSettingsForm(globalSettings);
+
 
             // Ahora llamamos a la app principal
             showMainApp(); 
