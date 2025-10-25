@@ -793,7 +793,7 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
     <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.js"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
-        import { getFirestore, collection, onSnapshot, doc, query, where, setDoc, updateDoc, deleteDoc, Timestamp, addDoc, orderBy, serverTimestamp, increment, getDocs, arrayUnion } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+        import { getFirestore, collection, onSnapshot, doc, getDoc, query, where, setDoc, updateDoc, deleteDoc, Timestamp, addDoc, orderBy, serverTimestamp, increment, getDocs, arrayUnion } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
         import { getAuth, createUserWithEmailAndPassword, updateProfile, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
         import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-storage.js";
         
@@ -823,6 +823,9 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
         let currentAdmin = { id: 'admin', name: 'Administrador', profilePic: '' };
         let currentLang = localStorage.getItem('adminLanguage') || 'pt';
         let mapInstance = null;
+
+        let currentCompanyId = null; // Guardará el ID de la empresa (ej: "xyz-789")
+        let currentCompanyData = null; // Guardará los datos (nombre, logo, status)
 
         const CURRENCY_CONFIGS = {
     // Suramérica
@@ -1089,6 +1092,41 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                 setTimeout(() => toast.remove(), 500);
             }, 3500);
         }
+
+        function showBlockedView(message) {
+    console.error("Acceso bloqueado:", message);
+    // Ocultamos todas las vistas principales
+    document.getElementById('splash-screen').style.display = 'none';
+    document.getElementById('login-view').style.display = 'none';
+    document.getElementById('app-container').style.display = 'none';
+
+    // Creamos y mostramos el mensaje de bloqueo (si no existe ya)
+    let blockedView = document.getElementById('blocked-view');
+    if (!blockedView) {
+        blockedView = document.createElement('div');
+        blockedView.id = 'blocked-view';
+        // Usamos estilos en línea para asegurar que funcione
+        blockedView.style.cssText = 'display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100%; padding: 20px; text-align: center; background-color: var(--bg);';
+        document.body.appendChild(blockedView);
+    }
+
+    // El HTML de la pantalla de bloqueo
+    blockedView.innerHTML = `
+        <i data-lucide="shield-off" style="width: 64px; height: 64px; color: var(--danger-color); margin-bottom: 20px;"></i>
+        <h2 style="color: var(--text-primary); margin-bottom: 10px;">Acesso Negado</h2>
+        <p style="color: var(--text-secondary); max-width: 400px; line-height: 1.5;">${message}</p>
+        <button id="logout-blocked-btn" class="btn-primary" style="margin-top: 30px; background-color: var(--danger-color); border: none;">Sair (Log Out)</button>
+    `;
+    lucide.createIcons({ nodes: [blockedView.querySelector('i')] });
+
+    // Añadimos un listener al nuevo botón de logout
+    const logoutBtn = document.getElementById('logout-blocked-btn');
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', () => {
+            signOut(auth).catch(err => console.error("Error en logout forzado:", err));
+        });
+    }
+}
 
         function showView(viewName) {
             document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
@@ -3920,27 +3958,92 @@ finally {
     // Esto escucha si el usuario está logueado o no CADA VEZ que se carga la app.
     const splash = document.getElementById('splash-screen');
 
-    onAuthStateChanged(auth, (user) => {
-        // Ocultamos el splash AHORA
-        splash.style.opacity = '0';
-        setTimeout(() => {
-            splash.style.display = 'none';
-        }, 500);
+    
+    onAuthStateChanged(auth, async (user) => {
+    // Ocultamos el splash AHORA
+    splash.style.opacity = '0';
+    setTimeout(() => {
+        splash.style.display = 'none';
+    }, 500);
 
-        if (user) {
-            // ¡El usuario SÍ está logueado! (Es el admin)
-            // Ocultamos el login y mostramos la app
+    if (user) {
+        // ¡El usuario SÍ está logueado! (Es el admin)
+        // Empezamos la verificación inteligente...
+
+        // PASO 1 (TAREA 1): Verificar permisos (Custom Claims)
+        try {
+            console.log("Verificando permissões do admin...");
+            // Pedimos los permisos "frescos" a Firebase
+            const tokenResult = await user.getIdTokenResult(true); 
+            const claims = tokenResult.claims;
+
+            console.log("Claims (permissões) do usuário:", claims);
+
+            // Verificamos si es un 'admin' y tiene un 'companyId'
+            if (claims.role !== 'admin' || !claims.companyId) {
+                const errorMsg = "Sua conta não tem permissões de administrador. Contate o suporte.";
+                console.error(errorMsg, claims);
+                showBlockedView(errorMsg); // Muestra pantalla de bloqueo
+                await signOut(auth); // Deslogueamos al usuario no autorizado
+                return; // Detenemos la ejecución
+            }
+
+            // ¡Éxito! Guardamos la "llave maestra"
+            currentCompanyId = claims.companyId; 
+            console.log("Admin verificado. Company ID:", currentCompanyId);
+
+            // PASO 2 (TAREA 0): Verificar si la empresa está ACTIVA o SUSPENSA
+            // Usamos la 'llave maestra' (currentCompanyId) para leer el documento de la empresa
+            const companyRef = doc(db, 'companies', currentCompanyId);
+            const companySnap = await getDoc(companyRef); // <-- Usamos la herramienta que importamos
+
+            if (!companySnap.exists()) {
+                const errorMsg = `Erro crítico: A empresa com ID (${currentCompanyId}) não foi encontrada no banco de dados.`;
+                console.error(errorMsg);
+                showBlockedView(errorMsg);
+                await signOut(auth);
+                return;
+            }
+
+            // Guardamos los datos de la empresa (nombre, logo, status)
+            currentCompanyData = companySnap.data(); 
+
+            // ¡LA COMPROBACIÓN DE ESTADO!
+            if (currentCompanyData.status === 'suspended') {
+                const errorMsg = `A conta da sua empresa (${currentCompanyData.name}) está suspensa. Entre em contato com o suporte para reativar seu serviço.`;
+                console.warn(errorMsg);
+                showBlockedView(errorMsg); // Muestra bloqueo
+                // No cerramos sesión, solo bloqueamos la app.
+                return;
+            }
+
+            // ¡TODAS LAS VERIFICACIONES PASARON!
+            console.log(`Acesso concedido para: ${currentCompanyData.name} (Status: ${currentCompanyData.status})`);
             document.getElementById('login-view').style.display = 'none';
-            showMainApp(); // <-- ¡Llamamos a la app principal!
-        } else {
-            // El usuario NO está logueado
-            // Mostramos la pantalla de login
-            document.getElementById('app-container').style.display = 'none';
-            document.getElementById('login-view').style.display = 'flex';
-            // Añadimos el listener para el formulario de login
-            document.getElementById('login-form').addEventListener('submit', handleLogin);
+
+            // Ahora llamamos a la app principal
+            showMainApp(); 
+
+        } catch (error) {
+            console.error("Erro crítico durante a verificação de acesso:", error);
+            showBlockedView(`Ocorreu um erro ao verificar sua conta: ${error.message}`);
+            await signOut(auth);
         }
-    });
+
+    } else {
+        // El usuario NO está logueado (esto no cambia)
+        // Mostramos la pantalla de login
+        document.getElementById('app-container').style.display = 'none';
+        document.getElementById('login-view').style.display = 'flex';
+        // Añadimos el listener para el formulario de login
+        const loginForm = document.getElementById('login-form');
+        if (loginForm) { // Comprobamos si existe antes de añadir
+            loginForm.addEventListener('submit', handleLogin);
+        }
+    }
+});
+
+
     // --- FIN DEL GRAN CAMBIO ---
 }
 
