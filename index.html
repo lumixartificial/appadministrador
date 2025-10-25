@@ -3047,6 +3047,10 @@ const displayTotalPaid = (loan.history || [])
                             <input type="text" id="collector-username" required value="${collector.id || ''}" ${isEditMode ? 'readonly' : ''}>
                         </div>
                         <div class="form-group">
+                        <label for="collector-email">Email (para autenticação)</label>
+                        <input type="email" id="collector-email" required autocomplete="off">
+                    </div>
+                        <div class="form-group">
                             <label for="collector-password" data-lang-key="password"></label>
                             <input type="password" id="collector-password" ${!isEditMode ? 'required' : ''} placeholder="${isEditMode ? 'Deixe em branco para não alterar' : ''}">
                         </div>
@@ -3207,6 +3211,7 @@ if (isEditMode && collector.documentPictureUrl) {
                 const documentFile = document.getElementById('collector-document-pic')?.files[0];
                 const username = document.getElementById('collector-username').value.trim();
                 const name = document.getElementById('collector-name').value.trim();
+                const email = document.getElementById('collector-email').value.trim();
                 const password = document.getElementById('collector-password').value.trim();
                 const capital = parseFloat(document.getElementById('collector-capital').value);
 
@@ -3218,6 +3223,12 @@ if (isEditMode && collector.documentPictureUrl) {
                 showToast(translations[currentLang].fillFields + " (E fotos)", true); 
                 return;
                 }
+
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            showToast("Por favor, insira um formato de email válido.", true);
+            return;
+        }
 
                 const collectorData = {
                     name,
@@ -3290,11 +3301,12 @@ try {
         // 1. Obtenemos el password (ya validamos que no está vacío)
         const password = document.getElementById('collector-password').value.trim();
         
-        // 2. Define el Email para Firebase Auth (derivado del username)
-        const username = document.getElementById('collector-username').value.trim();
-        // (Usamos un dominio ficticio, ya que el email real no es importante, solo el authUid)
-        const companyDomain = (globalSettings.companyName || 'lumix').replace(/\s+/g, '').toLowerCase() + '.com';
-        const collectorEmailForAuth = `${username}@${companyDomain}`;
+        // --- INICIO DE LA CORRECCIÓN ---
+    // 2. Obtenemos el Email REAL del nuevo campo del formulario
+    const collectorEmailForAuth = document.getElementById('collector-email').value.trim();
+    // (El 'username' de la línea 1481 se usará solo para el ID de Firestore)
+    console.log(`Usando Email: ${collectorEmailForAuth} e Username: ${username}`);
+    // --- FIN DE LA CORRECCIÓN ---
 
         try {
             // 3. Obtener el Token de Autenticación del Admin
@@ -3346,10 +3358,16 @@ try {
             formModal.classList.remove('active'); // Cierra el modal SÓLO si todo fue exitoso
 
         } catch (error) {
-            // Captura errores de la llamada 'fetch' o del token
+            // --- INICIO: Manejo de error MEJORADO en frontend ---
             console.error("ERRO ao chamar 'createCollector':", error);
-            showToast(error.message, true);
+            
+            // Usamos el mensaje de error que viene directamente del backend (si existe),
+            // o un mensaje genérico si no.
+            const errorMessage = error.message || "Ocorreu um erro desconhecido ao criar o cobrador.";
+            
+            showToast(errorMessage, true); // Muestra el error específico
             // No cerramos el modal si hay un error
+            // --- FIN: Manejo de error MEJORADO ---
         }
         // --- TAREA 5: FIN ---
     }
