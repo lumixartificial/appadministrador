@@ -826,6 +826,8 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
         let settlementsReady = false;
         let capitalInjectionsReady = false;
 
+        let calculatedCollectorMetrics = new Map(); // Guardará métricas por ID de cobrador
+        let calculatedGlobalMetrics = {}; // Guardará métricas globales
 
         let currentAdmin = { id: 'admin', name: 'Administrador', profilePic: '' };
         let currentLang = localStorage.getItem('adminLanguage') || 'pt';
@@ -998,24 +1000,47 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
         }
     };
 
-        // --- [INICIO CORRECCIÓN CONTABLE] ---
         function checkAndRunGlobalUpdate() {
             // Esta función se asegura de que TODAS las colecciones de
             // datos (cobradores, clientes, gastos, etc.) se hayan
             // cargado al menos una vez ANTES de intentar calcular la contabilidad.
-            // Esto previene errores de "race condition" donde los totales
-            // se calculan con datos incompletos.
             
             if (collectorsReady && clientsReady && expensesReady && settlementsReady && capitalInjectionsReady) {
-                console.log("[ADMIN-APP] ¡Todas las colecciones están listas! Ejecutando actualizaciones contables...");
+                console.log("[ADMIN-APP] ¡Todas las colecciones están listas! Ejecutando refactorización contable...");
                 
-                // Ahora es seguro llamar a las funciones de actualización
+                // --- ¡AQUÍ ESTÁ LA MAGIA! ---
+                // 1. Calculamos las métricas para CADA cobrador
+                calculatedCollectorMetrics.clear(); // Limpiamos los cálculos antiguos
+                allCollectors.forEach(collector => {
+                    const metrics = calculateCollectorMetrics(
+                        collector.id,
+                        collector, // Pasamos el objeto cobrador
+                        allClients,
+                        allExpenses,
+                        allSettlements,
+                        allCapitalInjections
+                    );
+                    calculatedCollectorMetrics.set(collector.id, metrics);
+                });
+
+                // 2. Calculamos las métricas GLOBALES
+                calculatedGlobalMetrics = calculateGlobalMetrics(
+                    allCollectors,
+                    allClients,
+                    allExpenses,
+                    allSettlements,
+                    allCapitalInjections
+                );
+                
+                // 3. Ahora (y solo ahora) es seguro actualizar la UI
+                // Las funciones de UI ya no calcularán nada, solo "leerán" los resultados.
+                console.log("[ADMIN-APP] Cálculos completados. Actualizando UI...");
                 updateDashboard();
                 updateProfileView();
                 
                 // [NUEVO] También actualizamos la vista de reportes si está activa,
                 // ya que también depende de estos datos.
-                if (document.getElementById('reports-view').classList.contains('active')) {
+                if (document.getElementById('reports-view') && document.getElementById('reports-view').classList.contains('active')) {
                     updateReportsView();
                 }
 
@@ -1024,7 +1049,185 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                 console.log(`[ADMIN-APP] Esperando datos... Cobradores: ${collectorsReady}, Clientes: ${clientsReady}, Gastos: ${expensesReady}, Liquidaciones: ${settlementsReady}, Aportes: ${capitalInjectionsReady}`);
             }
         }
-        // --- [FIN CORRECCIÓN CONTABLE] ---
+
+
+        function calculateGlobalMetrics(collectors, clients, expenses, settlements, capitalInjections) {
+            let totalStartingCapital = 0;
+            let totalPaidFromHistory = 0;
+            let totalPrincipalFromLoans = 0;
+            let totalLateFeesGlobal = 0;
+            let expectedToday = 0;
+            const today = new Date();
+            const dayOfWeek = today.getDay();
+            const dayOfMonth = today.getDate();
+
+            collectors.forEach(c => {
+                totalStartingCapital += (c.startingCapital || 0);
+            });
+
+            clients.forEach(client => {
+                (client.loans || []).forEach(loan => {
+                    // --- Cálculo de Principal ---
+                    let principal = 0;
+                    if (loan.principalAmount) {
+                        principal = loan.principalAmount;
+                    } else if (loan.totalLoan && client.interestRate) { 
+                        principal = (loan.totalLoan / (1 + (client.interestRate / 100)));
+                    }
+                    totalPrincipalFromLoans += principal;
+
+                    // --- Cálculo de Pagos (Filtrados) ---
+                    (loan.history || []).forEach(h => {
+                         if (h.status !== 'pending_verification' && h.status !== 'rejected' && h.status !== 'postponed') {
+                            totalPaidFromHistory += (h.amount || 0);
+                        }
+                    });
+
+                    // --- Cálculo de Mora (leído de la pre-calculada) ---
+                    totalLateFeesGlobal += (loan.lateFeesAccumulated || 0);
+
+                    // --- Cálculo de Esperado Hoy ---
+                    if (loan.status === 'pending' || loan.status === 'late') {
+                        let isPaymentDay = false;
+                        const frequency = loan.paymentFrequency || 'daily';
+                        if (frequency === 'daily') isPaymentDay = (loan.paymentDays || []).includes(dayOfWeek);
+                        else if (frequency === 'weekly') isPaymentDay = (loan.paymentDays || [])[0] === dayOfWeek;
+                        else if (frequency === 'monthly') isPaymentDay = (loan.paymentDays || [])[0] === dayOfMonth;
+
+                        if (isPaymentDay) {
+                            expectedToday += (loan.originalInstallmentAmount || 0);
+                        }
+                    }
+                });
+            });
+
+            const totalExpensesGlobal = expenses.reduce((sum, expense) => sum + (expense.value || 0), 0);
+            const totalSettlementsGlobal = settlements.reduce((sum, s) => sum + (s.amount || 0), 0);
+            const totalInjectionsGlobal = capitalInjections.filter(i => i.status === 'approved').reduce((sum, i) => sum + (i.amount || 0), 0);
+            
+            // --- Fórmulas Contables Globales (Net Worth de la Empresa) ---
+            
+            // Capital Total (Net Worth) = Capital + Aportes + Pagado - Principal - Gastos - Liquidaciones + MORA
+            const totalCapital = totalStartingCapital + totalInjectionsGlobal + totalPaidFromHistory - totalPrincipalFromLoans - totalExpensesGlobal - totalSettlementsGlobal + totalLateFeesGlobal;
+
+            // Valor en Campo (Cuánto dinero está "prestado" activamente, incluyendo mora)
+            const fieldValue = (totalPrincipalFromLoans + totalLateFeesGlobal) - totalPaidFromHistory;
+
+            // Beneficio Bruto (Ganancia antes de gastos, incluyendo mora)
+            const grossProfitBeforeExpenses = (totalPaidFromHistory + totalLateFeesGlobal) - totalPrincipalFromLoans;
+            
+            // Beneficio Neto (Ganancia real después de gastos)
+            const grossProfit = grossProfitBeforeExpenses - totalExpensesGlobal; 
+            
+            const activeClientsCount = clients.filter(c => (c.loans || []).some(l => l.status !== 'finished')).length;
+            
+            return {
+                totalCapital,
+                activeCollectorsCount: collectors.length,
+                activeClientsCount,
+                totalStartingCapital, // Capital distribuido
+                expectedToday,
+                fieldValue,
+                grossProfit,
+                totalExpensesGlobal,
+                totalSettlementsGlobal,
+                totalInjectionsGlobal
+            };
+        }
+
+        // --- FUNCIÓN MAESTRA 2: MÉTRICAS DE COBRADOR (CAPITAL EN MANOS) ---
+        function calculateCollectorMetrics(collectorId, collector, allClients, allExpenses, allSettlements, allCapitalInjections) {
+            
+            const collectorClients = allClients.filter(c => c.collectorId === collectorId);
+            const collectorExpenses = allExpenses.filter(e => e.collectorId === collectorId);
+            const collectorSettlements = allSettlements.filter(s => s.collectorId === collectorId);
+            const collectorInjections = allCapitalInjections.filter(i => i.collectorId === collectorId && i.status === 'approved');
+
+            let totalPaid = 0;
+            let totalPrincipal = 0;
+            let totalLateFees = 0; // Calculamos la mora solo para el *estado*, no para el capital
+            let dailyCollected = 0, weeklyCollected = 0, monthlyCollected = 0;
+            
+            const now = new Date();
+            const todayStart = new Date(new Date().setHours(0, 0, 0, 0));
+            const weekStart = new Date(todayStart);
+            weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+            const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+            collectorClients.forEach(c => { 
+                (c.loans || []).forEach(loan => {
+                    // --- Principal ---
+                    if (loan.principalAmount) {
+                        totalPrincipal += loan.principalAmount;
+                    } else if (loan.totalLoan && c.interestRate) {
+                        totalPrincipal += (loan.totalLoan / (1 + (c.interestRate / 100)));
+                    }
+                    
+                    // --- Mora (para estado) ---
+                    totalLateFees += (loan.lateFeesAccumulated || 0);
+                    
+                    // --- Pagos (Filtrados) ---
+                    (loan.history || []).forEach(h => {
+                        if (h.date?.seconds && h.status !== 'pending_verification' && h.status !== 'rejected' && h.status !== 'postponed') {
+                            const paymentAmount = h.amount || 0;
+                            totalPaid += paymentAmount; 
+                            
+                            const paymentDate = new Date(h.date.seconds * 1000);
+                            if (paymentDate >= todayStart) dailyCollected += paymentAmount;
+                            if (paymentDate >= weekStart) weeklyCollected += paymentAmount;
+                            if (paymentDate >= monthStart) monthlyCollected += paymentAmount;
+                        }
+                    });
+                });
+            });
+
+            const totalExpenses = collectorExpenses.reduce((sum, e) => sum + (e.value || 0), 0);
+            const totalSettled = collectorSettlements.reduce((sum, s) => sum + (s.amount || 0), 0);
+            const totalInjected = collectorInjections.reduce((sum, i) => sum + (i.amount || 0), 0);
+
+            // --- ¡LA CORRECCIÓN CLAVE! ---
+            // Fórmula de Capital en Manos (idéntica a la App Cobrador)
+            // NO INCLUYE 'totalLateFees'.
+            const capitalOnHand = (collector.startingCapital || 0) + totalInjected + totalPaid - totalPrincipal - totalExpenses - totalSettled;
+
+            // --- Conteo de Clientes ---
+            const activeClientsCount = collectorClients.filter(c => (c.loans || []).some(l => l.status !== 'finished')).length;
+            const lateClientsCount = collectorClients.filter(c => (c.loans || []).some(l => l.status === 'late')).length;
+            
+            // --- Estado (Reputación) ---
+            let statusKey = 'inOrder';
+            let statusColor = 'var(--accent-green)';
+            let statusIcon = 'check-circle';
+            if (activeClientsCount > 0) {
+                const latePercentage = (lateClientsCount / activeClientsCount) * 100;
+                if (latePercentage > 20) {
+                    statusKey = 'attention'; statusColor = 'var(--danger-color)'; statusIcon = 'alert-octagon';
+                } else if (latePercentage > 0) {
+                     statusKey = 'attention'; statusColor = 'var(--warning-color)'; statusIcon = 'alert-triangle';
+                }
+            }
+
+            return {
+                capitalOnHand, // <-- El valor correcto
+                activeClientsCount,
+                lateClientsCount,
+                dailyCollected,
+                weeklyCollected,
+                monthlyCollected,
+                totalPaid,
+                totalPrincipal,
+                totalLateFees, // <-- Lo devolvemos, pero NO se usa en capitalOnHand
+                totalExpenses,
+                totalSettled,
+                totalInjected,
+                status: {
+                    textKey: statusKey,
+                    color: statusColor,
+                    icon: statusIcon
+                }
+            };
+        }
+
 
 
 
@@ -1569,67 +1772,38 @@ currentAdmin.name = currentCompanyData.owner?.name || companyName;
         
 
         function calculateCollectorStatus(collectorId) {
-            const collectorClients = allClients.filter(c => c.collectorId === collectorId);
-            if (collectorClients.length === 0) {
+            // Ahora simplemente LEE los datos pre-calculados del mapa.
+            const metrics = calculatedCollectorMetrics.get(collectorId);
+            
+            if (!metrics || !metrics.status) {
+                // Fallback por si los datos aún no están listos
                 return { textKey: 'inOrder', color: 'var(--accent-green)', icon: 'check-circle' };
             }
-            const lateClients = collectorClients.filter(c => (c.loans || []).some(l => l.status === 'late')).length;
-            const latePercentage = (lateClients / collectorClients.length) * 100;
-
-            if (latePercentage === 0) {
-                return { textKey: 'inOrder', color: 'var(--accent-green)', icon: 'check-circle' };
-            } else if (latePercentage <= 20) {
-                return { textKey: 'attention', color: 'var(--warning-color)', icon: 'alert-triangle' };
-            } else {
-                return { textKey: 'attention', color: 'var(--danger-color)', icon: 'alert-octagon' };
-            }
+            
+            // Devuelve el objeto de estado que la función maestra ya calculó
+            return metrics.status; 
         }
 
         function updateDashboard() {
             if(!document.getElementById('kpi-total-capital')) return;
             
-            const totalStartingCapital = allCollectors.reduce((sum, c) => sum + (c.startingCapital || 0), 0);
+            // --- 1. LEER Métricas Globales (pre-calculadas) ---
+            // Usa los datos de 'calculatedGlobalMetrics' o valores por defecto (0)
+            const {
+                totalCapital = 0, // <-- Este es el Net Worth de la EMPRESA (con mora)
+                activeCollectorsCount = 0,
+                activeClientsCount = 0
+            } = calculatedGlobalMetrics;
 
-            let totalPaidFromHistory = 0;
-            let totalPrincipalFromLoans = 0;
-            let totalLateFeesGlobal = 0; // <-- [NUEVO] Para la Mora
-
-            allClients.forEach(client => {
-                (client.loans || []).forEach(loan => {
-                    if (loan.principalAmount) {
-                        totalPrincipalFromLoans += loan.principalAmount;
-                    } else if (loan.totalLoan && client.interestRate) { 
-                        totalPrincipalFromLoans += (loan.totalLoan / (1 + (client.interestRate / 100)));
-                    }
-                    (loan.history || []).forEach(h => {
-                         if (h.status !== 'pending_verification' && h.status !== 'rejected' && h.status !== 'postponed') {
-                            totalPaidFromHistory += (h.amount || 0);
-                        }
-                    });
-
-                    totalLateFeesGlobal += (loan.lateFeesAccumulated || 0); // <-- [NUEVO] Suma la mora
-                });
-            });
-
-            const totalExpensesGlobal = allExpenses.reduce((sum, expense) => sum + (expense.value || 0), 0);
-            const totalSettlementsGlobal = allSettlements.reduce((sum, s) => sum + (s.amount || 0), 0);
-            const totalInjectionsGlobal = allCapitalInjections.filter(i => i.status === 'approved').reduce((sum, i) => sum + (i.amount || 0), 0);
-            
-            // --- [CORRECCIÓN FÓRMULA] ---
-            const finalTotalCapital = totalStartingCapital + totalInjectionsGlobal + totalPaidFromHistory - totalPrincipalFromLoans - totalExpensesGlobal - totalSettlementsGlobal + totalLateFeesGlobal;
-            // --- [FIN CORRECCIÓN] ---
-
-            // Esta lógica ya era correcta:
-            const activeClientsCount = allClients.filter(c => (c.loans || []).some(l => l.status !== 'finished')).length;
-
-            document.getElementById('kpi-total-capital').textContent = money(finalTotalCapital);
-            document.getElementById('kpi-active-collectors').textContent = allCollectors.length;
+            // --- 2. Actualizar KPIs Globales ---
+            document.getElementById('kpi-total-capital').textContent = money(totalCapital);
+            document.getElementById('kpi-active-collectors').textContent = activeCollectorsCount;
             document.getElementById('kpi-active-clients').textContent = activeClientsCount;
 
             const listContainer = document.getElementById('collectors-list');
             if(!listContainer) return;
 
-            // --- FILTROS Y ORDENACIÓN (Sin cambios) ---
+            // --- 3. Filtros y Ordenación (Sin cambios) ---
             const searchInput = document.getElementById('collector-search-input');
             const searchTerm = searchInput ? searchInput.value.toLowerCase() : '';
             const activeStatusFilter = document.querySelector('#dashboard-view .filter-btn[data-filter].active');
@@ -1641,59 +1815,33 @@ currentAdmin.name = currentCompanyData.owner?.name || companyName;
                 collector.name.toLowerCase().includes(searchTerm)
             );
             
-            // Esta lógica es para el filtro visual, usa la función antigua (calculateCollectorStatus)
-            // No la cambiaremos, ya que es solo para estética del filtro (En Orden / Atención).
+            // --- 4. Aplicar Filtros (Ahora usa datos pre-calculados) ---
             if (statusFilter !== 'all') {
                 if (statusFilter === 'trackingUnavailable') {
                     filteredCollectors = filteredCollectors.filter(collector => !collector.isRealtimeTrackingActive);
                 } else {
                     filteredCollectors = filteredCollectors.filter(collector => {
-                        const status = calculateCollectorStatus(collector.id); // <- Se mantiene lógica de filtro visual
+                        // ¡Usa la función de estado refactorizada!
+                        const status = calculateCollectorStatus(collector.id); 
                         return status.textKey === statusFilter;
                     });
                 }
             }
             
-            // --- LÓGICA DE LA TARJETA (Ya corregida en el paso anterior, se mantiene) ---
+            // --- 5. Mapear datos para la UI (LEE las métricas pre-calculadas) ---
             let collectorsWithData = filteredCollectors.map(collector => {
                 
-                const allCollectorClients = allClients.filter(c => c.collectorId === collector.id);
+                // ¡OBTIENE las métricas pre-calculadas del mapa!
+                const metrics = calculatedCollectorMetrics.get(collector.id) || { capitalOnHand: 0, activeClientsCount: 0 };
                 
-                const activeCollectorClients = allCollectorClients.filter(c => 
-                    (c.loans || []).some(l => l.status !== 'finished')
-                );
-                
-                let collectorTotalPaid = 0;
-                let collectorTotalPrincipal = 0;
-                let collectorTotalLateFees = 0; // <-- [NUEVO] Para la Mora del Cobrador
-                
-                allCollectorClients.forEach(client => { 
-                    (client.loans || []).forEach(loan => {
-                        if (loan.principalAmount) {
-                            collectorTotalPrincipal += loan.principalAmount;
-                        } else if (loan.totalLoan && client.interestRate) {
-                            collectorTotalPrincipal += (loan.totalLoan / (1 + (client.interestRate / 100)));
-                        }
-                        (loan.history || []).forEach(h => {
-                            if (h.status !== 'pending_verification' && h.status !== 'rejected' && h.status !== 'postponed') {
-                                collectorTotalPaid += (h.amount || 0);
-                            }
-                        });
-                        collectorTotalLateFees += (loan.lateFeesAccumulated || 0); // <-- [NUEVO] Suma la mora
-                    });
-                });
-                
-                const collectorExpensesTotal = allExpenses.filter(e => e.collectorId === collector.id).reduce((sum, e) => sum + (e.value || 0), 0);
-                const totalSettledByCollector = allSettlements.filter(s => s.collectorId === collector.id).reduce((sum, s) => sum + (s.amount || 0), 0);
-                const totalInjectedForCollector = allCapitalInjections.filter(i => i.collectorId === collector.id && i.status === 'approved').reduce((sum, i) => sum + (i.amount || 0), 0);
-
-                // --- [CORRECCIÓN FÓRMULA] ---
-                const capitalOnHand = (collector.startingCapital || 0) + totalInjectedForCollector + collectorTotalPaid - collectorTotalPrincipal - collectorExpensesTotal - totalSettledByCollector + collectorTotalLateFees;
-                
-                return { ...collector, capitalOnHand, clientCount: activeCollectorClients.length };
+                return { 
+                    ...collector, 
+                    capitalOnHand: metrics.capitalOnHand, // <-- Dato pre-calculado (CORRECTO, SIN MORA)
+                    clientCount: metrics.activeClientsCount // <- Dato pre-calculado
+                };
             });
-            // --- FIN LÓGICA DE LA TARJETA ---
             
+            // --- 6. Ordenar (Sin cambios) ---
             if (sortBy === 'capital') {
                 collectorsWithData.sort((a, b) => b.capitalOnHand - a.capitalOnHand);
             }
@@ -1703,10 +1851,11 @@ currentAdmin.name = currentCompanyData.owner?.name || companyName;
                 return;
             }
 
-            // --- RENDERIZADO (Sin cambios) ---
+            // --- 7. RENDERIZADO (Sin cambios, pero ahora usa datos 100% consistentes) ---
             listContainer.innerHTML = collectorsWithData.map(collector => {
                 const placeholderUrl = `https://placehold.co/96x96/0f172a/FFFFFF?text=${(collector.name || 'C').charAt(0)}`;
-                const status = calculateCollectorStatus(collector.id);
+                // ¡Usa la función de estado refactorizada!
+                const status = calculateCollectorStatus(collector.id); 
                 const isTrackingActive = collector.isRealtimeTrackingActive;
 
                 return `
@@ -2487,7 +2636,7 @@ async function submitCollectorReport(collectorId) {
                 return;
             }
 
-            // --- 1. CÁLCULO DEL PERÍODO ---
+            // --- 1. CÁLCULO DEL PERÍODO (Sin cambios) ---
             let startDate;
             let periodLabel = 'Período Completo';
             if (period === '24h') {
@@ -2503,39 +2652,19 @@ async function submitCollectorReport(collectorId) {
                 startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000); // 30 días atrás
                 periodLabel = 'Últimos 30 Dias';
             }
-            // Si el período es 'all', startDate se queda como 'undefined' y se incluirá todo.
 
-            // --- 2. CÁLCULO DEL CAPITAL TOTAL EM MÃOS (LÓGICA DE updateDashboard) ---
-            const collectorClients = allClients.filter(c => c.collectorId === collectorId);
-            let collectorTotalPaid = 0;
-            let collectorTotalPrincipal = 0;
-            let collectorTotalLateFees = 0;
-            collectorClients.forEach(client => {
-                (client.loans || []).forEach(loan => {
-                    if (loan.principalAmount) {
-                        collectorTotalPrincipal += loan.principalAmount;
-                    } else if (loan.totalLoan && client.interestRate) {
-                        collectorTotalPrincipal += (loan.totalLoan / (1 + (client.interestRate / 100)));
-                    }
-                    (loan.history || []).forEach(h => {
-                        if (h.status !== 'pending_verification' && h.status !== 'rejected' && h.status !== 'postponed') {
-                            collectorTotalPaid += (h.amount || 0);
-                        }
-                    });
-                    collectorTotalLateFees += (loan.lateFeesAccumulated || 0);
-                });
-            });
-            const collectorExpensesTotal = allExpenses.filter(e => e.collectorId === collectorId).reduce((sum, e) => sum + (e.value || 0), 0);
-            const totalSettledByCollector = allSettlements.filter(s => s.collectorId === collectorId).reduce((sum, s) => sum + (s.amount || 0), 0);
-            const totalInjectedForCollector = allCapitalInjections.filter(i => i.collectorId === collectorId && i.status === 'approved').reduce((sum, i) => sum + (i.amount || 0), 0);
-            
-            // Fórmula del Capital Total (incluye todo el historial)
-            const capitalOnHand = (collector.startingCapital || 0) + totalInjectedForCollector + collectorTotalPaid - collectorTotalPrincipal - collectorExpensesTotal - totalSettledByCollector + collectorTotalLateFees;
+            // --- 2. OBTENER CAPITAL TOTAL EM MÃOS (Refactorizado) ---
+            // ¡Simplemente LEE el valor pre-calculado!
+            const collectorMetrics = calculatedCollectorMetrics.get(collectorId) || { capitalOnHand: 0 };
+            const capitalOnHand = collectorMetrics.capitalOnHand; // <-- Valor CORRECTO (sin mora)
 
 
-            // --- 3. RECOPILAR DATOS DEL PERÍODO SELECCIONADO ---
+            // --- 3. RECOPILAR DATOS DEL PERÍODO SELECCIONADO (Sin cambios) ---
+            // (Esta lógica es específica del reporte y debe filtrar por fecha,
+            // por lo que no puede usar los datos pre-calculados globales)
             
             // A. Pagos en el período
+            const collectorClients = allClients.filter(c => c.collectorId === collectorId);
             let periodTotalCash = 0;
             let periodTotalDigital = 0;
             const periodPaymentsList = [];
@@ -2577,7 +2706,7 @@ async function submitCollectorReport(collectorId) {
             const totalInjections = periodInjections.reduce((sum, i) => sum + i.amount, 0);
             periodInjections.sort((a, b) => (a.date.seconds || 0) - (b.date.seconds || 0));
 
-            // E. Cálculo Final del Período
+            // E. Cálculo Final del Período (Sin cambios)
             const netBalance = periodTotalCollected + totalInjections - totalExpenses - totalSettlements;
 
             if (periodTotalCollected === 0 && totalExpenses === 0 && totalSettlements === 0 && totalInjections === 0) {
@@ -2585,7 +2714,10 @@ async function submitCollectorReport(collectorId) {
                 return;
             }
 
-            // --- 4. GENERAR PDF ---
+            // --- 4. GENERAR PDF (Sin cambios) ---
+            // (El resto de la función de generación de PDF no necesita cambios,
+            // ya que ahora usa 'capitalOnHand' (que está 100% correcto)
+            // y los datos filtrados por período (que son correctos para el reporte))
             const pageMargin = 15;
             const pageWidth = doc.internal.pageSize.getWidth();
             const center = pageWidth / 2;
@@ -2898,69 +3030,22 @@ async function submitCollectorReport(collectorId) {
         function updateProfileView() {
             if(!document.getElementById('kpi-distributed-capital')) return;
             
-            // --- INICIO NUEVO CÁLCULO DE FINANZAS GLOBALES ---
-            const distributedCapital = allCollectors.reduce((sum, c) => sum + (c.startingCapital || 0), 0);
-
-            let totalPaidGlobal = 0; // Calculado desde historial
-            let totalPrincipalGlobal = 0; // Calculado desde principalAmount
-            let expectedToday = 0;
-            let totalLateFeesGlobal = 0; // <-- [NUEVO] Mora
-            const today = new Date();
-            const dayOfWeek = today.getDay();
-            const dayOfMonth = today.getDate();
-
-            allClients.forEach(client => {
-                (client.loans || []).forEach(loan => {
-                    let principal = 0;
-                    if (loan.principalAmount) {
-                        principal = loan.principalAmount;
-                    } else if (loan.totalLoan && client.interestRate) { 
-                        principal = (loan.totalLoan / (1 + (client.interestRate / 100)));
-                    }
-                    totalPrincipalGlobal += principal;
-
-                    (loan.history || []).forEach(h => {
-                        if (h.status !== 'pending_verification' && h.status !== 'rejected' && h.status !== 'postponed') {
-                            totalPaidGlobal += (h.amount || 0);
-                        }
-                    });
-            
-                    totalLateFeesGlobal += (loan.lateFeesAccumulated || 0); // <-- [NUEVO] Suma la mora
-
-                    // Calcula lo esperado para hoy (basado en el estado del *préstamo*)
-                    if (loan.status === 'pending' || loan.status === 'late') {
-                        let isPaymentDay = false;
-                        const frequency = loan.paymentFrequency || 'daily';
-                        if (frequency === 'daily') isPaymentDay = (loan.paymentDays || []).includes(dayOfWeek);
-                        else if (frequency === 'weekly') isPaymentDay = (loan.paymentDays || [])[0] === dayOfWeek;
-                        else if (frequency === 'monthly') isPaymentDay = (loan.paymentDays || [])[0] === dayOfMonth;
-
-                        if (isPaymentDay) {
-                            expectedToday += (loan.originalInstallmentAmount || 0); // <-- Usa 'originalInstallmentAmount'
-                        }
-                    }
-                });
-            });
-
-            // fieldValue (Total en Campo) ahora es (Principal + Mora) - Pagado
-            const fieldValue = (totalPrincipalGlobal + totalLateFeesGlobal) - totalPaidGlobal;
-
-            // grossProfit (Beneficio Bruto) ahora es (Pagado + Mora) - Principal
-            const grossProfitBeforeExpenses = (totalPaidGlobal + totalLateFeesGlobal) - totalPrincipalGlobal;
-
-            const totalExpensesGlobal = allExpenses.reduce((sum, expense) => sum + (expense.value || 0), 0);
-
-            // Beneficio Bruto Final = (Beneficio Bruto) - Gastos
-            const grossProfit = grossProfitBeforeExpenses - totalExpensesGlobal; 
+            // --- 1. LEER Métricas Globales (pre-calculadas) ---
+            const {
+                totalStartingCapital = 0, // <- totalStartingCapital es el "distributedCapital"
+                expectedToday = 0,
+                fieldValue = 0,
+                grossProfit = 0
+            } = calculatedGlobalMetrics;
             // --- FIN NUEVO CÁLCULO ---
 
-            // Actualiza los elementos del DOM ...
-            document.getElementById('kpi-distributed-capital').textContent = money(distributedCapital);
+            // --- 2. Actualizar KPIs ---
+            document.getElementById('kpi-distributed-capital').textContent = money(totalStartingCapital);
             document.getElementById('kpi-expected-today').textContent = money(expectedToday);
             document.getElementById('kpi-field-value').textContent = money(fieldValue);
             document.getElementById('kpi-gross-profit').textContent = money(grossProfit); 
 
-            // --- Lógica del Plan (CON CORRECCIÓN DEL TYPO) ---
+            // --- 3. Lógica del Plan (Sin cambios, ya era correcta) ---
             const planTypeElement = document.getElementById('plan-info-type');
             const planCollectorsElement = document.getElementById('plan-info-collectors');
             if (planTypeElement && planCollectorsElement && currentCompanyData && currentCompanyData.plan) {
@@ -2969,20 +3054,16 @@ async function submitCollectorReport(collectorId) {
                 planTypeElement.textContent = planTypeText; 
                 const currentCollectorCount = allCollectors.length; 
                 
-                // --- [INICIO CORRECCIÓN] ---
-                let collectorLimit = 'Ilimitado'; // Variable correcta
+                let collectorLimit = 'Ilimitado';
                 
                 if (plan.type === 'demo') {
-                    // USA 'collectorLimit', NO 'limit'
                     collectorLimit = currentCompanyData.plan.collectorLimit || 1; 
                 } else if (currentCompanyData.plan.collectorLimit && currentCompanyData.plan.collectorLimit !== -1) {
-                    // USA 'collectorLimit', NO 'limit'
                     collectorLimit = currentCompanyData.plan.collectorLimit;
                 } 
                 
                 planCollectorsElement.textContent = `${currentCollectorCount} / ${collectorLimit}`;
                 
-                // USA 'collectorLimit', NO 'limit'
                 if (collectorLimit !== 'Ilimitado' && collectorLimit !== '?' && currentCollectorCount >= collectorLimit) {
                     planCollectorsElement.style.color = 'var(--danger-color)';
                     planCollectorsElement.style.fontWeight = 'bold';
@@ -2990,7 +3071,6 @@ async function submitCollectorReport(collectorId) {
                     planCollectorsElement.style.color = ''; 
                     planCollectorsElement.style.fontWeight = '';
                 }
-                // --- [FIN CORRECCIÓN] ---
 
             } else if (planTypeElement) {
                 planTypeElement.textContent = 'Não definido';
@@ -3018,61 +3098,33 @@ async function submitCollectorReport(collectorId) {
             const isTrackingActive = collector.isRealtimeTrackingActive;
             const lastSeenTime = formatTimestamp(collector.lastLocationUpdate);
 
-            // --- [INICIO: CORRECCIÓN CONTABLE (Igual que en Dashboard)] ---
-            const collectorExpenses = allExpenses.filter(e => e.collectorId === collectorId);
-            const totalExpensesByCollector = collectorExpenses.reduce((sum, e) => sum + (e.value || 0), 0);
-            let totalPaidByCollector = 0;
-            let totalPrincipalLoanedByCollector = 0;
-            let totalLateFeesByCollector = 0; // <-- [NUEVO] Mora
-            let dailyCollected = 0, weeklyCollected = 0, monthlyCollected = 0;
-            const now = new Date();
-            const todayStart = new Date(new Date().setHours(0, 0, 0, 0));
-            const weekStart = new Date(todayStart);
-            weekStart.setDate(weekStart.getDate() - weekStart.getDay());
-            const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+            // --- [INICIO: LECTURA DE MÉTRICAS PRE-CALCULADAS] ---
+            // ¡Simplemente LEE las métricas del mapa!
+            const metrics = calculatedCollectorMetrics.get(collectorId);
+            
+            if (!metrics) {
+                // Esto solo debería pasar si los datos aún no están listos
+                console.warn(`Métricas para ${collectorId} aún no calculadas. Mostrando modal con datos incompletos.`);
+                detailView.innerHTML = `<header class="modal-header">...</header><div class="modal-content-wrapper container"><p>Calculando dados...</p></div>`;
+                // No abortamos, dejamos que muestre 0s por ahora
+            }
+            
+            const {
+                capitalOnHand = 0, // <-- El valor CORRECTO (sin mora)
+                status = { textKey: 'inOrder', color: 'var(--accent-green)', icon: 'check-circle' },
+                activeClientsCount = 0,
+                lateClientsCount = 0,
+                dailyCollected = 0,
+                weeklyCollected = 0,
+                monthlyCollected = 0
+            } = metrics || {}; // Usamos un objeto vacío como fallback si las métricas no están
+            // --- [FIN: LECTURA DE MÉTRICAS PRE-CALCULADAS] ---
 
-            clients.forEach(c => { 
-                (c.loans || []).forEach(loan => {
-                    if (loan.principalAmount) {
-                        totalPrincipalLoanedByCollector += loan.principalAmount;
-                    } else if (loan.totalLoan && c.interestRate) {
-                        totalPrincipalLoanedByCollector += (loan.totalLoan / (1 + (c.interestRate / 100)));
-                    }
-                    totalLateFeesByCollector += (loan.lateFeesAccumulated || 0); // <-- [NUEVO] Suma mora
-                    
-                    (loan.history || []).forEach(h => {
-                        if (h.date?.seconds && h.status !== 'pending_verification' && h.status !== 'rejected' && h.status !== 'postponed') {
-                            const paymentAmount = h.amount || 0;
-                            totalPaidByCollector += paymentAmount; 
-                            const paymentDate = new Date(h.date.seconds * 1000);
-                            if (paymentDate >= todayStart) dailyCollected += paymentAmount;
-                            if (paymentDate >= weekStart) weeklyCollected += paymentAmount;
-                            if (paymentDate >= monthStart) monthlyCollected += paymentAmount;
-                        }
-                    });
-                });
-            });
 
-            const totalSettledByCollector = allSettlements.filter(s => s.collectorId === collectorId).reduce((sum, s) => sum + (s.amount || 0), 0);
-            const totalInjectedForCollector = allCapitalInjections.filter(i => i.collectorId === collectorId && i.status === 'approved').reduce((sum, i) => sum + (i.amount || 0), 0);
-
-            // Fórmula de capital ajustada (la misma que usamos en el PDF y Dashboard)
-            const capitalOnHand = (collector.startingCapital || 0) + totalInjectedForCollector + totalPaidByCollector - totalPrincipalLoanedByCollector - totalExpensesByCollector - totalSettledByCollector + totalLateFeesByCollector;
-            // --- [FIN: CORRECCIÓN CONTABLE] ---
-
-            const status = calculateCollectorStatus(collectorId); // <-- Se mantiene lógica de filtro visual
-            // --- [INICIO: CORRECCIÓN CONTEO CLIENTES] ---
-            // Usa la misma lógica del Dashboard para contar clientes ACTIVOS
-            const activeClientsCount = clients.filter(c => (c.loans || []).some(l => l.status !== 'finished')).length;
-            const lateClientsCount = clients.filter(c => (c.loans || []).some(l => l.status === 'late')).length;
-            // --- [FIN: CORRECCIÓN CONTEO CLIENTES] ---
-
-            // --- [INICIO: CORRECCIÓN LISTA DE CLIENTES (Usa la estructura "loans")] ---
+            // --- [INICIO: Lógica de Lista de Clientes (Sin cambios)] ---
             let clientsListHtml = '';
             if (clients.length > 0) {
-                // Prepara una lista que contiene el cliente y el préstamo más relevante para mostrar
                 const clientsWithDisplayLoan = clients.map(client => {
-                    // Recalcula el estado de los préstamos solo para este cliente
                     const loansWithStatus = (client.loans || []).map((loan, index) => {
                         const details = calculateLoanDetails(loan);
                         return { ...loan, status: details.status, lateDays: details.lateDays, originalIndex: index };
@@ -3081,20 +3133,18 @@ async function submitCollectorReport(collectorId) {
                     const activeLoans = loansWithStatus.filter(l => l.status !== 'finished');
                     const hasMultipleActive = activeLoans.length > 1;
 
-                    // Elige el préstamo a mostrar
                     let displayLoan = loansWithStatus.find(l => l.status === 'late') || 
                                       loansWithStatus.find(l => l.status === 'pending') || 
                                       loansWithStatus.find(l => l.status === 'paid') || 
-                                      loansWithStatus[0]; // Fallback al primero
+                                      loansWithStatus[0];
                     
-                    if (!displayLoan) { // Si no hay préstamos, crea un objeto vacío
+                    if (!displayLoan) {
                          displayLoan = { amount: 0, status: 'n/a', lateDays: 0, originalIndex: 0 };
                     }
 
                     return { client, displayLoan, hasMultipleActive, activeLoansCount: activeLoans.length };
-                }).sort((a, b) => a.client.name.localeCompare(b.client.name)); // Ordena alfabéticamente
+                }).sort((a, b) => a.client.name.localeCompare(b.client.name));
 
-                // Renderiza el HTML
                 clientsListHtml = clientsWithDisplayLoan.map(({ client, displayLoan, hasMultipleActive, activeLoansCount }) => {
                     const statusClass = `status-${displayLoan.status}`;
                     const statusText = (translations[currentLang] && translations[currentLang][displayLoan.status]) || displayLoan.status;
@@ -3135,9 +3185,9 @@ async function submitCollectorReport(collectorId) {
             } else {
                 clientsListHtml = '<p>Nenhum cliente para este cobrador.</p>';
             }
-            // --- [FIN: CORRECCIÓN LISTA DE CLIENTES] ---
+            // --- [FIN: Lógica de Lista de Clientes] ---
 
-            // --- HTML (Actualizado) ---
+            // --- HTML (Actualizado para usar las variables de métricas) ---
             detailView.innerHTML = `
                 <header class="modal-header">
                     <button id="closeDetailView"><i data-lucide="arrow-left"></i></button>
@@ -3160,7 +3210,7 @@ async function submitCollectorReport(collectorId) {
                             }
                         </div>
                         <div style="margin-left: auto; display: flex; gap: 8px;">
-                            ${collector.whatsapp ? `<a href="https://wa.me/${collector.whatsapp.replace(/\D/g, '')}" target="_blank" class="header-btn" title="Enviar mensagem via WhatsApp">... (svg de whatsapp) ...</a>` : `... (botón whatsapp deshabilitado) ...`}
+                            ${collector.whatsapp ? `<a href="https://wa.me/${collector.whatsapp.replace(/\D/g, '')}" target="_blank" class="header-btn" title="Enviar mensagem via WhatsApp"><svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 12c0 1.77.46 3.45 1.28 4.95L2 22l5.25-1.38c1.45.77 3.09 1.23 4.79 1.23h.01c5.46 0 9.91-4.45 9.91-9.91C21.95 6.45 17.5 2 12.04 2M12.04 20.15c-1.49 0-2.92-.39-4.19-1.09l-.3-.18-3.12.82.83-3.04-.2-.31c-.78-1.23-1.19-2.69-1.19-4.2c0-4.4 3.57-7.97 7.97-7.97s7.97 3.57 7.97 7.97-3.57 7.97-7.97 7.97m5.42-6.2c-.28-.14-1.65-.81-1.9-.91c-.25-.1-.44-.14-.62.14c-.18.28-.72.91-.88 1.1c-.16.18-.32.2-.6.07c-.28-.13-1.18-.43-2.25-1.39c-.84-.75-1.4-1.68-1.57-1.96c-.16-.28-.02-.43.12-.57c.13-.13.28-.33.43-.49c.14-.16.19-.28.28-.46c.1-.18.05-.37-.02-.51c-.07-.14-.62-1.5-.85-2.05c-.23-.55-.46-.48-.62-.48c-.16 0-.35-.05-.53-.05c-.18 0-.46.07-.7.35c-.24.28-.92.9-1.12 2.18c-.2 1.28.2 2.53.23 2.7c.03.18 1.14 1.75 2.78 2.45c1.64.7 1.64.47 1.93.44c.28-.03 1.65-.67 1.88-1.32c.23-.65.23-1.2.16-1.32c-.07-.13-.26-.2-.53-.34Z"></path></svg></a>` : `<button class="header-btn" disabled style="opacity: 0.3;"><svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 12c0 1.77.46 3.45 1.28 4.95L2 22l5.25-1.38c1.45.77 3.09 1.23 4.79 1.23h.01c5.46 0 9.91-4.45 9.91-9.91C21.95 6.45 17.5 2 12.04 2M12.04 20.15c-1.49 0-2.92-.39-4.19-1.09l-.3-.18-3.12.82.83-3.04-.2-.31c-.78-1.23-1.19-2.69-1.19-4.2c0-4.4 3.57-7.97 7.97-7.97s7.97 3.57 7.97 7.97-3.57 7.97-7.97 7.97m5.42-6.2c-.28-.14-1.65-.81-1.9-.91c-.25-.1-.44-.14-.62.14c-.18.28-.72.91-.88 1.1c-.16.18-.32.2-.6.07c-.28-.13-1.18-.43-2.25-1.39c-.84-.75-1.4-1.68-1.57-1.96c-.16-.28-.02-.43.12-.57c.13-.13.28-.33.43-.49c.14-.16.19-.28.28-.46c.1-.18.05-.37-.02-.51c-.07-.14-.62-1.5-.85-2.05c-.23-.55-.46-.48-.62-.48c-.16 0-.35-.05-.53-.05c-.18 0-.46.07-.7.35c-.24.28-.92.9-1.12 2.18c-.2 1.28.2 2.53.23 2.7c.03.18 1.14 1.75 2.78 2.45c1.64.7 1.64.47 1.93.44c.28-.03 1.65-.67 1.88-1.32c.23-.65.23-1.2.16-1.32c-.07-.13-.26-.2-.53-.34Z"></path></svg></button>`}
                             <button class="header-btn collector-map-btn" data-collector-id="${collectorId}" title="Ver no mapa">
                                 <i data-lucide="map-pin" style="width: 24px; height: 24px;"></i>
                             </button>
@@ -3170,34 +3220,34 @@ async function submitCollectorReport(collectorId) {
                     <section class="kpi-grid" style="grid-template-columns: 1fr; gap: 15px; margin-bottom: 20px;">
                         <div class="kpi-card">
                             <h3 class="kpi-title" data-lang-key="capitalOnHand"><i data-lucide="wallet"></i></h3>
-                            <p class="kpi-value">${money(capitalOnHand)}</p>
+                            <p class="kpi-value">${money(capitalOnHand)}</p> <!-- <- USA DATO REFACTORIZADO (SIN MORA) -->
                         </div>
                         <div class="kpi-card">
                             <h3 class="kpi-title" data-lang-key="status"><i data-lucide="${status.icon}"></i></h3>
-                            <p class="kpi-value" style="color: ${status.color}; font-size: 1.2em;">${translations[currentLang][status.textKey]}</p>
+                            <p class="kpi-value" style="color: ${status.color}; font-size: 1.2em;">${translations[currentLang][status.textKey]}</p> <!-- <- USA DATO REFACTORIZADO -->
                         </div>
                         <div class="kpi-card">
                             <h3 class="kpi-title" data-lang-key="activeClients"><i data-lucide="user-check"></i></h3>
-                            <p class="kpi-value">${activeClientsCount}</p>
+                            <p class="kpi-value">${activeClientsCount}</p> <!-- <- USA DATO REFACTORIZADO -->
                         </div>
                         <div class="kpi-card">
                             <h3 class="kpi-title" data-lang-key="lateClients"><i data-lucide="user-x"></i></h3>
-                            <p class="kpi-value" style="color: var(--danger-color);">${lateClientsCount}</p>
+                            <p class="kpi-value" style="color: var(--danger-color);">${lateClientsCount}</p> <!-- <- USA DATO REFACTORIZADO -->
                         </div>
                     </section>
 
                     <section style="display: flex; flex-direction: column; gap: 10px; margin-top: 20px; margin-bottom: 20px;">
                         <div class="kpi-card" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 15px;">
                             <h3 class="kpi-title" data-lang-key="collectedToday" style="margin: 0; font-size: 0.95em;"><i data-lucide="sun" style="width: 16px; height: 16px;"></i></h3>
-                            <p class="kpi-value" style="font-size: 1.2em; color: var(--accent-green);">${money(dailyCollected)}</p>
+                            <p class="kpi-value" style="font-size: 1.2em; color: var(--accent-green);">${money(dailyCollected)}</p> <!-- <- USA DATO REFACTORIZADO -->
                         </div>
                         <div class="kpi-card" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 15px;">
                             <h3 class="kpi-title" data-lang-key="collectedWeek" style="margin: 0; font-size: 0.95em;"><i data-lucide="calendar" style="width: 16px; height: 16px;"></i></h3>
-                            <p class="kpi-value" style="font-size: 1.2em; color: var(--accent-green);">${money(weeklyCollected)}</p>
+                            <p class="kpi-value" style="font-size: 1.2em; color: var(--accent-green);">${money(weeklyCollected)}</p> <!-- <- USA DATO REFACTORIZADO -->
                         </div>
                         <div class="kpi-card" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 15px;">
                             <h3 class="kpi-title" data-lang-key="collectedMonth" style="margin: 0; font-size: 0.95em;"><i data-lucide="calendar-days" style="width: 16px; height: 16px;"></i></h3>
-                            <p class="kpi-value" style="font-size: 1.2em; color: var(--accent-green);">${money(monthlyCollected)}</p>
+                            <p class="kpi-value" style="font-size: 1.2em; color: var(--accent-green);">${money(monthlyCollected)}</p> <!-- <- USA DATO REFACTORIZADO -->
                         </div>
                     </section>
 
@@ -3248,34 +3298,34 @@ async function submitCollectorReport(collectorId) {
                 }
             }
             // --- Fin lógica liquidaciones ---
-
+            
+            // --- Lógica de listeners (Sin cambios) ---
             detailView.classList.add('active');
             lucide.createIcons({nodes: detailView.querySelectorAll('[data-lucide]')});
             applyLanguage(currentLang);
 
             detailView.querySelector('#closeDetailView').addEventListener('click', () => detailView.classList.remove('active'));
 
-            // --- [CORRECCIÓN LISTENER] ---
-            // Añadido listener para la nueva lista de clientes
             detailView.querySelector('.item-list').addEventListener('click', (e) => {
                 const clientCard = e.target.closest('.client-card');
                 if (clientCard) {
-                    // Pasa el loanIndex que guardamos en el data-attribute
                     showClientDetails(clientCard.dataset.clientId, parseInt(clientCard.dataset.loanIndex, 10));
                 }
             });
-            // --- [FIN CORRECCIÓN LISTENER] ---
             
             detailView.querySelector('#editCollectorBtn').addEventListener('click', (e) => showCollectorFormModal(e.currentTarget.dataset.collectorId));
             detailView.querySelector('#download-report-btn').addEventListener('click', (e) => showReportOptionsModal(e.currentTarget.dataset.collectorId));
             detailView.querySelector('.collector-map-btn').addEventListener('click', (e) => focusOnCollector(e.currentTarget.dataset.collectorId));
 
+            // (El listener de 'register-settlement-btn' usa 'capitalOnHand', 
+            // que ahora es el valor 100% correcto y refactorizado)
             const registerSettlementBtn = detailView.querySelector('#register-settlement-btn');
             if (registerSettlementBtn) {
                 registerSettlementBtn.addEventListener('click', (e) => {
                     const collectorId = e.currentTarget.dataset.collectorId;
                     const collector = allCollectors.find(c => c.id === collectorId);
-                    showSettlementModal(collectorId, collector.name, capitalOnHand);
+                    // ¡Pasa el capitalOnHand refactorizado al modal!
+                    showSettlementModal(collectorId, collector.name, capitalOnHand); 
                 });
             }
         }
@@ -3673,218 +3723,181 @@ if (isEditMode && collector.documentPictureUrl) {
             applyLanguage(currentLang);
             
             formModal.querySelector('#closeCollectorForm').addEventListener('click', () => formModal.classList.remove('active'));
-            formModal.querySelector('#saveCollectorBtn').addEventListener('click', async () => {
+            
+            
+            
+            
+            formModal.querySelector('#saveCollectorBtn').addEventListener('click', async (e) => {
+                // 1. Obtener el botón y deshabilitarlo
+                const saveBtn = e.currentTarget;
+                const originalBtnHTML = saveBtn.innerHTML;
+                saveBtn.disabled = true;
+                saveBtn.innerHTML = `<i data-lucide="loader-circle" style="animation: spin 1s linear infinite;"></i> <span>Salvando...</span>`;
+                lucide.createIcons({ nodes: [saveBtn.querySelector('i')] });
+
+                // 2. Obtener todos los valores del formulario
                 const profileFile = document.getElementById('collector-profile-pic')?.files[0];
                 const documentFile = document.getElementById('collector-document-pic')?.files[0];
-                const username = document.getElementById('collector-username').value.trim();
+                const username = document.getElementById('collector-username').value.trim(); // Este es el ID del documento
                 const name = document.getElementById('collector-name').value.trim();
-                const email = document.getElementById('collector-email').value.trim();
+                const email = document.getElementById('collector-email').value.trim(); // Este es para Auth
                 const password = document.getElementById('collector-password').value.trim();
                 const capital = parseFloat(document.getElementById('collector-capital').value);
 
-                if (!username || !name || isNaN(capital) || 
-                (!isEditMode && !password) || 
-                (!isEditMode && (!profileFile || !documentFile)) // <-- ¡NUEVA VALIDACIÓN!
-                 ) {
-                // Actualizamos el mensaje de error para incluir las fotos
-                showToast(translations[currentLang].fillFields + " (E fotos)", true); 
-                return;
-                }
-
+                // 3. Validación
                 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(email)) {
-            showToast("Por favor, insira um formato de email válido.", true);
-            return;
-        }
-
-                const collectorData = {
-                    name,
-                    documentNumber: document.getElementById('collector-document').value.trim(),
-                    address: document.getElementById('collector-address').value,
-                    phone: document.getElementById('collector-phone').value,
-                    whatsapp: document.getElementById('collector-whatsapp').value,
-                    operatingCurrency: document.getElementById('collector-currency').value, 
-                    startingCapital: capital,
-                };
-
-                if (password) {
-                    collectorData.password = password;
+                if (!email || !emailRegex.test(email)) {
+                    showToast("Por favor, insira um formato de email válido.", true);
+                    saveBtn.disabled = false;
+                    saveBtn.innerHTML = originalBtnHTML;
+                    lucide.createIcons({ nodes: [saveBtn.querySelector('i')] });
+                    return;
                 }
                 
-                // --- INICIA EL NUEVO BLOQUE TRY/CATCH ---
-const saveBtn = formModal.querySelector('#saveCollectorBtn');
-saveBtn.disabled = true; // Deshabilitamos el botón mientras se guarda
+                if (!username || !name || isNaN(capital) ||
+                    (!isEditMode && !password) ||
+                    (!isEditMode && (!profileFile || !documentFile)) // Fotos obligatorias solo al crear
+                ) {
+                    showToast(translations[currentLang].fillFields + (isEditMode ? "" : " (E fotos)"), true);
+                    saveBtn.disabled = false;
+                    saveBtn.innerHTML = originalBtnHTML;
+                    lucide.createIcons({ nodes: [saveBtn.querySelector('i')] });
+                    return;
+                }
+                
+                // 4. Iniciar el bloque try...catch principal
+                try {
+                    // 5. Subir fotos y obtener URLs
+                    let profilePicUrl = collector.profilePictureUrl || ''; // Mantiene la foto antigua si estamos editando
+                    let documentPicUrl = collector.documentPictureUrl || ''; // Mantiene el doc antiguo si estamos editando
 
-try {
-    // Preparamos las variables para las URLs de las fotos
-    let profilePicUrl = collector.profilePictureUrl || ''; // Mantiene la foto antigua si estamos editando
-    let documentPicUrl = collector.documentPictureUrl || ''; // Mantiene el doc antiguo si estamos editando
+                    if (profileFile) {
+                        showToast("Subindo foto de perfil...", false);
+                        // [RUTA CORREGIDA] Usa el companyId
+                        const profileStorageRef = ref(storage, `companies/${currentCompanyId}/collectors/${username}/profile.jpg`);
+                        await uploadBytes(profileStorageRef, profileFile);
+                        profilePicUrl = await getDownloadURL(profileStorageRef);
+                    }
 
-    // --- 1. SUBIR FOTOS (SI SE SELECCIONARON NUEVAS) ---
-    if (profileFile) {
-        showToast("Subindo foto de perfil...", false);
-        // Creamos una "carpeta" en Storage para este cobrador
-        const profileStorageRef = ref(storage, `collectors/${username}/profile.jpg`);
-        await uploadBytes(profileStorageRef, profileFile); // Subimos el archivo
-        profilePicUrl = await getDownloadURL(profileStorageRef); // Obtenemos el link (URL)
-    }
+                    if (documentFile) {
+                        showToast("Subindo foto de documento...", false);
+                        // [RUTA CORREGIDA] Usa el companyId
+                        const documentStorageRef = ref(storage, `companies/${currentCompanyId}/collectors/${username}/document.jpg`);
+                        await uploadBytes(documentStorageRef, documentFile);
+                        documentPicUrl = await getDownloadURL(documentStorageRef);
+                    }
 
-    if (documentFile) {
-        showToast("Subindo foto de documento...", false);
-        const documentStorageRef = ref(storage, `collectors/${username}/document.jpg`);
-        await uploadBytes(documentStorageRef, documentFile);
-        documentPicUrl = await getDownloadURL(documentStorageRef);
-    }
+                    // 6. Definir el objeto de datos del cobrador UNA SOLA VEZ
+                    const collectorData = {
+                        companyId: currentCompanyId, // [CORRECCIÓN] Añade el companyId
+                        username: username, // Este será el ID del documento
+                        name,
+                        documentNumber: document.getElementById('collector-document').value.trim(),
+                        address: document.getElementById('collector-address').value,
+                        phone: document.getElementById('collector-phone').value,
+                        whatsapp: document.getElementById('collector-whatsapp').value,
+                        operatingCurrency: document.getElementById('collector-currency').value, 
+                        startingCapital: capital,
+                        profilePictureUrl: profilePicUrl,
+                        documentPictureUrl: documentPicUrl
+                        // La contraseña NUNCA se guarda en Firestore
+                    };
 
-    // --- 2. PREPARAR DATOS (AHORA INCLUYE LAS URLs) ---
-    // (Esto reemplaza el 'collectorData' que borraste)
-    const collectorData = {
-        username: username,
-        name,
-        documentNumber: document.getElementById('collector-document').value.trim(),
-        address: document.getElementById('collector-address').value,
-        phone: document.getElementById('collector-phone').value,
-        whatsapp: document.getElementById('collector-whatsapp').value,
-        operatingCurrency: document.getElementById('collector-currency').value, 
-        startingCapital: capital,
-        profilePictureUrl: profilePicUrl,   // <-- ¡URL de perfil guardada!
-        documentPictureUrl: documentPicUrl  // <-- ¡URL de documento guardada!
-    };
+                    // 7. Lógica de Edición o Creación
+                    if (isEditMode) {
+                        // --- MODO EDICIÓN ---
+                        const { username: id, ...dataToUpdate } = collectorData; // Quitamos 'username' de los datos a actualizar
 
-    // --- 3. GUARDAR/ACTUALIZAR ---
-    if (isEditMode) {
-        // MODO EDICIÓN: Solo actualizamos los datos en Firestore
-        await updateDoc(doc(db, "collectors", collectorId), collectorData);
+                        if (password) {
+                            // TODO: Se necesita una Cloud Function separada para actualizar la contraseña.
+                            console.warn("A atualização de senha no modo 'Editar' precisa de uma Cloud Function dedicada.");
+                        }
+                        
+                        await updateDoc(doc(db, "collectors", collectorId), dataToUpdate);
+                        showToast(translations[currentLang].collectorUpdated);
+                        formModal.classList.remove('active');
 
-        // (Opcional: Si se actualizó la foto en modo edición, 
-        // también deberíamos actualizar el perfil de Auth del cobrador. 
-        // Esto es más avanzado, pero se haría aquí.)
+                    } else {
+                        // --- MODO CREACIÓN ---
+                        
+                        // 8. Obtener Token del Admin
+                        if (!auth.currentUser) throw new Error("Admin não está autenticado.");
+                        const idToken = await auth.currentUser.getIdToken(true);
 
-        showToast(translations[currentLang].collectorUpdated);
-    
-    } else {
-        // --- TAREA 5: INICIO (MODO CREACIÓN con Cloud Function) ---
+                        // 9. Preparar datos para la Cloud Function
+                        const dataToSend = {
+                            collectorEmail: email, // El email para Auth
+                            collectorPassword: password, // La contraseña para Auth
+                            collectorData: collectorData // El objeto completo para Firestore
+                        };
 
-        // 1. Obtenemos el password (ya validamos que no está vacío)
-        const password = document.getElementById('collector-password').value.trim();
-        
-        // --- INICIO DE LA CORRECCIÓN ---
-    // 2. Obtenemos el Email REAL del nuevo campo del formulario
-    const collectorEmailForAuth = document.getElementById('collector-email').value.trim();
-    // (El 'username' de la línea 1481 se usará solo para el ID de Firestore)
-    console.log(`Usando Email: ${collectorEmailForAuth} e Username: ${username}`);
-    // --- FIN DE LA CORRECCIÓN ---
+                        // 10. URL y llamada Fetch
+                        const functionUrl = "https://us-central1-lumix-financas-app.cloudfunctions.net/createCollector";
 
-        try {
-            // 3. Obtener el Token de Autenticación del Admin
-            if (!auth.currentUser) throw new Error("Admin não está autenticado.");
-            const idToken = await auth.currentUser.getIdToken(true); // 'true' para forçar atualização
+                        console.log("Chamando Cloud Function 'createCollector'...");
+                        const response = await fetch(functionUrl, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${idToken}`
+                            },
+                            body: JSON.stringify({ data: dataToSend })
+                        });
 
-            // 4. Preparar los datos para enviar a la Cloud Function
-            // 'collectorData' ya contiene las URLs de las fotos y otros datos (preparado en la línea 1515)
-            const dataToSend = {
-                collectorEmail: collectorEmailForAuth,
-                collectorPassword: password,
-                collectorData: collectorData // Este objeto ya lo preparamos arriba
-            };
+                        // 11. Manejar la respuesta
+                        if (!response.ok) {
+                            // Si la respuesta no es 200, lee el error
+                            const errorData = await response.json().catch(() => ({}));
+                            const errorCode = errorData.error?.code;
+                            const errorMessage = errorData.error?.message || `Error HTTP ${response.status}`;
+                            
+                            // Manejar errores específicos devueltos por nuestra función
+                            if (response.status === 409 && errorCode === 'auth/email-already-in-use') {
+                                 throw new Error(`Erro: O email '${email}' já está em uso.`);
+                            } else if (response.status === 409 && errorCode === 'firestore/already-exists') {
+                                 throw new Error(`Erro: O nome de usuário '${username}' já existe.`);
+                            }
+                            else {
+                                throw new Error(errorMessage);
+                            }
+                        }
 
-            // 5. Definir la URL de la Cloud Function
-            // (Asegúrate que coincida con tu proyecto: lumix-financas-app)
-            const functionUrl = "https://us-central1-lumix-financas-app.cloudfunctions.net/createCollector";
+                        const result = await response.json();
+                        console.log("Cloud Function 'createCollector' bem-sucedida:", result);
 
-            // 6. Llamar a la Cloud Function
-            console.log("Chamando Cloud Function 'createCollector'...");
-            const response = await fetch(functionUrl, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${idToken}`
-                },
-                body: JSON.stringify({ data: dataToSend }) // Envuelve en 'data'
+                        showToast(translations[currentLang].collectorAdded);
+                        formModal.classList.remove('active');
+                    }
+
+                } catch (error) {
+                    // Este es el catch principal para validación, subidas, y llamadas a la API
+                    console.error("ERRO DETALHADO AO SALVAR COBRADOR: ", error);
+                    let userMessage = error.message || translations[currentLang].errorSaving;
+
+                    if (error.code) { // Manejar errores específicos del SDK de Firebase (ej. Storage)
+                        switch (error.code) {
+                            case 'storage/unauthorized':
+                                userMessage = "Erro de Permissão: Verifique suas Regras do Storage.";
+                                break;
+                            case 'storage/retry-limit-exceeded':
+                                 userMessage = "Erro de Conexão com Storage (Tente novamente)";
+                                 break;
+                            default:
+                                userMessage = `Erro: ${error.message}`;
+                        }
+                    }
+                    showToast(userMessage, true); // Muestra el mensaje de error detallado
+
+                } finally {
+                    // 10. Rehabilitar el botón
+                    saveBtn.disabled = false;
+                    saveBtn.innerHTML = originalBtnHTML;
+                    lucide.createIcons({ nodes: [saveBtn.querySelector('i')] });
+                }
             });
+            // --- FIN DEL BLOQUE CORREGIDO ---
 
-            // 7. Manejar la respuesta
-            if (!response.ok) {
-                // Si la respuesta no es 200, lee el error
-                const errorData = await response.json().catch(() => ({})); // Intenta leer el JSON
-                const errorCode = errorData.error?.code;
-                
-                // Manejar errores específicos devueltos por nuestra función
-                if (response.status === 409 && errorCode === 'auth/email-already-in-use') {
-                     throw new Error(`Erro: O nome de usuário '${username}' (email ${collectorEmailForAuth}) já está em uso.`);
-                } else {
-                    throw new Error(errorData.error?.message || `Error HTTP ${response.status}`);
-                }
-            }
-
-            // 8. Éxito
-            const result = await response.json();
-            console.log("Cloud Function 'createCollector' bem-sucedida:", result);
-
-            showToast(translations[currentLang].collectorAdded);
-            formModal.classList.remove('active'); // Cierra el modal SÓLO si todo fue exitoso
-
-        } catch (error) {
-            // --- INICIO: Manejo de error MEJORADO en frontend ---
-            console.error("ERRO ao chamar 'createCollector':", error);
-            
-            // Usamos el mensaje de error que viene directamente del backend (si existe),
-            // o un mensaje genérico si no.
-            const errorMessage = error.message || "Ocorreu um erro desconhecido ao criar o cobrador.";
-            
-            showToast(errorMessage, true); // Muestra el error específico
-            // No cerramos el modal si hay un error
-            // --- FIN: Manejo de error MEJORADO ---
-        }
-        // --- TAREA 5: FIN ---
-    }
-
-
-    formModal.classList.remove('active'); // Cerramos el modal
-
-} catch (error) {
-    // Este es el catch correcto para GUARDAR UN COBRADOR
-    console.error("ERRO DETALHADO AO SALVAR COBRADOR: ", error);
-
-    let userMessage = translations[currentLang].errorSaving; // Mensaje por defecto
-
-    if (error.code) {
-        switch (error.code) {
-            // Erros de Autenticação (al crear el cobrador)
-            case 'auth/email-already-in-use':
-                userMessage = "Erro: Esse nome de usuário (email) já existe.";
-                break;
-            case 'auth/weak-password':
-                userMessage = "Erro: A senha deve ter pelo menos 6 caracteres.";
-                break;
-
-            // ¡ERROS DE STORAGE! (Esta es la parte importante)
-            case 'storage/unauthorized':
-                userMessage = "Erro de Permissão: Verifique suas Regras do Storage (storage/unauthorized)";
-                break;
-            case 'storage/retry-limit-exceeded':
-                 userMessage = "Erro de Conexão com Storage (Tente novamente)";
-                 break;
-
-            // Erro genérico do Firebase
-            default:
-                // Muestra el código de erro real
-                userMessage = `Erro desconhecido: ${error.code}`;
-        }
-    }
-
-    showToast(userMessage, true); // Muestra el mensaje de error detallado
-}
-
-finally {
-    saveBtn.disabled = false; // Volvemos a habilitar el botón, incluso si hay error
-}
-// --- FIN DEL NUEVO BLOQUE TRY/CATCH ---
-
-
-});
-
-
+        
 
         }
         
