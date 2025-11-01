@@ -819,6 +819,14 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
         let allCommunityPosts = [];
         let allSettlements = [];
         let allCapitalInjections = [];
+
+        let collectorsReady = false;
+        let clientsReady = false;
+        let expensesReady = false;
+        let settlementsReady = false;
+        let capitalInjectionsReady = false;
+
+
         let currentAdmin = { id: 'admin', name: 'Administrador', profilePic: '' };
         let currentLang = localStorage.getItem('adminLanguage') || 'pt';
         let mapInstance = null;
@@ -989,6 +997,37 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             community: 'Community'
         }
     };
+
+        // --- [INICIO CORRECCIÓN CONTABLE] ---
+        function checkAndRunGlobalUpdate() {
+            // Esta función se asegura de que TODAS las colecciones de
+            // datos (cobradores, clientes, gastos, etc.) se hayan
+            // cargado al menos una vez ANTES de intentar calcular la contabilidad.
+            // Esto previene errores de "race condition" donde los totales
+            // se calculan con datos incompletos.
+            
+            if (collectorsReady && clientsReady && expensesReady && settlementsReady && capitalInjectionsReady) {
+                console.log("[ADMIN-APP] ¡Todas las colecciones están listas! Ejecutando actualizaciones contables...");
+                
+                // Ahora es seguro llamar a las funciones de actualización
+                updateDashboard();
+                updateProfileView();
+                
+                // [NUEVO] También actualizamos la vista de reportes si está activa,
+                // ya que también depende de estos datos.
+                if (document.getElementById('reports-view').classList.contains('active')) {
+                    updateReportsView();
+                }
+
+            } else {
+                // Informa qué datos aún faltan (útil para depuración)
+                console.log(`[ADMIN-APP] Esperando datos... Cobradores: ${collectorsReady}, Clientes: ${clientsReady}, Gastos: ${expensesReady}, Liquidaciones: ${settlementsReady}, Aportes: ${capitalInjectionsReady}`);
+            }
+        }
+        // --- [FIN CORRECCIÓN CONTABLE] ---
+
+
+
 // ... código existente ...
 
         function showMainApp() {
@@ -1006,8 +1045,14 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             const collectorsQuery = query(collection(db, 'collectors'), where('companyId', '==', currentCompanyId));
             onSnapshot(collectorsQuery, snapshot => {
                 allCollectors = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                updateDashboard();
-                updateProfileView();
+                
+                // --- [INICIO CORRECCIÓN CONTABLE] ---
+                collectorsReady = true; // 1. Marcar como listo
+                checkAndRunGlobalUpdate(); // 2. Llamar a la función maestra
+                // updateDashboard(); // <--- ELIMINADO
+                // updateProfileView(); // <--- ELIMINADO
+                // --- [FIN CORRECCIÓN CONTABLE] ---
+
                 // [REPARACIÓN] Se llama a la función para actualizar los marcadores cada vez que los datos del cobrador cambian.
                 updateCollectorMarkers();
             });
@@ -1015,48 +1060,71 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             onSnapshot(collection(db, 'companies', currentCompanyId, 'clients'), snapshot => {
                 allClients = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                  allClients.forEach(client => {
-                    // Capa de compatibilidad para clientes antiguos
+                    // Capa de compatibilidad para clientes antiguos (Sin cambios)
                     if (!client.loans && client.totalLoan) {
                         client.loans = [{ ...client }];
                     } else if (!client.loans) {
                         client.loans = [];
                     }
-                    // Calcula el estado para cada préstamo individualmente
+
+                    // --- [INICIO DE LA CORRECCIÓN] ---
+                    // Reemplazamos la lógica obsoleta.
+                    // Ahora usamos la función moderna para CADA préstamo.
                     client.loans.forEach(loan => {
-                        loan.status = calculateClientStatus(loan);
+                        const details = calculateLoanDetails(loan); // <-- Llama a la función MODERNA
+                        loan.status = details.status; // <-- Asigna el estado REAL
+                        loan.lateFeesAccumulated = details.lateFeesAccumulated; // <-- GUARDA LA MORA
                     });
+                    // --- [FIN DE LA CORRECCIÓN] ---
+
                 });
-                updateDashboard();
-                updateProfileView();
+                
+                clientsReady = true; 
+                checkAndRunGlobalUpdate(); 
             });
             
             onSnapshot(collection(db, 'companies', currentCompanyId, 'expenses'), snapshot => {
-        allExpenses = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        updateProfileView(); 
-        updateDashboard(); // Llamamos también a updateDashboard por si acaso
-    });
+                allExpenses = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                
+                // --- [INICIO CORRECCIÓN CONTABLE] ---
+                expensesReady = true; // 1. Marcar como listo
+                checkAndRunGlobalUpdate(); // 2. Llamar a la función maestra
+                // updateProfileView(); // <--- ELIMINADO
+                // updateDashboard(); // <--- ELIMINADO
+                // --- [FIN CORRECCIÓN CONTABLE] ---
+            });
 
 
 
     // --- LISTENER AÑADIDO PARA LIQUIDACIONES ---
         onSnapshot(collection(db, 'companies', currentCompanyId, 'settlements'), snapshot => {
-        allSettlements = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        // Actualizamos las vistas que dependen del capital en mano
-        updateDashboard(); 
-        // Si la vista de detalles está abierta, la actualizamos también
-        const detailView = document.getElementById('collectorDetailView');
-        if (detailView && detailView.classList.contains('active')) {
-            const collectorId = detailView.querySelector('#editCollectorBtn')?.dataset.collectorId; // Intenta obtener el ID del cobrador actual
-            if (collectorId) showCollectorDetails(collectorId); // Vuelve a renderizar los detalles
-        }
-    });
+            allSettlements = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            
+            // --- [INICIO CORRECCIÓN CONTABLE] ---
+            settlementsReady = true; // 1. Marcar como listo
+            checkAndRunGlobalUpdate(); // 2. Llamar a la función maestra
+            // updateDashboard(); // <--- ELIMINADO
+            // --- [FIN CORRECCIÓN CONTABLE] ---
+
+            // Si la vista de detalles está abierta, la actualizamos también
+            const detailView = document.getElementById('collectorDetailView');
+            if (detailView && detailView.classList.contains('active')) {
+                const collectorId = detailView.querySelector('#editCollectorBtn')?.dataset.collectorId; // Intenta obtener el ID del cobrador actual
+                if (collectorId) showCollectorDetails(collectorId); // Vuelve a renderizar los detalles
+            }
+        });
     // --- FIN DEL LISTENER AÑADIDO ---
 
           // --- [NUEVO BLOQUE] LISTENER PARA APORTES DE CAPITAL ---
     // Escucha los aportes de capital (inyecciones) para TODOS los cobradores
     onSnapshot(collection(db, 'companies', currentCompanyId, 'capitalInjections'), snapshot => {
         allCapitalInjections = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        // No es necesario actualizar ninguna vista aquí, solo tener los datos listos para el reporte.
+        
+        // --- [INICIO CORRECCIÓN CONTABLE] ---
+        capitalInjectionsReady = true; // 1. Marcar como listo
+        checkAndRunGlobalUpdate(); // 2. Llamar a la función maestra
+        // --- [FIN CORRECCIÓN CONTABLE] ---
+
     }, (error) => {
         console.error("Error al obtener aportes de capital: ", error);
         showToast('Falha ao carregar dados de aportes de capital.', true);
@@ -1383,93 +1451,122 @@ currentAdmin.name = currentCompanyData.owner?.name || companyName;
 
         const nationalHolidays = [ '01/01', '21/04', '01/05', '07/09', '12/10', '02/11', '15/11', '25/12' ];
 
-        function calculateLatePaymentDays(loan) {
-            if (!loan || (loan.paid >= loan.totalLoan)) return 0;
+        
+        function calculateLoanDetails(loan) {
+            // Esta es la función moderna que entiende de frecuencia de pago, feriados, etc.
+            let details = {
+                lateDays: 0,
+                lateFeesAccumulated: 0,
+                status: 'pending', // Estado por defecto
+                nextDueDate: null, // Fecha del próximo vencimiento
+                amountDueToday: 0 // Cuánto debería pagar HOY si es día de pago
+            };
+
+            // Calcula el total pagado desde el historial
+            const currentTotalPaid = (loan.history || [])
+                .filter(h => h.status !== 'pending_verification' && h.status !== 'rejected' && h.status !== 'postponed')
+                .reduce((sum, h) => sum + (h.amount || 0), 0);
+
+            if (!loan || !loan.totalLoan || loan.status === 'finished' || (currentTotalPaid >= loan.totalLoan)) {
+                details.status = 'finished';
+                return details;
+            }
+
             const today = new Date();
             today.setHours(0, 0, 0, 0);
 
             let lastRelevantDate;
             if (loan.history && loan.history.length > 0) {
                 const sortedHistory = [...loan.history]
-                    .filter(h => h.date?.seconds && h.status !== 'pending_verification')
+                    .filter(h => h.date?.seconds && h.status !== 'pending_verification' && h.status !== 'postponed')
                     .sort((a, b) => b.date.seconds - a.date.seconds);
-                if (sortedHistory.length > 0) lastRelevantDate = new Date(sortedHistory[0].date.seconds * 1000);
+                if (sortedHistory.length > 0) {
+                    lastRelevantDate = new Date(sortedHistory[0].date.seconds * 1000);
+                }
             }
+            if (!lastRelevantDate && loan.startDate?.seconds) {
+                lastRelevantDate = new Date(loan.startDate.seconds * 1000);
+            }
+
             if (!lastRelevantDate) {
-                if (loan.startDate?.seconds) {
-                    lastRelevantDate = new Date(loan.startDate.seconds * 1000);
-                } else {
-                    return 0;
-                }
+                console.warn("No se puede calcular el estado: falta fecha de inicio o historial.");
+                return details;
             }
-            
             lastRelevantDate.setHours(0, 0, 0, 0);
-            if (lastRelevantDate >= today) return 0;
 
-            let workingDaysToPay = 0;
             let checkDate = new Date(lastRelevantDate);
-            while (checkDate < today) {
-                checkDate.setDate(checkDate.getDate() + 1);
-                const dayOfWeek = checkDate.getDay();
-                const formattedDate = `${String(checkDate.getDate()).padStart(2, '0')}/${String(checkDate.getMonth() + 1).padStart(2, '0')}`;
-                const isHoliday = nationalHolidays.includes(formattedDate);
-                const isPaymentDay = (loan.paymentDays || []).includes(dayOfWeek);
-                if (!isHoliday && isPaymentDay) {
-                    workingDaysToPay++;
-                }
-            }
-            return workingDaysToPay > 0 ? workingDaysToPay : 0;
-        }
+            let accumulatedLateDays = 0;
+            let accumulatedLateFees = 0;
+            const dailyLateRate = (loan.lateFeeRate || 0) / 100;
+            const installmentAmount = loan.originalInstallmentAmount || 0;
+            let installmentsDueCount = 0;
+            let nextDueDateFound = false;
 
-        function calculateClientStatus(loan) {
-            if (loan.totalLoan && loan.totalLoan > 0 && (loan.paid || 0) >= loan.totalLoan) {
-                return 'finished';
-            }
-            
-            const today = new Date(); today.setHours(0, 0, 0, 0);
-            
-            let lastPaymentDate;
-            if (loan.history && loan.history.length > 0) {
-                const sortedHistory = [...loan.history].filter(h => h.date?.seconds).sort((a, b) => b.date.seconds - a.date.seconds);
-                if (sortedHistory.length > 0) lastPaymentDate = new Date(sortedHistory[0].date.seconds * 1000);
-            } 
-            if (!lastPaymentDate && loan.startDate?.seconds) {
-                lastPaymentDate = new Date(loan.startDate.seconds * 1000);
-            }
-
-            if (!lastPaymentDate) return 'pending';
-            lastPaymentDate.setHours(0, 0, 0, 0);
-            
-            let workingDaysToPay = 0;
-            let checkDate = new Date(lastPaymentDate);
-
-            if (checkDate >= today) return 'paid';
-
-            const frequency = loan.paymentFrequency || 'daily';
-
-            while(checkDate < today) {
-                checkDate.setDate(checkDate.getDate() + 1);
+            while (checkDate <= today) {
                 const dayOfWeek = checkDate.getDay();
                 const dayOfMonth = checkDate.getDate();
                 const formattedDate = `${String(checkDate.getDate()).padStart(2, '0')}/${String(checkDate.getMonth() + 1).padStart(2, '0')}`;
                 const isHoliday = nationalHolidays.includes(formattedDate);
-                
+                const frequency = loan.paymentFrequency || 'daily';
                 let isPaymentDay = false;
-                if (frequency === 'daily') {
-                    isPaymentDay = (loan.paymentDays || []).includes(dayOfWeek);
-                } else if (frequency === 'weekly') {
-                    isPaymentDay = (loan.paymentDays || [])[0] === dayOfWeek;
-                } else if (frequency === 'monthly') {
-                    isPaymentDay = (loan.paymentDays || [])[0] === dayOfMonth;
+
+                if (frequency === 'daily') isPaymentDay = (loan.paymentDays || []).includes(dayOfWeek);
+                else if (frequency === 'weekly') isPaymentDay = (loan.paymentDays || [])[0] === dayOfWeek;
+                else if (frequency === 'monthly') isPaymentDay = (loan.paymentDays || [])[0] === dayOfMonth;
+
+                if (!isHoliday && isPaymentDay) {
+                    if (checkDate < today) {
+                        installmentsDueCount++;
+                        const expectedPaidByThisDate = installmentsDueCount * installmentAmount;
+                        const outstandingDueAmount = Math.max(0, expectedPaidByThisDate - currentTotalPaid);
+
+                        if (dailyLateRate > 0 && outstandingDueAmount > 0) {
+                            const dailyFee = outstandingDueAmount * dailyLateRate;
+                            accumulatedLateFees += dailyFee;
+                            accumulatedLateDays++;
+                        } else if (outstandingDueAmount > 0) {
+                            accumulatedLateDays++;
+                        }
+                    }
+                    if (checkDate.getTime() === today.getTime()) {
+                        details.amountDueToday = installmentAmount;
+                    }
+                    if (checkDate >= today && !nextDueDateFound) {
+                        details.nextDueDate = new Date(checkDate);
+                        nextDueDateFound = true;
+                    }
                 }
-                
-                if (!isHoliday && isPaymentDay) workingDaysToPay++;
+                checkDate.setDate(checkDate.getDate() + 1);
+            }
+
+            details.lateDays = accumulatedLateDays;
+            details.lateFeesAccumulated = accumulatedLateFees;
+
+            const totalInstallments = parseInt((loan.installments || '0/0').split('/')[1]);
+            const paidInstallmentsCalculated = installmentAmount > 0 ? Math.floor(currentTotalPaid / installmentAmount) : 0;
+
+            if (paidInstallmentsCalculated >= totalInstallments || currentTotalPaid >= loan.totalLoan) {
+                details.status = 'finished';
+            } else if (accumulatedLateDays > 1) {
+                details.status = 'late';
+            } else if (details.amountDueToday > 0) {
+                const expectedInstallmentsIncludingToday = installmentsDueCount + 1;
+                const expectedTotalIncludingToday = expectedInstallmentsIncludingToday * installmentAmount;
+                if (currentTotalPaid < expectedTotalIncludingToday) {
+                    details.status = 'pending';
+                } else {
+                    details.status = 'paid';
+                }
+            } else if (accumulatedLateDays === 1) {
+                details.status = 'pending';
+            } else {
+                details.status = 'paid';
             }
             
-            if (workingDaysToPay > 1) return 'late';
-            if (workingDaysToPay === 1) return 'pending';
-            return 'paid';
+            return details;
         }
+
+        
 
         function calculateCollectorStatus(collectorId) {
             const collectorClients = allClients.filter(c => c.collectorId === collectorId);
@@ -1493,42 +1590,46 @@ currentAdmin.name = currentCompanyData.owner?.name || companyName;
             
             const totalStartingCapital = allCollectors.reduce((sum, c) => sum + (c.startingCapital || 0), 0);
 
-let totalPaidFromHistory = 0;
-let totalPrincipalFromLoans = 0;
-let totalLateFeesGlobal = 0; // <-- AÑADE ESTA LÍNEA
+            let totalPaidFromHistory = 0;
+            let totalPrincipalFromLoans = 0;
+            let totalLateFeesGlobal = 0; // <-- [NUEVO] Para la Mora
 
-allClients.forEach(client => {
-    (client.loans || []).forEach(loan => {
-        // Suma el principal FIJO si existe...
-        if (loan.principalAmount) { /* ... código principal sin cambios ... */ }
-        // Suma los pagos APROBADOS del historial...
-        (loan.history || []).forEach(h => { /* ... código historial sin cambios ... */ });
+            allClients.forEach(client => {
+                (client.loans || []).forEach(loan => {
+                    if (loan.principalAmount) {
+                        totalPrincipalFromLoans += loan.principalAmount;
+                    } else if (loan.totalLoan && client.interestRate) { 
+                        totalPrincipalFromLoans += (loan.totalLoan / (1 + (client.interestRate / 100)));
+                    }
+                    (loan.history || []).forEach(h => {
+                         if (h.status !== 'pending_verification' && h.status !== 'rejected' && h.status !== 'postponed') {
+                            totalPaidFromHistory += (h.amount || 0);
+                        }
+                    });
 
-        // --- CÁLCULO AÑADIDO PARA MORA GLOBAL ---
-        totalLateFeesGlobal += (loan.lateFeesAccumulated || 0); // Suma la mora acumulada de este préstamo
-        // --- FIN CÁLCULO AÑADIDO ---
-    });
-});
+                    totalLateFeesGlobal += (loan.lateFeesAccumulated || 0); // <-- [NUEVO] Suma la mora
+                });
+            });
 
-const totalCapitalBeforeExpenses = totalStartingCapital + totalPaidFromHistory - totalPrincipalFromLoans; // Renombrado para claridad
+            const totalExpensesGlobal = allExpenses.reduce((sum, expense) => sum + (expense.value || 0), 0);
+            const totalSettlementsGlobal = allSettlements.reduce((sum, s) => sum + (s.amount || 0), 0);
+            const totalInjectionsGlobal = allCapitalInjections.filter(i => i.status === 'approved').reduce((sum, i) => sum + (i.amount || 0), 0);
+            
+            // --- [CORRECCIÓN FÓRMULA] ---
+            const finalTotalCapital = totalStartingCapital + totalInjectionsGlobal + totalPaidFromHistory - totalPrincipalFromLoans - totalExpensesGlobal - totalSettlementsGlobal + totalLateFeesGlobal;
+            // --- [FIN CORRECCIÓN] ---
 
-// Calcula el total de todos los gastos...
-const totalExpensesGlobal = allExpenses.reduce((sum, expense) => sum + (expense.value || 0), 0);
-
-// Ahora, ajusta la fórmula de totalCapital para restar gastos Y SUMAR MORA
-const finalTotalCapital = totalCapitalBeforeExpenses - totalExpensesGlobal + totalLateFeesGlobal; // <-- SUMA totalLateFeesGlobal
-// --- FIN AJUSTE ---
-
+            // Esta lógica ya era correcta:
             const activeClientsCount = allClients.filter(c => (c.loans || []).some(l => l.status !== 'finished')).length;
 
-            document.getElementById('kpi-total-capital').textContent = money(finalTotalCapital); // <-- Ya usa finalTotalCapital
+            document.getElementById('kpi-total-capital').textContent = money(finalTotalCapital);
             document.getElementById('kpi-active-collectors').textContent = allCollectors.length;
             document.getElementById('kpi-active-clients').textContent = activeClientsCount;
 
             const listContainer = document.getElementById('collectors-list');
             if(!listContainer) return;
 
-            // --- GET FILTERS AND SORTING ---
+            // --- FILTROS Y ORDENACIÓN (Sin cambios) ---
             const searchInput = document.getElementById('collector-search-input');
             const searchTerm = searchInput ? searchInput.value.toLowerCase() : '';
             const activeStatusFilter = document.querySelector('#dashboard-view .filter-btn[data-filter].active');
@@ -1536,72 +1637,63 @@ const finalTotalCapital = totalCapitalBeforeExpenses - totalExpensesGlobal + tot
             const activeSortBtn = document.querySelector('#dashboard-view .filter-btn[data-sort].active');
             const sortBy = activeSortBtn ? activeSortBtn.dataset.sort : null;
             
-            // --- 1. SEARCH FILTER ---
             let filteredCollectors = allCollectors.filter(collector => 
                 collector.name.toLowerCase().includes(searchTerm)
             );
             
-            // --- 2. STATUS FILTER ---
+            // Esta lógica es para el filtro visual, usa la función antigua (calculateCollectorStatus)
+            // No la cambiaremos, ya que es solo para estética del filtro (En Orden / Atención).
             if (statusFilter !== 'all') {
                 if (statusFilter === 'trackingUnavailable') {
                     filteredCollectors = filteredCollectors.filter(collector => !collector.isRealtimeTrackingActive);
                 } else {
                     filteredCollectors = filteredCollectors.filter(collector => {
-                        const status = calculateCollectorStatus(collector.id);
+                        const status = calculateCollectorStatus(collector.id); // <- Se mantiene lógica de filtro visual
                         return status.textKey === statusFilter;
                     });
                 }
             }
             
-            // --- 3. PREPARE DATA FOR SORTING & RENDERING ---
+            // --- LÓGICA DE LA TARJETA (Ya corregida en el paso anterior, se mantiene) ---
             let collectorsWithData = filteredCollectors.map(collector => {
-                const collectorClients = allClients.filter(c => c.collectorId === collector.id);
                 
-                // --- INICIO NUEVO CÁLCULO DE CAPITAL EN MANO (COBRADOR) ---
-let collectorTotalPaid = 0;
-let collectorTotalPrincipal = 0;
-collectorClients.forEach(client => {
-    (client.loans || []).forEach(loan => {
-        // Suma principal fijo o calcula
-        if (loan.principalAmount) {
-            collectorTotalPrincipal += loan.principalAmount;
-        } else if (loan.totalLoan && client.interestRate) {
-            collectorTotalPrincipal += (loan.totalLoan / (1 + (client.interestRate / 100)));
-        }
-        // Suma historial aprobado
-        (loan.history || []).forEach(h => {
-            if (h.status !== 'pending_verification' && h.status !== 'rejected' && h.status !== 'postponed') {
-                collectorTotalPaid += (h.amount || 0);
-            }
-        });
-    });
-});
-// Resta también los gastos del cobrador (si los tuviéramos aquí, por ahora no los tenemos)
+                const allCollectorClients = allClients.filter(c => c.collectorId === collector.id);
+                
+                const activeCollectorClients = allCollectorClients.filter(c => 
+                    (c.loans || []).some(l => l.status !== 'finished')
+                );
+                
+                let collectorTotalPaid = 0;
+                let collectorTotalPrincipal = 0;
+                let collectorTotalLateFees = 0; // <-- [NUEVO] Para la Mora del Cobrador
+                
+                allCollectorClients.forEach(client => { 
+                    (client.loans || []).forEach(loan => {
+                        if (loan.principalAmount) {
+                            collectorTotalPrincipal += loan.principalAmount;
+                        } else if (loan.totalLoan && client.interestRate) {
+                            collectorTotalPrincipal += (loan.totalLoan / (1 + (client.interestRate / 100)));
+                        }
+                        (loan.history || []).forEach(h => {
+                            if (h.status !== 'pending_verification' && h.status !== 'rejected' && h.status !== 'postponed') {
+                                collectorTotalPaid += (h.amount || 0);
+                            }
+                        });
+                        collectorTotalLateFees += (loan.lateFeesAccumulated || 0); // <-- [NUEVO] Suma la mora
+                    });
+                });
+                
+                const collectorExpensesTotal = allExpenses.filter(e => e.collectorId === collector.id).reduce((sum, e) => sum + (e.value || 0), 0);
+                const totalSettledByCollector = allSettlements.filter(s => s.collectorId === collector.id).reduce((sum, s) => sum + (s.amount || 0), 0);
+                const totalInjectedForCollector = allCapitalInjections.filter(i => i.collectorId === collector.id && i.status === 'approved').reduce((sum, i) => sum + (i.amount || 0), 0);
 
-            const collectorExpensesTotal = allExpenses.filter(e => e.collectorId === collector.id).reduce((sum, e) => sum + (e.value || 0), 0);
-
-// --- CÁLCULO AÑADIDO PARA LIQUIDACIONES ---
-const totalSettledByCollector = allSettlements
-    .filter(s => s.collectorId === collector.id)
-    .reduce((sum, s) => sum + (s.amount || 0), 0);
-// --- FIN CÁLCULO AÑADIDO ---
-
-let collectorTotalLateFees = 0;
-collectorClients.forEach(client => {
-    (client.loans || []).forEach(loan => {
-        collectorTotalLateFees += (loan.lateFeesAccumulated || 0);
-    });
-});
-
-// Ajusta la fórmula final de capitalOnHand
-const capitalOnHand = (collector.startingCapital || 0) + collectorTotalPaid - collectorTotalPrincipal - collectorExpensesTotal - totalSettledByCollector; // <-- RESTA totalSettledByCollector
-// --- FIN NUEVO CÁLCULO ---
-
-        return { ...collector, capitalOnHand, clientCount: collectorClients.length };
-
+                // --- [CORRECCIÓN FÓRMULA] ---
+                const capitalOnHand = (collector.startingCapital || 0) + totalInjectedForCollector + collectorTotalPaid - collectorTotalPrincipal - collectorExpensesTotal - totalSettledByCollector + collectorTotalLateFees;
+                
+                return { ...collector, capitalOnHand, clientCount: activeCollectorClients.length };
             });
+            // --- FIN LÓGICA DE LA TARJETA ---
             
-            // --- 4. SORTING ---
             if (sortBy === 'capital') {
                 collectorsWithData.sort((a, b) => b.capitalOnHand - a.capitalOnHand);
             }
@@ -1611,6 +1703,7 @@ const capitalOnHand = (collector.startingCapital || 0) + collectorTotalPaid - co
                 return;
             }
 
+            // --- RENDERIZADO (Sin cambios) ---
             listContainer.innerHTML = collectorsWithData.map(collector => {
                 const placeholderUrl = `https://placehold.co/96x96/0f172a/FFFFFF?text=${(collector.name || 'C').charAt(0)}`;
                 const status = calculateCollectorStatus(collector.id);
@@ -2806,222 +2899,245 @@ async function submitCollectorReport(collectorId) {
             if(!document.getElementById('kpi-distributed-capital')) return;
             
             // --- INICIO NUEVO CÁLCULO DE FINANZAS GLOBALES ---
-const distributedCapital = allCollectors.reduce((sum, c) => sum + (c.startingCapital || 0), 0);
+            const distributedCapital = allCollectors.reduce((sum, c) => sum + (c.startingCapital || 0), 0);
 
-let totalPaidGlobal = 0; // Calculado desde historial
-let totalPrincipalGlobal = 0; // Calculado desde principalAmount
-let expectedToday = 0;
-let totalLateFeesGlobal = 0;
-const today = new Date();
-const dayOfWeek = today.getDay();
-const dayOfMonth = today.getDate(); // Para frecuencia mensual
+            let totalPaidGlobal = 0; // Calculado desde historial
+            let totalPrincipalGlobal = 0; // Calculado desde principalAmount
+            let expectedToday = 0;
+            let totalLateFeesGlobal = 0; // <-- [NUEVO] Mora
+            const today = new Date();
+            const dayOfWeek = today.getDay();
+            const dayOfMonth = today.getDate();
 
-allClients.forEach(client => {
-    (client.loans || []).forEach(loan => {
-        let principal = 0;
-        // Suma principal fijo o calcula como fallback
-        if (loan.principalAmount) {
-            principal = loan.principalAmount;
-        } else if (loan.totalLoan && client.interestRate) { // Fallback para préstamos antiguos
-            principal = (loan.totalLoan / (1 + (client.interestRate / 100)));
-        }
-        totalPrincipalGlobal += principal;
+            allClients.forEach(client => {
+                (client.loans || []).forEach(loan => {
+                    let principal = 0;
+                    if (loan.principalAmount) {
+                        principal = loan.principalAmount;
+                    } else if (loan.totalLoan && client.interestRate) { 
+                        principal = (loan.totalLoan / (1 + (client.interestRate / 100)));
+                    }
+                    totalPrincipalGlobal += principal;
 
-        // Suma historial aprobado
-        (loan.history || []).forEach(h => {
-            if (h.status !== 'pending_verification' && h.status !== 'rejected' && h.status !== 'postponed') {
-                totalPaidGlobal += (h.amount || 0);
-            }
-        });
-  
-        totalLateFeesGlobal += (loan.lateFeesAccumulated || 0);
+                    (loan.history || []).forEach(h => {
+                        if (h.status !== 'pending_verification' && h.status !== 'rejected' && h.status !== 'postponed') {
+                            totalPaidGlobal += (h.amount || 0);
+                        }
+                    });
+            
+                    totalLateFeesGlobal += (loan.lateFeesAccumulated || 0); // <-- [NUEVO] Suma la mora
 
-        // Calcula lo esperado para hoy (basado en el estado del *préstamo*)
-        // Asegura usar loan.status y loan.amount (valor de la cuota)
-        if (loan.status === 'pending' || loan.status === 'late') {
-            let isPaymentDay = false;
-            const frequency = loan.paymentFrequency || 'daily'; // Asume diario si no está definido
-             if (frequency === 'daily') {
-                isPaymentDay = (loan.paymentDays || []).includes(dayOfWeek);
-            } else if (frequency === 'weekly') {
-                isPaymentDay = (loan.paymentDays || [])[0] === dayOfWeek;
-            } else if (frequency === 'monthly') {
-                isPaymentDay = (loan.paymentDays || [])[0] === dayOfMonth;
-            }
+                    // Calcula lo esperado para hoy (basado en el estado del *préstamo*)
+                    if (loan.status === 'pending' || loan.status === 'late') {
+                        let isPaymentDay = false;
+                        const frequency = loan.paymentFrequency || 'daily';
+                        if (frequency === 'daily') isPaymentDay = (loan.paymentDays || []).includes(dayOfWeek);
+                        else if (frequency === 'weekly') isPaymentDay = (loan.paymentDays || [])[0] === dayOfWeek;
+                        else if (frequency === 'monthly') isPaymentDay = (loan.paymentDays || [])[0] === dayOfMonth;
 
-            if (isPaymentDay) {
-                 // Suma el valor original de la cuota, no el total del préstamo
-                 expectedToday += (loan.amount || 0);
-            }
-        }
-    });
-});
+                        if (isPaymentDay) {
+                            expectedToday += (loan.originalInstallmentAmount || 0); // <-- Usa 'originalInstallmentAmount'
+                        }
+                    }
+                });
+            });
 
-// fieldValue ahora es lo que falta por cobrar del principal REAL
-const fieldValue = totalPrincipalGlobal - totalPaidGlobal; // Esto se queda igual
+            // fieldValue (Total en Campo) ahora es (Principal + Mora) - Pagado
+            const fieldValue = (totalPrincipalGlobal + totalLateFeesGlobal) - totalPaidGlobal;
 
-// grossProfit usa los valores calculados correctamente
-const grossProfitBeforeExpensesAndFees = totalPaidGlobal - totalPrincipalGlobal; // Renombrado
+            // grossProfit (Beneficio Bruto) ahora es (Pagado + Mora) - Principal
+            const grossProfitBeforeExpenses = (totalPaidGlobal + totalLateFeesGlobal) - totalPrincipalGlobal;
 
-// Calcula el total de todos los gastos...
-const totalExpensesGlobal = allExpenses.reduce((sum, expense) => sum + (expense.value || 0), 0);
+            const totalExpensesGlobal = allExpenses.reduce((sum, expense) => sum + (expense.value || 0), 0);
 
-// Ajusta el beneficio bruto restando gastos Y SUMANDO MORA
-const grossProfit = grossProfitBeforeExpensesAndFees - totalExpensesGlobal + totalLateFeesGlobal; // <-- SUMA totalLateFeesGlobal
-// --- FIN AJUSTE ---
+            // Beneficio Bruto Final = (Beneficio Bruto) - Gastos
+            const grossProfit = grossProfitBeforeExpenses - totalExpensesGlobal; 
+            // --- FIN NUEVO CÁLCULO ---
 
-// --- FIN NUEVO CÁLCULO ---
-
-// Actualiza los elementos del DOM ...
-document.getElementById('kpi-distributed-capital').textContent = money(distributedCapital);
-document.getElementById('kpi-expected-today').textContent = money(expectedToday);
-document.getElementById('kpi-field-value').textContent = money(fieldValue); // Sin cambios
-document.getElementById('kpi-gross-profit').textContent = money(grossProfit); // <-- Usa el grossProfit ajustado
-
+            // Actualiza los elementos del DOM ...
             document.getElementById('kpi-distributed-capital').textContent = money(distributedCapital);
             document.getElementById('kpi-expected-today').textContent = money(expectedToday);
             document.getElementById('kpi-field-value').textContent = money(fieldValue);
-            document.getElementById('kpi-gross-profit').textContent = money(grossProfit);
+            document.getElementById('kpi-gross-profit').textContent = money(grossProfit); 
 
+            // --- Lógica del Plan (CON CORRECCIÓN DEL TYPO) ---
             const planTypeElement = document.getElementById('plan-info-type');
-        const planCollectorsElement = document.getElementById('plan-info-collectors');
-
-        // Verifica si los elementos HTML existen y si tenemos los datos de la empresa
-        if (planTypeElement && planCollectorsElement && currentCompanyData && currentCompanyData.plan) {
-            const plan = currentCompanyData.plan; // Accede a los datos del plan
-
-            // Determina el texto del tipo de plan
-            const planTypeText = plan.type === 'pro' 
-                ? `PRO (${plan.plan || 'N/A'})` // Muestra duración si es Pro
-                : 'DEMO'; // O solo DEMO
-            planTypeElement.textContent = planTypeText; // Muestra el texto
-
-            // Calcula cuántos cobradores hay actualmente
-            const currentCollectorCount = allCollectors.length; 
-
-            // Determina el límite de cobradores
-            let collectorLimit = 'Ilimitado'; // Valor por defecto
-
-            if (plan.type === 'demo') {
-                // Si es Demo, el límite es el que dice el plan, o 1 si no dice nada
-                collectorLimit = plan.collectorLimit || 1; 
-            } else if (plan.type === 'pro') {
-                // Si es Pro, verifica si el límite es -1 (ilimitado)
-                if (plan.collectorLimit === -1) {
-                     collectorLimit = 'Ilimitado';
-                } else if (typeof plan.collectorLimit === 'number') {
-                    // Si es un número, ese es el límite
-                    collectorLimit = plan.collectorLimit;
+            const planCollectorsElement = document.getElementById('plan-info-collectors');
+            if (planTypeElement && planCollectorsElement && currentCompanyData && currentCompanyData.plan) {
+                const plan = currentCompanyData.plan; 
+                const planTypeText = plan.type === 'pro' ? `PRO (${plan.plan || 'N/A'})` : 'DEMO';
+                planTypeElement.textContent = planTypeText; 
+                const currentCollectorCount = allCollectors.length; 
+                
+                // --- [INICIO CORRECCIÓN] ---
+                let collectorLimit = 'Ilimitado'; // Variable correcta
+                
+                if (plan.type === 'demo') {
+                    // USA 'collectorLimit', NO 'limit'
+                    collectorLimit = currentCompanyData.plan.collectorLimit || 1; 
+                } else if (currentCompanyData.plan.collectorLimit && currentCompanyData.plan.collectorLimit !== -1) {
+                    // USA 'collectorLimit', NO 'limit'
+                    collectorLimit = currentCompanyData.plan.collectorLimit;
+                } 
+                
+                planCollectorsElement.textContent = `${currentCollectorCount} / ${collectorLimit}`;
+                
+                // USA 'collectorLimit', NO 'limit'
+                if (collectorLimit !== 'Ilimitado' && collectorLimit !== '?' && currentCollectorCount >= collectorLimit) {
+                    planCollectorsElement.style.color = 'var(--danger-color)';
+                    planCollectorsElement.style.fontWeight = 'bold';
                 } else {
-                     collectorLimit = '?'; // Si hay un dato extraño, muestra '?'
+                    planCollectorsElement.style.color = ''; 
+                    planCollectorsElement.style.fontWeight = '';
                 }
+                // --- [FIN CORRECCIÓN] ---
+
+            } else if (planTypeElement) {
+                planTypeElement.textContent = 'Não definido';
+                planCollectorsElement.textContent = `${allCollectors.length} / ?`;
             }
-
-            // Muestra el conteo vs el límite (ej: "3 / 5")
-            planCollectorsElement.textContent = `${currentCollectorCount} / ${collectorLimit}`;
-
-            // (Opcional) Pone el texto en rojo si se alcanzó o superó el límite
-            if (collectorLimit !== 'Ilimitado' && collectorLimit !== '?' && currentCollectorCount >= collectorLimit) {
-                 planCollectorsElement.style.color = 'var(--danger-color)'; // Usa tu color de peligro
-                 planCollectorsElement.style.fontWeight = 'bold';
-            } else {
-                 // Si no, quita el estilo rojo
-                 planCollectorsElement.style.color = ''; 
-                 planCollectorsElement.style.fontWeight = '';
-            }
-        } else if (planTypeElement) {
-            // Si por alguna razón no tenemos datos del plan, muestra valores por defecto
-            planTypeElement.textContent = 'Não definido';
-            planCollectorsElement.textContent = `${allCollectors.length} / ?`;
-        }
-
         }
         
         function showCollectorDetails(collectorId) {
             const detailView = document.getElementById('collectorDetailView');
             const collector = allCollectors.find(c => c.id === collectorId);
-            const clients = allClients.filter(c => c.collectorId === collectorId);
+            const clients = allClients.filter(c => c.collectorId === collectorId); // <-- Todos los clientes (para contabilidad)
             if (!collector) return;
 
+            // --- Lógica para cerrar el mapa si estaba abierto (Sin cambios) ---
             const mapView = document.getElementById('map-view');
             if (mapView && mapView.classList.contains('active')) {
                 mapView.classList.remove('active');
                 document.getElementById('dashboard-view').classList.add('active');
-                
                 document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
                 const dashboardNavItem = document.querySelector('.nav-item[data-view="dashboard"]');
-                if (dashboardNavItem) {
-                    dashboardNavItem.classList.add('active');
-                }
+                if (dashboardNavItem) dashboardNavItem.classList.add('active');
             }
             
             const placeholderUrl = `https://placehold.co/128x128/0f172a/FFFFFF?text=${(collector.name || 'C').charAt(0)}`;
             const isTrackingActive = collector.isRealtimeTrackingActive;
             const lastSeenTime = formatTimestamp(collector.lastLocationUpdate);
 
-            // --- INICIO NUEVO CÁLCULO DETALLADO DEL COBRADOR ---
+            // --- [INICIO: CORRECCIÓN CONTABLE (Igual que en Dashboard)] ---
+            const collectorExpenses = allExpenses.filter(e => e.collectorId === collectorId);
+            const totalExpensesByCollector = collectorExpenses.reduce((sum, e) => sum + (e.value || 0), 0);
+            let totalPaidByCollector = 0;
+            let totalPrincipalLoanedByCollector = 0;
+            let totalLateFeesByCollector = 0; // <-- [NUEVO] Mora
+            let dailyCollected = 0, weeklyCollected = 0, monthlyCollected = 0;
+            const now = new Date();
+            const todayStart = new Date(new Date().setHours(0, 0, 0, 0));
+            const weekStart = new Date(todayStart);
+            weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+            const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
-const collectorExpenses = allExpenses.filter(e => e.collectorId === collectorId);
-const totalExpensesByCollector = collectorExpenses.reduce((sum, e) => sum + (e.value || 0), 0);
+            clients.forEach(c => { 
+                (c.loans || []).forEach(loan => {
+                    if (loan.principalAmount) {
+                        totalPrincipalLoanedByCollector += loan.principalAmount;
+                    } else if (loan.totalLoan && c.interestRate) {
+                        totalPrincipalLoanedByCollector += (loan.totalLoan / (1 + (c.interestRate / 100)));
+                    }
+                    totalLateFeesByCollector += (loan.lateFeesAccumulated || 0); // <-- [NUEVO] Suma mora
+                    
+                    (loan.history || []).forEach(h => {
+                        if (h.date?.seconds && h.status !== 'pending_verification' && h.status !== 'rejected' && h.status !== 'postponed') {
+                            const paymentAmount = h.amount || 0;
+                            totalPaidByCollector += paymentAmount; 
+                            const paymentDate = new Date(h.date.seconds * 1000);
+                            if (paymentDate >= todayStart) dailyCollected += paymentAmount;
+                            if (paymentDate >= weekStart) weeklyCollected += paymentAmount;
+                            if (paymentDate >= monthStart) monthlyCollected += paymentAmount;
+                        }
+                    });
+                });
+            });
 
-let totalPaidByCollector = 0; // Calculado desde historial
-let totalPrincipalLoanedByCollector = 0; // Calculado desde principalAmount
-let dailyCollected = 0, weeklyCollected = 0, monthlyCollected = 0;
-const now = new Date();
-const todayStart = new Date(new Date().setHours(0, 0, 0, 0));
-const weekStart = new Date(todayStart);
-weekStart.setDate(weekStart.getDate() - weekStart.getDay()); // Inicio de la semana (Domingo)
-const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+            const totalSettledByCollector = allSettlements.filter(s => s.collectorId === collectorId).reduce((sum, s) => sum + (s.amount || 0), 0);
+            const totalInjectedForCollector = allCapitalInjections.filter(i => i.collectorId === collectorId && i.status === 'approved').reduce((sum, i) => sum + (i.amount || 0), 0);
 
-clients.forEach(c => { // 'clients' ya está filtrado para este cobrador
-    (c.loans || []).forEach(loan => {
-        // Suma principal fijo o calcula como fallback
-        if (loan.principalAmount) {
-            totalPrincipalLoanedByCollector += loan.principalAmount;
-        } else if (loan.totalLoan && c.interestRate) { // Fallback para préstamos antiguos
-            totalPrincipalLoanedByCollector += (loan.totalLoan / (1 + (c.interestRate / 100)));
-        }
-        // Suma historial aprobado y clasifica por fecha
-        (loan.history || []).forEach(h => {
-            if (h.date?.seconds && h.status !== 'pending_verification' && h.status !== 'rejected' && h.status !== 'postponed') {
-                const paymentAmount = h.amount || 0;
-                totalPaidByCollector += paymentAmount; // Suma al total del cobrador
+            // Fórmula de capital ajustada (la misma que usamos en el PDF y Dashboard)
+            const capitalOnHand = (collector.startingCapital || 0) + totalInjectedForCollector + totalPaidByCollector - totalPrincipalLoanedByCollector - totalExpensesByCollector - totalSettledByCollector + totalLateFeesByCollector;
+            // --- [FIN: CORRECCIÓN CONTABLE] ---
 
-                const paymentDate = new Date(h.date.seconds * 1000);
-                if (paymentDate >= todayStart) dailyCollected += paymentAmount;
-                if (paymentDate >= weekStart) weeklyCollected += paymentAmount;
-                if (paymentDate >= monthStart) monthlyCollected += paymentAmount;
+            const status = calculateCollectorStatus(collectorId); // <-- Se mantiene lógica de filtro visual
+            // --- [INICIO: CORRECCIÓN CONTEO CLIENTES] ---
+            // Usa la misma lógica del Dashboard para contar clientes ACTIVOS
+            const activeClientsCount = clients.filter(c => (c.loans || []).some(l => l.status !== 'finished')).length;
+            const lateClientsCount = clients.filter(c => (c.loans || []).some(l => l.status === 'late')).length;
+            // --- [FIN: CORRECCIÓN CONTEO CLIENTES] ---
+
+            // --- [INICIO: CORRECCIÓN LISTA DE CLIENTES (Usa la estructura "loans")] ---
+            let clientsListHtml = '';
+            if (clients.length > 0) {
+                // Prepara una lista que contiene el cliente y el préstamo más relevante para mostrar
+                const clientsWithDisplayLoan = clients.map(client => {
+                    // Recalcula el estado de los préstamos solo para este cliente
+                    const loansWithStatus = (client.loans || []).map((loan, index) => {
+                        const details = calculateLoanDetails(loan);
+                        return { ...loan, status: details.status, lateDays: details.lateDays, originalIndex: index };
+                    });
+                    
+                    const activeLoans = loansWithStatus.filter(l => l.status !== 'finished');
+                    const hasMultipleActive = activeLoans.length > 1;
+
+                    // Elige el préstamo a mostrar
+                    let displayLoan = loansWithStatus.find(l => l.status === 'late') || 
+                                      loansWithStatus.find(l => l.status === 'pending') || 
+                                      loansWithStatus.find(l => l.status === 'paid') || 
+                                      loansWithStatus[0]; // Fallback al primero
+                    
+                    if (!displayLoan) { // Si no hay préstamos, crea un objeto vacío
+                         displayLoan = { amount: 0, status: 'n/a', lateDays: 0, originalIndex: 0 };
+                    }
+
+                    return { client, displayLoan, hasMultipleActive, activeLoansCount: activeLoans.length };
+                }).sort((a, b) => a.client.name.localeCompare(b.client.name)); // Ordena alfabéticamente
+
+                // Renderiza el HTML
+                clientsListHtml = clientsWithDisplayLoan.map(({ client, displayLoan, hasMultipleActive, activeLoansCount }) => {
+                    const statusClass = `status-${displayLoan.status}`;
+                    const statusText = (translations[currentLang] && translations[currentLang][displayLoan.status]) || displayLoan.status;
+                    const nameInitial = (client.name || 'C').charAt(0).toUpperCase();
+                    const placeholderUrl = `https://placehold.co/80x80/3b82f6/FFFFFF?text=${nameInitial}`;
+                    const photoUrl = client.profilePictureUrl || placeholderUrl;
+                    
+                    const lateDays = displayLoan.lateDays || 0;
+                    const reputationScore = Math.max(0, 10 - lateDays);
+                    let repClass = 'rep-bad';
+                    if (reputationScore === 10) repClass = 'rep-perfect';
+                    else if (reputationScore >= 7) repClass = 'rep-good';
+                    else if (reputationScore >= 3) repClass = 'rep-regular';
+                    
+                    const multipleLoansIndicator = hasMultipleActive 
+                        ? `<span style="font-size: 0.75em; color: var(--accent-purple); font-weight: 600; margin-left: 5px;">(${activeLoansCount} Préstamos)</span>` 
+                        : '';
+
+                    return `
+                        <div class="client-card" data-client-id="${client.id}" data-loan-index="${displayLoan.originalIndex}">
+                            <div class="item-avatar">
+                                <img src="${photoUrl}" alt="Foto do Cliente" style="width: 40px; height: 40px;">
+                            </div>
+                            <div class="item-info">
+                                <h4 class="item-name" style="font-size: 0.95em;">${client.name}${multipleLoansIndicator}</h4>
+                                <p class="item-subtext" style="font-size: 0.85em;">${client.address || 'Endereço não informado'}</p>
+                            </div>
+                            <div class="item-details" style="text-align: right;">
+                                <span class="item-detail-value" style="font-size: 1em;">${money(displayLoan.amount)}</span>
+                                <div style="display: flex; gap: 8px; align-items: center; margin-top: 5px;">
+                                   <span class="reputation-score ${repClass}" style="font-size: 0.75em;"><i data-lucide="star" style="width: 12px; height: 12px;"></i> ${reputationScore}/10</span>
+                                   <span class="payment-status ${statusClass}" style="font-size: 0.75em;">${statusText}</span> 
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            } else {
+                clientsListHtml = '<p>Nenhum cliente para este cobrador.</p>';
             }
-        });
-    });
-});
+            // --- [FIN: CORRECCIÓN LISTA DE CLIENTES] ---
 
-// La fórmula de capital en mano ahora usa los valores calculados correctamente
-// --- CÁLCULO AÑADIDO PARA LIQUIDACIONES (DETALLES) ---
-const totalSettledByCollector = allSettlements
-    .filter(s => s.collectorId === collectorId) // Usa collectorId aquí
-    .reduce((sum, s) => sum + (s.amount || 0), 0);
-// --- FIN CÁLCULO AÑADIDO ---
-
-// --- CÁLCULO AÑADIDO/VERIFICADO PARA MORA DEL COBRADOR (DETALLES) ---
-let collectorTotalLateFees = 0;
-clients.forEach(c => { // Asegúrate de que este loop exista o añade la suma aquí
-     (c.loans || []).forEach(loan => {
-         collectorTotalLateFees += (loan.lateFeesAccumulated || 0);
-     });
-});
-// --- FIN CÁLCULO AÑADIDO/VERIFICADO ---
-
-
-// Ajusta la fórmula final de capitalOnHand para SUMAR MORA
-const capitalOnHand = (collector.startingCapital || 0) + totalPaidByCollector - totalPrincipalLoanedByCollector - totalExpensesByCollector - totalSettledByCollector + collectorTotalLateFees; // <-- SUMA collectorTotalLateFees
-// --- FIN AJUSTE ---
-
-// Estas líneas se calculan después, igual que antes
-const status = calculateCollectorStatus(collectorId);
-const lateClientsCount = clients.filter(c => (c.loans || []).some(l => l.status === 'late')).length; // Asegura revisar loans
-
-
+            // --- HTML (Actualizado) ---
             detailView.innerHTML = `
                 <header class="modal-header">
                     <button id="closeDetailView"><i data-lucide="arrow-left"></i></button>
@@ -3044,15 +3160,7 @@ const lateClientsCount = clients.filter(c => (c.loans || []).some(l => l.status 
                             }
                         </div>
                         <div style="margin-left: auto; display: flex; gap: 8px;">
-                            ${collector.whatsapp ? `
-                                <a href="https://wa.me/${collector.whatsapp.replace(/\D/g, '')}" target="_blank" class="header-btn" title="Enviar mensagem via WhatsApp">
-                                    <svg viewBox="0 0 16 16" width="24" height="24" fill="#25D366" xmlns="http://www.w3.org/2000/svg"><path d="M13.601 2.326A7.854 7.854 0 0 0 7.994 0C3.627 0 .068 3.558.064 7.926c0 1.399.366 2.76 1.057 3.965L0 16l4.204-1.102a7.933 7.933 0 0 0 3.79.965h.004c4.368 0 7.926-3.558 7.93-7.93A7.898 7.898 0 0 0 13.6 2.326zM7.994 14.521a6.573 6.573 0 0 1-3.356-.92l-.24-.144-2.494.654.666-2.433-.156-.251a6.56 6.56 0 0 1-1.007-3.505c0-3.626 2.957-6.584 6.591-6.584a6.56 6.56 0 0 1 4.66 1.931 6.557 6.557 0 0 1 1.928 4.66c-.004 3.639-2.961 6.592-6.592 6.592zm3.615-4.934c-.197-.099-1.17-.578-1.353-.646-.182-.065-.315-.099-.445.099-.133.197-.513.646-.627.775-.114.133-.232.148-.43.05-.197-.1-.836-.308-1.592-.985-.59-.525-.985-1.175-1.103-1.372-.114-.198-.011-.304.088-.403.087-.088.197-.232.296-.346.1-.114.133-.198.198-.33.065-.134.034-.248-.015-.347-.05-.099-.445-1.076-.612-1.47-.16-.389-.323-.335-.445-.34-.114-.007-.247-.007-.38-.007a.729.729 0 0 0-.529.247c-.182.198-.691.677-.691 1.654 0 .977.71 1.916.81 2.049.098.133 1.394 2.132 3.383 2.992.47.205.84.326 1.129.418.475.152.904.129 1.246.08.38-.058 1.171-.48 1.338-.943.164-.464.164-.86.114-.943-.049-.084-.182-.133-.38-.232z"/></svg>
-                                </a>
-                            ` : `
-                                <button class="header-btn" title="WhatsApp não disponível" disabled style="cursor: not-allowed;">
-                                    <svg viewBox="0 0 16 16" width="24" height="24" fill="var(--text-secondary)" xmlns="http://www.w3.org/2000/svg" style="opacity: 0.4;"><path d="M13.601 2.326A7.854 7.854 0 0 0 7.994 0C3.627 0 .068 3.558.064 7.926c0 1.399.366 2.76 1.057 3.965L0 16l4.204-1.102a7.933 7.933 0 0 0 3.79.965h.004c4.368 0 7.926-3.558 7.93-7.93A7.898 7.898 0 0 0 13.6 2.326zM7.994 14.521a6.573 6.573 0 0 1-3.356-.92l-.24-.144-2.494.654.666-2.433-.156-.251a6.56 6.56 0 0 1-1.007-3.505c0-3.626 2.957-6.584 6.591-6.584a6.56 6.56 0 0 1 4.66 1.931 6.557 6.557 0 0 1 1.928 4.66c-.004 3.639-2.961 6.592-6.592 6.592zm3.615-4.934c-.197-.099-1.17-.578-1.353-.646-.182-.065-.315-.099-.445.099-.133.197-.513.646-.627.775-.114.133-.232.148-.43.05-.197-.1-.836-.308-1.592-.985-.59-.525-.985-1.175-1.103-1.372-.114-.198-.011-.304.088-.403.087-.088.197-.232.296-.346.1-.114.133-.198.198-.33.065-.134.034-.248-.015-.347-.05-.099-.445-1.076-.612-1.47-.16-.389-.323-.335-.445-.34-.114-.007-.247-.007-.38-.007a.729.729 0 0 0-.529.247c-.182.198-.691.677-.691 1.654 0 .977.71 1.916.81 2.049.098.133 1.394 2.132 3.383 2.992.47.205.84.326 1.129.418.475.152.904.129 1.246.08.38-.058 1.171-.48 1.338-.943.164-.464.164-.86.114-.943-.049-.084-.182-.133-.38-.232z"/></svg>
-                                </button>
-                            `}
+                            ${collector.whatsapp ? `<a href="https://wa.me/${collector.whatsapp.replace(/\D/g, '')}" target="_blank" class="header-btn" title="Enviar mensagem via WhatsApp">... (svg de whatsapp) ...</a>` : `... (botón whatsapp deshabilitado) ...`}
                             <button class="header-btn collector-map-btn" data-collector-id="${collectorId}" title="Ver no mapa">
                                 <i data-lucide="map-pin" style="width: 24px; height: 24px;"></i>
                             </button>
@@ -3067,6 +3175,10 @@ const lateClientsCount = clients.filter(c => (c.loans || []).some(l => l.status 
                         <div class="kpi-card">
                             <h3 class="kpi-title" data-lang-key="status"><i data-lucide="${status.icon}"></i></h3>
                             <p class="kpi-value" style="color: ${status.color}; font-size: 1.2em;">${translations[currentLang][status.textKey]}</p>
+                        </div>
+                        <div class="kpi-card">
+                            <h3 class="kpi-title" data-lang-key="activeClients"><i data-lucide="user-check"></i></h3>
+                            <p class="kpi-value">${activeClientsCount}</p>
                         </div>
                         <div class="kpi-card">
                             <h3 class="kpi-title" data-lang-key="lateClients"><i data-lucide="user-x"></i></h3>
@@ -3091,40 +3203,16 @@ const lateClientsCount = clients.filter(c => (c.loans || []).some(l => l.status 
 
                     <h2 class="section-title">Clientes de ${collector.name}</h2>
                     <div class="item-list">
-                        ${clients.length > 0 ? clients.map(client => {
-                                const statusClass = `status-${client.status || 'pending'}`;
-                                const nameInitial = (client.name || 'C').charAt(0).toUpperCase();
-                                const placeholderUrl = `https://placehold.co/80x80/3b82f6/FFFFFF?text=${nameInitial}`;
-                                const photoUrl = client.profilePictureUrl || placeholderUrl;
-                                return `
-                                <div class="client-card" data-client-id="${client.id}">
-                                    <div class="item-avatar">
-                                        <img src="${photoUrl}" alt="Foto do Cliente">
-                                    </div>
-                                    <div class="item-info">
-                                        <h4 class="item-name">${client.name}</h4>
-                                        <p class="item-subtext">${client.address || 'Endereço não informado'}</p>
-                                    </div>
-                                    <div class="item-details">
-                                        <span class="item-detail-value">${money(client.amount)}</span>
-                                        <p class="item-subtext ${statusClass}" style="text-transform: capitalize;">${client.status || 'Pendente'}</p>
-                                    </div>
-                                </div>
-                            `}).join('') : '<p>Nenhum cliente para este cobrador.</p>'
-                        }
+                        ${clientsListHtml}
                     </div>
 
-                    <!-- --- INICIO NUEVA SECCIÓN: HISTÓRICO DE LIQUIDAÇÕES --- -->
                     <section style="margin-top: 30px;">
                     <h2 class="section-title">Histórico de Liquidações</h2>
                     <div class="item-list" id="settlements-history-list">
                     <!-- Las liquidaciones se cargarán aquí -->
                 </div>
             </section>
-            <!-- --- FIN NUEVA SECCIÓN --- -->
-
                 </div>
-                    
                  <div class="action-buttons">
                     <button id="download-report-btn" data-collector-id="${collectorId}" class="btn-secondary"><i data-lucide="download"></i> <span data-lang-key="downloadReport"></span></button>
                     <button id="register-settlement-btn" data-collector-id="${collectorId}" class="btn-primary">
@@ -3133,37 +3221,33 @@ const lateClientsCount = clients.filter(c => (c.loans || []).some(l => l.status 
                 </div>
             `;
 
-            // --- INICIO CÓDIGO PARA LLENAR HISTORIAL DE LIQUIDAÇÕES ---
-    const settlementsListContainer = detailView.querySelector('#settlements-history-list');
-    const collectorSettlements = allSettlements
-        .filter(s => s.collectorId === collectorId)
-        .sort((a, b) => (b.date?.seconds || 0) - (a.date?.seconds || 0)); // Ordena por fecha descendente
-
-    if (settlementsListContainer) {
-        if (collectorSettlements.length === 0) {
-            settlementsListContainer.innerHTML = `<p class="no-items">Nenhuma liquidação registrada para este cobrador.</p>`;
-        } else {
-            settlementsListContainer.innerHTML = collectorSettlements.map(settlement => {
-                const date = settlement.date?.seconds ? new Date(settlement.date.seconds * 1000) : null;
-                const dateString = date ? date.toLocaleDateString('pt-BR') : 'Data inválida';
-                const timeString = date ? date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '';
-
-                return `
-                <div class="payment-history-item" style="cursor: default;"> <!-- Reutilizamos estilo -->
-                    <div class="payment-history-details">
-                        <h4 class="payment-history-title">${dateString} - ${timeString}</h4>
-                        ${settlement.notes ? `<p class="payment-history-description" style="font-style: italic;">${settlement.notes}</p>` : ''}
-                    </div>
-                    <div class="payment-history-info">
-                        <span class="payment-history-amount" style="color: var(--text-primary); font-size: 1.1em;">${money(settlement.amount)}</span>
-                    </div>
-                </div>
-                `;
-            }).join('');
-        }
-    }
-    // --- FIN CÓDIGO PARA LLENAR HISTORIAL ---
-
+            // --- Lógica de renderizado de liquidaciones (Sin cambios) ---
+            const settlementsListContainer = detailView.querySelector('#settlements-history-list');
+            const collectorSettlements = allSettlements
+                .filter(s => s.collectorId === collectorId)
+                .sort((a, b) => (b.date?.seconds || 0) - (a.date?.seconds || 0)); 
+            if (settlementsListContainer) {
+                if (collectorSettlements.length === 0) {
+                    settlementsListContainer.innerHTML = `<p class="no-items">Nenhuma liquidação registrada para este cobrador.</p>`;
+                } else {
+                    settlementsListContainer.innerHTML = collectorSettlements.map(settlement => {
+                        const date = settlement.date?.seconds ? new Date(settlement.date.seconds * 1000) : null;
+                        const dateString = date ? date.toLocaleDateString('pt-BR') : 'Data inválida';
+                        const timeString = date ? date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '';
+                        return `
+                        <div class="payment-history-item" style="cursor: default;">
+                            <div class="payment-history-details">
+                                <h4 class="payment-history-title">${dateString} - ${timeString}</h4>
+                                ${settlement.notes ? `<p class="payment-history-description" style="font-style: italic;">${settlement.notes}</p>` : ''}
+                            </div>
+                            <div class="payment-history-info">
+                                <span class="payment-history-amount" style="color: var(--text-primary); font-size: 1.1em;">${money(settlement.amount)}</span>
+                            </div>
+                        </div>`;
+                    }).join('');
+                }
+            }
+            // --- Fin lógica liquidaciones ---
 
             detailView.classList.add('active');
             lucide.createIcons({nodes: detailView.querySelectorAll('[data-lucide]')});
@@ -3171,57 +3255,70 @@ const lateClientsCount = clients.filter(c => (c.loans || []).some(l => l.status 
 
             detailView.querySelector('#closeDetailView').addEventListener('click', () => detailView.classList.remove('active'));
 
+            // --- [CORRECCIÓN LISTENER] ---
+            // Añadido listener para la nueva lista de clientes
             detailView.querySelector('.item-list').addEventListener('click', (e) => {
                 const clientCard = e.target.closest('.client-card');
                 if (clientCard) {
-                    showClientDetails(clientCard.dataset.clientId);
+                    // Pasa el loanIndex que guardamos en el data-attribute
+                    showClientDetails(clientCard.dataset.clientId, parseInt(clientCard.dataset.loanIndex, 10));
                 }
             });
+            // --- [FIN CORRECCIÓN LISTENER] ---
             
-            detailView.querySelector('#editCollectorBtn').addEventListener('click', (e) => {
-                    showCollectorFormModal(e.currentTarget.dataset.collectorId);
-                });
-            
-            detailView.querySelector('#download-report-btn').addEventListener('click', (e) => {
-                showReportOptionsModal(e.currentTarget.dataset.collectorId);
-            });
-
-            detailView.querySelector('.collector-map-btn').addEventListener('click', (e) => {
-                const collectorId = e.currentTarget.dataset.collectorId;
-                focusOnCollector(collectorId);
-            });
+            detailView.querySelector('#editCollectorBtn').addEventListener('click', (e) => showCollectorFormModal(e.currentTarget.dataset.collectorId));
+            detailView.querySelector('#download-report-btn').addEventListener('click', (e) => showReportOptionsModal(e.currentTarget.dataset.collectorId));
+            detailView.querySelector('.collector-map-btn').addEventListener('click', (e) => focusOnCollector(e.currentTarget.dataset.collectorId));
 
             const registerSettlementBtn = detailView.querySelector('#register-settlement-btn');
-    if (registerSettlementBtn) {
-        registerSettlementBtn.addEventListener('click', (e) => {
-            const collectorId = e.currentTarget.dataset.collectorId;
-            const collector = allCollectors.find(c => c.id === collectorId);
-            // Pasamos el capitalOnHand que YA calculamos en esta función
-            showSettlementModal(collectorId, collector.name, capitalOnHand);
-        });
-    }
+            if (registerSettlementBtn) {
+                registerSettlementBtn.addEventListener('click', (e) => {
+                    const collectorId = e.currentTarget.dataset.collectorId;
+                    const collector = allCollectors.find(c => c.id === collectorId);
+                    showSettlementModal(collectorId, collector.name, capitalOnHand);
+                });
+            }
         }
         
-        function showClientDetails(clientId) {
+        function showClientDetails(clientId, loanIndex = 0) { // <-- Acepta un loanIndex
             const client = allClients.find(c => c.id === clientId);
             if (!client) {
                 showToast('Cliente não encontrado.', true);
                 return;
             }
-
+            
+            // --- [INICIO CORRECCIÓN ESTRUCTURA] ---
+            // Asegura que el loanIndex sea válido
+            if (!client.loans || !client.loans[loanIndex]) {
+                 console.error(`showClientDetails: Préstamo con índice ${loanIndex} no encontrado para cliente ${clientId}.`);
+                 // Fallback: buscar el primer préstamo activo si el índice falla
+                 loanIndex = client.loans ? client.loans.findIndex(l => l.status !== 'finished') : -1;
+                 if (loanIndex === -1) loanIndex = 0; // Si no hay activos, muestra el primero
+                 if (!client.loans[loanIndex]) { // Si sigue sin encontrar nada
+                    showToast('Cliente não possui dados de empréstimo válidos.', true);
+                    return;
+                 }
+            }
+            
+            // Usa el préstamo específico
+            const loan = client.loans[loanIndex];
+            
             const detailModal = document.getElementById('clientDetailModal');
-            // --- INICIO CÁLCULO DEL TOTAL PAGADO (PARA MOSTRAR) ---
-const displayTotalPaid = (loan.history || [])
-    .filter(h => h.status !== 'pending_verification' && h.status !== 'rejected' && h.status !== 'postponed')
-    .reduce((sum, h) => sum + (h.amount || 0), 0);
-// --- FIN CÁLCULO ---
-            const historyHtml = (client.history && client.history.length > 0) ? 
-                [...client.history].sort((a,b) => b.date.seconds - a.date.seconds).map(p => `
+            
+            // Calcula el total pagado DESDE EL HISTORIAL del préstamo
+            const displayTotalPaid = (loan.history || [])
+                .filter(h => h.status !== 'pending_verification' && h.status !== 'rejected' && h.status !== 'postponed')
+                .reduce((sum, h) => sum + (h.amount || 0), 0);
+            
+            // Genera el historial DESDE EL PRÉSTAMO
+            const historyHtml = (loan.history && loan.history.length > 0) ? 
+                [...loan.history].sort((a,b) => b.date.seconds - a.date.seconds).map(p => `
                     <div class="payment-history-item">
                         <span>${new Date(p.date.seconds * 1000).toLocaleDateString()}</span>
                         <strong>${money(p.amount)}</strong>
                     </div>
                 `).join('') : '<p>Nenhum histórico de pagamento.</p>';
+            // --- [FIN CORRECCIÓN ESTRUCTURA] ---
             
             const docsHtml = (client.documents && client.documents.length > 0) ?
                 client.documents.map(doc => `
@@ -3232,11 +3329,17 @@ const displayTotalPaid = (loan.history || [])
                     </a>
                 `).join('') : '<p>Nenhum documento anexado.</p>';
             
-            const remainingBalance = (loan.totalLoan || 0) - displayTotalPaid; // Usa displayTotalPaid
-            const totalInstallments = client.installments ? client.installments.split('/')[1] : 'N/A';
-            const paidInstallments = loan.amount > 0 ? Math.floor(displayTotalPaid / loan.amount) : 0; // Usa displayTotalPaid y loan.amount
+            // --- [INICIO CORRECCIÓN CÁLCULOS] ---
+            // Usa los datos del PRÉSTAMO (loan), no del CLIENTE (client)
+            const remainingBalance = (loan.totalLoan || 0) - displayTotalPaid;
+            const totalInstallments = loan.installments ? loan.installments.split('/')[1] : 'N/A';
             
-            const progressPercentage = totalInstallments > 0 && totalInstallments !== 'N/A' ? (paidInstallments / totalInstallments) * 100 : 0;
+            // Usa el valor de cuota del préstamo y el total pagado del préstamo
+            const paidInstallments = (loan.originalInstallmentAmount || 0) > 0 
+                ? Math.floor(displayTotalPaid / loan.originalInstallmentAmount) 
+                : 0; 
+            
+            const progressPercentage = (totalInstallments > 0 && totalInstallments !== 'N/A') ? (paidInstallments / totalInstallments) * 100 : 0;
             const circleCircumference = 2 * Math.PI * 54;
             const strokeDashoffset = circleCircumference - (progressPercentage / 100) * circleCircumference;
 
@@ -3244,7 +3347,11 @@ const displayTotalPaid = (loan.history || [])
             const placeholderUrl = `https://placehold.co/100x100/3b82f6/FFFFFF?text=${nameInitial}`;
             const photoUrl = client.profilePictureUrl || placeholderUrl;
 
-            const lateDays = calculateLatePaymentDays(client);
+            // Usa la función moderna
+            const loanDetails = calculateLoanDetails(loan);
+            const lateDays = loanDetails.lateDays;
+            // --- [FIN CORRECCIÓN CÁLCULOS] ---
+            
             const score = Math.max(0, 10 - lateDays);
             
             let reputationStatusKey = 'reputationBad';
@@ -3256,13 +3363,13 @@ const displayTotalPaid = (loan.history || [])
             if (score === 10) barStatusClass = 'status-perfect';
             else if (score >= 7) barStatusClass = 'status-good';
             else if (score >= 3) barStatusClass = 'status-regular';
-            const paymentDaysText = (client.paymentDays || []).map(dayIndex => translations[currentLang].daysShort[dayIndex] || '').join(', ');
+            const paymentDaysText = (loan.paymentDays || []).map(dayIndex => translations[currentLang].daysShort[dayIndex] || '').join(', ');
 
             detailModal.innerHTML = `
                 <header class="modal-header">
                     <button id="closeClientDetail"><i data-lucide="arrow-left"></i></button>
                     <span class="modal-title">${client.name}</span>
-                    <button id="editClientBtn" data-client-id="${client.id}" class="header-btn"><i data-lucide="edit"></i></button>
+                    <button id="editClientBtn" data-client-id="${client.id}" data-loan-index="${loanIndex}" class="header-btn"><i data-lucide="edit"></i></button>
                 </header>
                 <div class="modal-content-wrapper container">
                 <div style="display: flex; justify-content: center; margin-bottom: 20px;">
@@ -3290,17 +3397,17 @@ const displayTotalPaid = (loan.history || [])
                 <section style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px;">
                     <div class="kpi-card" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 15px;">
                         <h3 class="kpi-title" data-lang-key="totalValue" style="margin: 0; font-size: 0.95em;"></h3>
-                        <p class="kpi-value" style="font-size: 1.2em;">${money(client.totalLoan)}</p>
+                        <p class="kpi-value" style="font-size: 1.2em;">${money(loan.totalLoan)}</p>
                     </div>
                     
                     <div class="kpi-card" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 15px;">
                     <h3 class="kpi-title" data-lang-key="totalPaid" style="margin: 0; font-size: 0.95em;"></h3>
-                    <p class="kpi-value" style="font-size: 1.2em; color: var(--accent-green);">${money(displayTotalPaid)}</p> <!-- Usa displayTotalPaid -->
+                    <p class="kpi-value" style="font-size: 1.2em; color: var(--accent-green);">${money(displayTotalPaid)}</p>
                     </div>
 
                     <div class="kpi-card" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 15px;">
                         <h3 class="kpi-title" data-lang-key="installmentValue" style="margin: 0; font-size: 0.95em;"></h3>
-                        <p class="kpi-value" style="font-size: 1.2em; color: var(--accent-blue);">${money(client.amount)}</p>
+                        <p class="kpi-value" style="font-size: 1.2em; color: var(--accent-blue);">${money(loan.originalInstallmentAmount)}</p>
                     </div>
                     <div class="kpi-card" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 15px;">
                         <h3 class="kpi-title" data-lang-key="remainingBalance" style="margin: 0; font-size: 0.95em;"></h3>
@@ -3316,14 +3423,12 @@ const displayTotalPaid = (loan.history || [])
                             <div><label>Telefone (WhatsApp)</label><p>${client.whatsapp || 'Não informado'}</p></div>
                             <div><label>Telefone Opcional</label><p>${client.phone || 'Não informado'}</p></div>
                             <div><label>Dias de Pagamento</label><p>${paymentDaysText}</p></div>
-                            <div><label>Valor da Parcela</label><p>${money(client.amount)}</p></div>
-                            <div><label>Parcelas Pagas</label><p>${paidInstallments}/${totalInstallments}</p></div>
                             <div><label>Taxa de Juros</label><p>${client.interestRate || 'N/A'}%</p></div>
                         </div>
                     </section>
 
                     <section>
-                        <h2 class="section-title">Histórico de Pagamentos</h2>
+                        <h2 class="section-title">Histórico de Pagamentos (Préstamo ${loanIndex + 1})</h2>
                         <div class="item-list">${historyHtml}</div>
                     </section>
 
@@ -3338,14 +3443,24 @@ const displayTotalPaid = (loan.history || [])
             lucide.createIcons({nodes: detailModal.querySelectorAll('[data-lucide]')});
             applyLanguage(currentLang);
             detailModal.querySelector('#closeClientDetail').addEventListener('click', () => detailModal.classList.remove('active'));
+            
+            // --- [CORRECCIÓN LISTENER] ---
+            // Pasa el loanIndex al modal de edición
             detailModal.querySelector('#editClientBtn').addEventListener('click', (e) => {
-                showClientFormModal(e.currentTarget.dataset.clientId);
+                showClientFormModal(e.currentTarget.dataset.clientId, false, parseInt(e.currentTarget.dataset.loanIndex, 10));
             });
         }
 
         function showCollectorFormModal(collectorId = null) {
             const isEditMode = collectorId !== null;
             const collector = isEditMode ? allCollectors.find(c => c.id === collectorId) : {};
+
+            // --- [INICIO DE LA CORRECCIÓN] ---
+            // Declaramos la variable 'isUsernameAvailable' aquí.
+            // Si estamos editando, el username es válido por defecto.
+            // Si es nuevo, debe ser validado (por eso 'false' inicial).
+            let isUsernameAvailable = isEditMode;
+            // --- [FIN DE LA CORRECCIÓN] ---
 
             const modalTitleKey = isEditMode ? 'editCollector' : 'addNewCollector';
             const saveButtonKey = isEditMode ? 'saveChanges' : 'saveCollector';
@@ -3482,57 +3597,45 @@ const displayTotalPaid = (loan.history || [])
             `;
             formModal.classList.add('active');
 
-            formModal.classList.add('active');
+            // --- INICIA NUEVO CÓDIGO PARA VISTA PREVIA DE IMAGEN ---
+            const profileInput = formModal.querySelector('#collector-profile-pic');
+            const profilePreview = formModal.querySelector('#profile-preview');
+            const documentInput = formModal.querySelector('#collector-document-pic');
+            const documentPreview = formModal.querySelector('#document-preview');
 
-// --- INICIA NUEVO CÓDIGO PARA VISTA PREVIA DE IMAGEN ---
-const profileInput = formModal.querySelector('#collector-profile-pic');
-const profilePreview = formModal.querySelector('#profile-preview');
-const documentInput = formModal.querySelector('#collector-document-pic');
-const documentPreview = formModal.querySelector('#document-preview');
+            if (profileInput) {
+                profileInput.addEventListener('change', (e) => {
+                    const file = e.target.files[0];
+                    if (file) {
+                        profilePreview.src = URL.createObjectURL(file);
+                    }
+                });
+            }
 
-// Escucha si se selecciona una foto de PERFIL
-if (profileInput) {
-    profileInput.addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            // Muestra la imagen seleccionada en el <img> de 'profile-preview'
-            profilePreview.src = URL.createObjectURL(file);
-        }
-    });
-}
+            if (documentInput) {
+                documentInput.addEventListener('change', (e) => {
+                    const file = e.target.files[0];
+                    if (file) {
+                        documentPreview.src = URL.createObjectURL(file);
+                    }
+                });
+            }
 
-// Escucha si se selecciona una foto de DOCUMENTO
-if (documentInput) {
-    documentInput.addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            // Muestra la imagen seleccionada en el <img> de 'document-preview'
-            documentPreview.src = URL.createObjectURL(file);
-        }
-    });
-}
+            if (isEditMode && collector.profilePictureUrl) {
+                profilePreview.src = collector.profilePictureUrl;
+            }
+            if (isEditMode && collector.documentPictureUrl) {
+                documentPreview.src = collector.documentPictureUrl;
+            }
+            // --- FIN NUEVO CÓDIGO PARA VISTA PREVIA DE IMAGEN ---
 
-// Si estamos en modo EDICIÓN, muestra las fotos que ya están guardadas
-if (isEditMode && collector.profilePictureUrl) {
-    profilePreview.src = collector.profilePictureUrl;
-}
-if (isEditMode && collector.documentPictureUrl) {
-    documentPreview.src = collector.documentPictureUrl;
-}
-// --- FIN NUEVO CÓDIGO PARA VISTA PREVIA DE IMAGEN ---
-
-
-
-            // --- Lógica de Moeda ---
             const currencySelect = formModal.querySelector('#collector-currency');
             const capitalSymbolSpan = formModal.querySelector('#capital-currency-symbol');
 
-            // Poblar el select de monedas
             currencySelect.innerHTML = Object.entries(CURRENCY_CONFIGS).map(([code, config]) => 
                 `<option value="${code}" ${ (collector.operatingCurrency || 'BRL') === code ? 'selected' : '' }>${code} - ${config.name}</option>`
             ).join('');
 
-            // Función para actualizar el símbolo
             const updateCurrencySymbol = () => {
                 const selectedCurrencyCode = currencySelect.value;
                 const config = CURRENCY_CONFIGS[selectedCurrencyCode];
@@ -3540,241 +3643,234 @@ if (isEditMode && collector.documentPictureUrl) {
                     capitalSymbolSpan.textContent = `(${config.symbol})`;
                  }
             };
-
-            // Actualizar al cargar y al cambiar
             updateCurrencySymbol(); 
             currencySelect.addEventListener('change', updateCurrencySymbol);
-            // --- Fin Lógica de Moeda ---
 
-            // --- Lógica de Verificación ---
             const fieldsToVerify = ['collector-name', 'collector-document', 'collector-phone', 'collector-whatsapp'];
             fieldsToVerify.forEach(fieldId => {
             const input = formModal.querySelector(`#${fieldId}`);
             if (input) {
-            // Usamos 'blur' para verificar cuando el usuario sale del campo
-            input.addEventListener('blur', () => verifyCollectorInSystem(collectorId));
+                input.addEventListener('blur', () => verifyCollectorInSystem(collectorId));
             }
             });
 
-            // Ejecuta una verificación inicial si estamos en modo edición y ya hay datos
             if (isEditMode) {
-            verifyCollectorInSystem(collectorId);
+                verifyCollectorInSystem(collectorId);
             }
-// --- Fin Lógica de Verificación ---
+
+            // --- [INICIO CORRECCIÓN: LISTENER DE USERNAME] ---
+            // Esta lógica de 'blur' ahora asignará a la variable 'isUsernameAvailable'
+            // que declaramos al inicio de la función.
+            const usernameInput = document.getElementById('collector-username');
+            const validationMsg = document.getElementById('username-validation-msg');
+            
+            usernameInput.addEventListener('blur', async () => {
+                // Solo valida si NO estamos en modo edición (ya que es readonly)
+                if (isEditMode) return; 
+
+                const username = usernameInput.value.trim().toLowerCase().replace(/\s+/g, '_').normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+                usernameInput.value = username; // Actualiza el campo con el valor sanitizado
+
+                if (!username) {
+                    validationMsg.textContent = '';
+                    isUsernameAvailable = false;
+                    return;
+                }
+                
+                validationMsg.textContent = 'Verificando...';
+                validationMsg.style.color = 'var(--text-secondary)';
+                validationMsg.style.fontSize = '0.9em';
+
+                // Verifica si el ID del documento ya existe en 'collectors'
+                const collectorRef = doc(db, "collectors", username);
+                const docSnap = await getDoc(collectorRef);
+
+                if (docSnap.exists()) {
+                    validationMsg.textContent = "Nome de usuário já existe.";
+                    validationMsg.style.color = 'var(--danger-color)';
+                    isUsernameAvailable = false;
+                } else {
+                    validationMsg.textContent = "Nome de usuário disponível!";
+                    validationMsg.style.color = 'var(--accent-green)';
+                    isUsernameAvailable = true;
+                }
+            });
+            // --- [FIN CORRECCIÓN: LISTENER DE USERNAME] ---
+
+
             lucide.createIcons({nodes: formModal.querySelectorAll('[data-lucide]')});
             applyLanguage(currentLang);
             
             formModal.querySelector('#closeCollectorForm').addEventListener('click', () => formModal.classList.remove('active'));
+            
+            // --- INICIO: LISTENER DE GUARDAR (ESTE ES EL BLOQUE QUE TE DI ANTES) ---
             formModal.querySelector('#saveCollectorBtn').addEventListener('click', async () => {
+                const saveBtn = formModal.querySelector('#saveCollectorBtn');
+                const originalButtonHTML = saveBtn.innerHTML; 
+
+                const usernameInput = document.getElementById('collector-username');
+                const originalUsername = usernameInput.value.trim();
+                const username = originalUsername
+                    .toLowerCase()
+                    .replace(/\s+/g, '_') 
+                    .normalize("NFD").replace(/[\u0300-\u036f]/g, ""); 
+                
+                if (originalUsername !== username && !isEditMode) { 
+                     showToast(`O Username foi corrigido para: ${username}`, false);
+                     usernameInput.value = username; 
+                }
+
                 const profileFile = document.getElementById('collector-profile-pic')?.files[0];
                 const documentFile = document.getElementById('collector-document-pic')?.files[0];
-                const username = document.getElementById('collector-username').value.trim();
                 const name = document.getElementById('collector-name').value.trim();
                 const email = document.getElementById('collector-email').value.trim();
                 const password = document.getElementById('collector-password').value.trim();
                 const capital = parseFloat(document.getElementById('collector-capital').value);
-
-                if (!username || !name || isNaN(capital) || 
-                (!isEditMode && !password) || 
-                (!isEditMode && (!profileFile || !documentFile)) // <-- ¡NUEVA VALIDACIÓN!
-                 ) {
-                // Actualizamos el mensaje de error para incluir las fotos
-                showToast(translations[currentLang].fillFields + " (E fotos)", true); 
-                return;
-                }
-
                 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(email)) {
-            showToast("Por favor, insira um formato de email válido.", true);
-            return;
-        }
 
-                const collectorData = {
-                    name,
-                    documentNumber: document.getElementById('collector-document').value.trim(),
-                    address: document.getElementById('collector-address').value,
-                    phone: document.getElementById('collector-phone').value,
-                    whatsapp: document.getElementById('collector-whatsapp').value,
-                    operatingCurrency: document.getElementById('collector-currency').value, 
-                    startingCapital: capital,
-                };
-
-                if (password) {
-                    collectorData.password = password;
+                if (!username || !name || isNaN(capital) || !email) {
+                    showToast(translations[currentLang].fillFields, true);
+                    return;
+                }
+                if (!emailRegex.test(email)) {
+                    showToast("Por favor, insira um formato de email válido.", true);
+                    return;
+                }
+                if (!isEditMode && !password) {
+                    showToast("A senha é obrigatória para novos cobradores.", true);
+                    return;
+                }
+                if (!isEditMode && (!profileFile || !documentFile)) {
+                    showToast("Foto de perfil e foto do documento são obrigatórias.", true); 
+                    return;
                 }
                 
-                // --- INICIA EL NUEVO BLOQUE TRY/CATCH ---
-const saveBtn = formModal.querySelector('#saveCollectorBtn');
-saveBtn.disabled = true; // Deshabilitamos el botón mientras se guarda
-
-try {
-    // Preparamos las variables para las URLs de las fotos
-    let profilePicUrl = collector.profilePictureUrl || ''; // Mantiene la foto antigua si estamos editando
-    let documentPicUrl = collector.documentPictureUrl || ''; // Mantiene el doc antiguo si estamos editando
-
-    // --- 1. SUBIR FOTOS (SI SE SELECCIONARON NUEVAS) ---
-    if (profileFile) {
-        showToast("Subindo foto de perfil...", false);
-        // Creamos una "carpeta" en Storage para este cobrador
-        const profileStorageRef = ref(storage, `collectors/${username}/profile.jpg`);
-        await uploadBytes(profileStorageRef, profileFile); // Subimos el archivo
-        profilePicUrl = await getDownloadURL(profileStorageRef); // Obtenemos el link (URL)
-    }
-
-    if (documentFile) {
-        showToast("Subindo foto de documento...", false);
-        const documentStorageRef = ref(storage, `collectors/${username}/document.jpg`);
-        await uploadBytes(documentStorageRef, documentFile);
-        documentPicUrl = await getDownloadURL(documentStorageRef);
-    }
-
-    // --- 2. PREPARAR DATOS (AHORA INCLUYE LAS URLs) ---
-    // (Esto reemplaza el 'collectorData' que borraste)
-    const collectorData = {
-        username: username,
-        name,
-        documentNumber: document.getElementById('collector-document').value.trim(),
-        address: document.getElementById('collector-address').value,
-        phone: document.getElementById('collector-phone').value,
-        whatsapp: document.getElementById('collector-whatsapp').value,
-        operatingCurrency: document.getElementById('collector-currency').value, 
-        startingCapital: capital,
-        profilePictureUrl: profilePicUrl,   // <-- ¡URL de perfil guardada!
-        documentPictureUrl: documentPicUrl  // <-- ¡URL de documento guardada!
-    };
-
-    // --- 3. GUARDAR/ACTUALIZAR ---
-    if (isEditMode) {
-        // MODO EDICIÓN: Solo actualizamos los datos en Firestore
-        await updateDoc(doc(db, "collectors", collectorId), collectorData);
-
-        // (Opcional: Si se actualizó la foto en modo edición, 
-        // también deberíamos actualizar el perfil de Auth del cobrador. 
-        // Esto es más avanzado, pero se haría aquí.)
-
-        showToast(translations[currentLang].collectorUpdated);
-    
-    } else {
-        // --- TAREA 5: INICIO (MODO CREACIÓN con Cloud Function) ---
-
-        // 1. Obtenemos el password (ya validamos que no está vacío)
-        const password = document.getElementById('collector-password').value.trim();
-        
-        // --- INICIO DE LA CORRECCIÓN ---
-    // 2. Obtenemos el Email REAL del nuevo campo del formulario
-    const collectorEmailForAuth = document.getElementById('collector-email').value.trim();
-    // (El 'username' de la línea 1481 se usará solo para el ID de Firestore)
-    console.log(`Usando Email: ${collectorEmailForAuth} e Username: ${username}`);
-    // --- FIN DE LA CORRECCIÓN ---
-
-        try {
-            // 3. Obtener el Token de Autenticación del Admin
-            if (!auth.currentUser) throw new Error("Admin não está autenticado.");
-            const idToken = await auth.currentUser.getIdToken(true); // 'true' para forçar atualização
-
-            // 4. Preparar los datos para enviar a la Cloud Function
-            // 'collectorData' ya contiene las URLs de las fotos y otros datos (preparado en la línea 1515)
-            const dataToSend = {
-                collectorEmail: collectorEmailForAuth,
-                collectorPassword: password,
-                collectorData: collectorData // Este objeto ya lo preparamos arriba
-            };
-
-            // 5. Definir la URL de la Cloud Function
-            // (Asegúrate que coincida con tu proyecto: lumix-financas-app)
-            const functionUrl = "https://us-central1-lumix-financas-app.cloudfunctions.net/createCollector";
-
-            // 6. Llamar a la Cloud Function
-            console.log("Chamando Cloud Function 'createCollector'...");
-            const response = await fetch(functionUrl, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${idToken}`
-                },
-                body: JSON.stringify({ data: dataToSend }) // Envuelve en 'data'
-            });
-
-            // 7. Manejar la respuesta
-            if (!response.ok) {
-                // Si la respuesta no es 200, lee el error
-                const errorData = await response.json().catch(() => ({})); // Intenta leer el JSON
-                const errorCode = errorData.error?.code;
-                
-                // Manejar errores específicos devueltos por nuestra función
-                if (response.status === 409 && errorCode === 'auth/email-already-in-use') {
-                     throw new Error(`Erro: O nome de usuário '${username}' (email ${collectorEmailForAuth}) já está em uso.`);
-                } else {
-                    throw new Error(errorData.error?.message || `Error HTTP ${response.status}`);
+                // --- [CORRECCIÓN] ---
+                // Esta es la línea que fallaba (linea 4275).
+                // Ahora 'isUsernameAvailable' existe en el scope de la función.
+                if (!isUsernameAvailable) {
+                     showToast(translations[currentLang].usernameTaken, true);
+                     return;
                 }
-            }
+                // --- [FIN CORRECCIÓN] ---
 
-            // 8. Éxito
-            const result = await response.json();
-            console.log("Cloud Function 'createCollector' bem-sucedida:", result);
+                saveBtn.disabled = true; 
+                saveBtn.innerHTML = `<i data-lucide="loader-circle" style="animation: spin 1s linear infinite;"></i> <span>Salvando...</span>`;
+                lucide.createIcons({ nodes: [saveBtn.querySelector('i')] });
 
-            showToast(translations[currentLang].collectorAdded);
-            formModal.classList.remove('active'); // Cierra el modal SÓLO si todo fue exitoso
+                try {
+                    let profilePicUrl = collector.profilePictureUrl || ''; 
+                    let documentPicUrl = collector.documentPictureUrl || ''; 
 
-        } catch (error) {
-            // --- INICIO: Manejo de error MEJORADO en frontend ---
-            console.error("ERRO ao chamar 'createCollector':", error);
-            
-            // Usamos el mensaje de error que viene directamente del backend (si existe),
-            // o un mensaje genérico si no.
-            const errorMessage = error.message || "Ocorreu um erro desconhecido ao criar o cobrador.";
-            
-            showToast(errorMessage, true); // Muestra el error específico
-            // No cerramos el modal si hay un error
-            // --- FIN: Manejo de error MEJORADO ---
-        }
-        // --- TAREA 5: FIN ---
-    }
+                    if (profileFile) {
+                        showToast("Subindo foto de perfil...", false);
+                        const profileStorageRef = ref(storage, `collectors/${username}/profile.jpg`);
+                        await uploadBytes(profileStorageRef, profileFile);
+                        profilePicUrl = await getDownloadURL(profileStorageRef);
+                    }
 
+                    if (documentFile) {
+                        showToast("Subindo foto de documento...", false);
+                        const documentStorageRef = ref(storage, `collectors/${username}/document.jpg`);
+                        await uploadBytes(documentStorageRef, documentFile);
+                        documentPicUrl = await getDownloadURL(documentStorageRef);
+                    }
 
-    formModal.classList.remove('active'); // Cerramos el modal
+                    const collectorData = {
+                        username: username,
+                        name: name,
+                        documentNumber: document.getElementById('collector-document').value.trim(),
+                        address: document.getElementById('collector-address').value,
+                        phone: document.getElementById('collector-phone').value,
+                        whatsapp: document.getElementById('collector-whatsapp').value,
+                        operatingCurrency: document.getElementById('collector-currency').value, 
+                        startingCapital: capital,
+                        profilePictureUrl: profilePicUrl,
+                        documentPictureUrl: documentPicUrl
+                    };
 
-} catch (error) {
-    // Este es el catch correcto para GUARDAR UN COBRADOR
-    console.error("ERRO DETALHADO AO SALVAR COBRADOR: ", error);
+                    if (isEditMode) {
+                        await updateDoc(doc(db, "collectors", collectorId), collectorData);
+                        showToast(translations[currentLang].collectorUpdated);
+                        formModal.classList.remove('active'); 
 
-    let userMessage = translations[currentLang].errorSaving; // Mensaje por defecto
+                    } else {
+                        const collectorEmailForAuth = document.getElementById('collector-email').value.trim();
+                        try {
+                            if (!auth.currentUser) throw new Error("Admin não está autenticado.");
+                            const idToken = await auth.currentUser.getIdToken(true); 
 
-    if (error.code) {
-        switch (error.code) {
-            // Erros de Autenticação (al crear el cobrador)
-            case 'auth/email-already-in-use':
-                userMessage = "Erro: Esse nome de usuário (email) já existe.";
-                break;
-            case 'auth/weak-password':
-                userMessage = "Erro: A senha deve ter pelo menos 6 caracteres.";
-                break;
+                            const dataToSend = {
+                                collectorEmail: collectorEmailForAuth,
+                                collectorPassword: password,
+                                collectorData: collectorData 
+                            };
 
-            // ¡ERROS DE STORAGE! (Esta es la parte importante)
-            case 'storage/unauthorized':
-                userMessage = "Erro de Permissão: Verifique suas Regras do Storage (storage/unauthorized)";
-                break;
-            case 'storage/retry-limit-exceeded':
-                 userMessage = "Erro de Conexão com Storage (Tente novamente)";
-                 break;
+                            const functionUrl = "https://us-central1-lumix-financas-app.cloudfunctions.net/createCollector";
 
-            // Erro genérico do Firebase
-            default:
-                // Muestra el código de erro real
-                userMessage = `Erro desconhecido: ${error.code}`;
-        }
-    }
+                            console.log("Chamando Cloud Function 'createCollector'...");
+                            const response = await fetch(functionUrl, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'Authorization': `Bearer ${idToken}`
+                                },
+                                body: JSON.stringify({ data: dataToSend })
+                            });
 
-    showToast(userMessage, true); // Muestra el mensaje de error detallado
-}
+                            if (!response.ok) {
+                                const errorData = await response.json().catch(() => ({})); 
+                                const errorCode = errorData.error?.code;
+                                
+                                if (response.status === 409 && errorCode === 'auth/email-already-in-use') {
+                                     throw new Error(`Erro: O email '${collectorEmailForAuth}' já está em uso.`);
+                                } else {
+                                    throw new Error(errorData.error?.message || `Error HTTP ${response.status}`);
+                                }
+                            }
 
-finally {
-    saveBtn.disabled = false; // Volvemos a habilitar el botón, incluso si hay error
-}
-// --- FIN DEL NUEVO BLOQUE TRY/CATCH ---
+                            const result = await response.json();
+                            console.log("Cloud Function 'createCollector' bem-sucedida:", result);
 
+                            showToast(translations[currentLang].collectorAdded);
+                            formModal.classList.remove('active'); 
 
+                        } catch (error) {
+                            console.error("ERRO ao chamar 'createCollector':", error);
+                            const errorMessage = error.message || "Ocorreu um erro desconhecido ao criar o cobrador.";
+                            showToast(errorMessage, true); 
+                        }
+                    }
+                } catch (error) {
+                    console.error("ERRO DETALHADO AO SALVAR COBRADOR: ", error);
+                    let userMessage = translations[currentLang].errorSaving; 
+                    if (error.code) {
+                        switch (error.code) {
+                            case 'auth/email-already-in-use':
+                                userMessage = "Erro: Esse nome de usuário (email) já existe.";
+                                break;
+                            case 'auth/weak-password':
+                                userMessage = "Erro: A senha deve ter pelo menos 6 caracteres.";
+                                break;
+                            case 'storage/unauthorized':
+                                userMessage = "Erro de Permissão: Verifique suas Regras do Storage (storage/unauthorized)";
+                                break;
+                            case 'storage/retry-limit-exceeded':
+                                 userMessage = "Erro de Conexão com Storage (Tente novamente)";
+                                 break;
+                            default:
+                                userMessage = `Erro desconhecido: ${error.code}`;
+                        }
+                    }
+                    showToast(userMessage, true);
+                } finally {
+                    saveBtn.disabled = false;
+                    saveBtn.innerHTML = originalButtonHTML; 
+                    lucide.createIcons({ nodes: saveBtn.querySelectorAll('i') }); 
+                }
             });
+            // --- FIN: LISTENER DE GUARDAR ---
+
         }
         
         function showClientFormModal(clientId) {
@@ -4480,6 +4576,7 @@ finally {
     </script>
 </body>
 </html>
+
 
 
 
