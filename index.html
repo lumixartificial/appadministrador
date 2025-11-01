@@ -3455,13 +3455,6 @@ async function submitCollectorReport(collectorId) {
             const isEditMode = collectorId !== null;
             const collector = isEditMode ? allCollectors.find(c => c.id === collectorId) : {};
 
-            // --- [INICIO DE LA CORRECCIÓN] ---
-            // Declaramos la variable 'isUsernameAvailable' aquí.
-            // Si estamos editando, el username es válido por defecto.
-            // Si es nuevo, debe ser validado (por eso 'false' inicial).
-            let isUsernameAvailable = isEditMode;
-            // --- [FIN DE LA CORRECCIÓN] ---
-
             const modalTitleKey = isEditMode ? 'editCollector' : 'addNewCollector';
             const saveButtonKey = isEditMode ? 'saveChanges' : 'saveCollector';
             
@@ -3597,45 +3590,57 @@ async function submitCollectorReport(collectorId) {
             `;
             formModal.classList.add('active');
 
-            // --- INICIA NUEVO CÓDIGO PARA VISTA PREVIA DE IMAGEN ---
-            const profileInput = formModal.querySelector('#collector-profile-pic');
-            const profilePreview = formModal.querySelector('#profile-preview');
-            const documentInput = formModal.querySelector('#collector-document-pic');
-            const documentPreview = formModal.querySelector('#document-preview');
+            formModal.classList.add('active');
 
-            if (profileInput) {
-                profileInput.addEventListener('change', (e) => {
-                    const file = e.target.files[0];
-                    if (file) {
-                        profilePreview.src = URL.createObjectURL(file);
-                    }
-                });
-            }
+// --- INICIA NUEVO CÓDIGO PARA VISTA PREVIA DE IMAGEN ---
+const profileInput = formModal.querySelector('#collector-profile-pic');
+const profilePreview = formModal.querySelector('#profile-preview');
+const documentInput = formModal.querySelector('#collector-document-pic');
+const documentPreview = formModal.querySelector('#document-preview');
 
-            if (documentInput) {
-                documentInput.addEventListener('change', (e) => {
-                    const file = e.target.files[0];
-                    if (file) {
-                        documentPreview.src = URL.createObjectURL(file);
-                    }
-                });
-            }
+// Escucha si se selecciona una foto de PERFIL
+if (profileInput) {
+    profileInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            // Muestra la imagen seleccionada en el <img> de 'profile-preview'
+            profilePreview.src = URL.createObjectURL(file);
+        }
+    });
+}
 
-            if (isEditMode && collector.profilePictureUrl) {
-                profilePreview.src = collector.profilePictureUrl;
-            }
-            if (isEditMode && collector.documentPictureUrl) {
-                documentPreview.src = collector.documentPictureUrl;
-            }
-            // --- FIN NUEVO CÓDIGO PARA VISTA PREVIA DE IMAGEN ---
+// Escucha si se selecciona una foto de DOCUMENTO
+if (documentInput) {
+    documentInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            // Muestra la imagen seleccionada en el <img> de 'document-preview'
+            documentPreview.src = URL.createObjectURL(file);
+        }
+    });
+}
 
+// Si estamos en modo EDICIÓN, muestra las fotos que ya están guardadas
+if (isEditMode && collector.profilePictureUrl) {
+    profilePreview.src = collector.profilePictureUrl;
+}
+if (isEditMode && collector.documentPictureUrl) {
+    documentPreview.src = collector.documentPictureUrl;
+}
+// --- FIN NUEVO CÓDIGO PARA VISTA PREVIA DE IMAGEN ---
+
+
+
+            // --- Lógica de Moeda ---
             const currencySelect = formModal.querySelector('#collector-currency');
             const capitalSymbolSpan = formModal.querySelector('#capital-currency-symbol');
 
+            // Poblar el select de monedas
             currencySelect.innerHTML = Object.entries(CURRENCY_CONFIGS).map(([code, config]) => 
                 `<option value="${code}" ${ (collector.operatingCurrency || 'BRL') === code ? 'selected' : '' }>${code} - ${config.name}</option>`
             ).join('');
 
+            // Función para actualizar el símbolo
             const updateCurrencySymbol = () => {
                 const selectedCurrencyCode = currencySelect.value;
                 const config = CURRENCY_CONFIGS[selectedCurrencyCode];
@@ -3643,233 +3648,243 @@ async function submitCollectorReport(collectorId) {
                     capitalSymbolSpan.textContent = `(${config.symbol})`;
                  }
             };
+
+            // Actualizar al cargar y al cambiar
             updateCurrencySymbol(); 
             currencySelect.addEventListener('change', updateCurrencySymbol);
+            // --- Fin Lógica de Moeda ---
 
+            // --- Lógica de Verificación ---
             const fieldsToVerify = ['collector-name', 'collector-document', 'collector-phone', 'collector-whatsapp'];
             fieldsToVerify.forEach(fieldId => {
             const input = formModal.querySelector(`#${fieldId}`);
             if (input) {
-                input.addEventListener('blur', () => verifyCollectorInSystem(collectorId));
+            // Usamos 'blur' para verificar cuando el usuario sale del campo
+            input.addEventListener('blur', () => verifyCollectorInSystem(collectorId));
             }
             });
 
+            // Ejecuta una verificación inicial si estamos en modo edición y ya hay datos
             if (isEditMode) {
-                verifyCollectorInSystem(collectorId);
+            verifyCollectorInSystem(collectorId);
             }
-
-            // --- [INICIO CORRECCIÓN: LISTENER DE USERNAME] ---
-            // Esta lógica de 'blur' ahora asignará a la variable 'isUsernameAvailable'
-            // que declaramos al inicio de la función.
-            const usernameInput = document.getElementById('collector-username');
-            const validationMsg = document.getElementById('username-validation-msg');
-            
-            usernameInput.addEventListener('blur', async () => {
-                // Solo valida si NO estamos en modo edición (ya que es readonly)
-                if (isEditMode) return; 
-
-                const username = usernameInput.value.trim().toLowerCase().replace(/\s+/g, '_').normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-                usernameInput.value = username; // Actualiza el campo con el valor sanitizado
-
-                if (!username) {
-                    validationMsg.textContent = '';
-                    isUsernameAvailable = false;
-                    return;
-                }
-                
-                validationMsg.textContent = 'Verificando...';
-                validationMsg.style.color = 'var(--text-secondary)';
-                validationMsg.style.fontSize = '0.9em';
-
-                // Verifica si el ID del documento ya existe en 'collectors'
-                const collectorRef = doc(db, "collectors", username);
-                const docSnap = await getDoc(collectorRef);
-
-                if (docSnap.exists()) {
-                    validationMsg.textContent = "Nome de usuário já existe.";
-                    validationMsg.style.color = 'var(--danger-color)';
-                    isUsernameAvailable = false;
-                } else {
-                    validationMsg.textContent = "Nome de usuário disponível!";
-                    validationMsg.style.color = 'var(--accent-green)';
-                    isUsernameAvailable = true;
-                }
-            });
-            // --- [FIN CORRECCIÓN: LISTENER DE USERNAME] ---
-
-
+// --- Fin Lógica de Verificación ---
             lucide.createIcons({nodes: formModal.querySelectorAll('[data-lucide]')});
             applyLanguage(currentLang);
             
             formModal.querySelector('#closeCollectorForm').addEventListener('click', () => formModal.classList.remove('active'));
-            
-            // --- INICIO: LISTENER DE GUARDAR (ESTE ES EL BLOQUE QUE TE DI ANTES) ---
             formModal.querySelector('#saveCollectorBtn').addEventListener('click', async () => {
-                const saveBtn = formModal.querySelector('#saveCollectorBtn');
-                const originalButtonHTML = saveBtn.innerHTML; 
-
-                const usernameInput = document.getElementById('collector-username');
-                const originalUsername = usernameInput.value.trim();
-                const username = originalUsername
-                    .toLowerCase()
-                    .replace(/\s+/g, '_') 
-                    .normalize("NFD").replace(/[\u0300-\u036f]/g, ""); 
-                
-                if (originalUsername !== username && !isEditMode) { 
-                     showToast(`O Username foi corrigido para: ${username}`, false);
-                     usernameInput.value = username; 
-                }
-
                 const profileFile = document.getElementById('collector-profile-pic')?.files[0];
                 const documentFile = document.getElementById('collector-document-pic')?.files[0];
+                const username = document.getElementById('collector-username').value.trim();
                 const name = document.getElementById('collector-name').value.trim();
                 const email = document.getElementById('collector-email').value.trim();
                 const password = document.getElementById('collector-password').value.trim();
                 const capital = parseFloat(document.getElementById('collector-capital').value);
-                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-                if (!username || !name || isNaN(capital) || !email) {
-                    showToast(translations[currentLang].fillFields, true);
-                    return;
+                if (!username || !name || isNaN(capital) || 
+                (!isEditMode && !password) || 
+                (!isEditMode && (!profileFile || !documentFile)) // <-- ¡NUEVA VALIDACIÓN!
+                 ) {
+                // Actualizamos el mensaje de error para incluir las fotos
+                showToast(translations[currentLang].fillFields + " (E fotos)", true); 
+                return;
                 }
-                if (!emailRegex.test(email)) {
-                    showToast("Por favor, insira um formato de email válido.", true);
-                    return;
-                }
-                if (!isEditMode && !password) {
-                    showToast("A senha é obrigatória para novos cobradores.", true);
-                    return;
-                }
-                if (!isEditMode && (!profileFile || !documentFile)) {
-                    showToast("Foto de perfil e foto do documento são obrigatórias.", true); 
-                    return;
+
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            showToast("Por favor, insira um formato de email válido.", true);
+            return;
+        }
+
+                const collectorData = {
+                    name,
+                    documentNumber: document.getElementById('collector-document').value.trim(),
+                    address: document.getElementById('collector-address').value,
+                    phone: document.getElementById('collector-phone').value,
+                    whatsapp: document.getElementById('collector-whatsapp').value,
+                    operatingCurrency: document.getElementById('collector-currency').value, 
+                    startingCapital: capital,
+                };
+
+                if (password) {
+                    collectorData.password = password;
                 }
                 
-                // --- [CORRECCIÓN] ---
-                // Esta es la línea que fallaba (linea 4275).
-                // Ahora 'isUsernameAvailable' existe en el scope de la función.
-                if (!isUsernameAvailable) {
-                     showToast(translations[currentLang].usernameTaken, true);
-                     return;
-                }
-                // --- [FIN CORRECCIÓN] ---
+                // --- INICIA EL NUEVO BLOQUE TRY/CATCH ---
+const saveBtn = formModal.querySelector('#saveCollectorBtn');
+saveBtn.disabled = true; // Deshabilitamos el botón mientras se guarda
 
-                saveBtn.disabled = true; 
-                saveBtn.innerHTML = `<i data-lucide="loader-circle" style="animation: spin 1s linear infinite;"></i> <span>Salvando...</span>`;
-                lucide.createIcons({ nodes: [saveBtn.querySelector('i')] });
+try {
+    // Preparamos las variables para las URLs de las fotos
+    let profilePicUrl = collector.profilePictureUrl || ''; // Mantiene la foto antigua si estamos editando
+    let documentPicUrl = collector.documentPictureUrl || ''; // Mantiene el doc antiguo si estamos editando
 
-                try {
-                    let profilePicUrl = collector.profilePictureUrl || ''; 
-                    let documentPicUrl = collector.documentPictureUrl || ''; 
+    // --- 1. SUBIR FOTOS (SI SE SELECCIONARON NUEVAS) ---
+    if (profileFile) {
+        showToast("Subindo foto de perfil...", false);
+        // Creamos una "carpeta" en Storage para este cobrador
+        const profileStorageRef = ref(storage, `collectors/${username}/profile.jpg`);
+        await uploadBytes(profileStorageRef, profileFile); // Subimos el archivo
+        profilePicUrl = await getDownloadURL(profileStorageRef); // Obtenemos el link (URL)
+    }
 
-                    if (profileFile) {
-                        showToast("Subindo foto de perfil...", false);
-                        const profileStorageRef = ref(storage, `collectors/${username}/profile.jpg`);
-                        await uploadBytes(profileStorageRef, profileFile);
-                        profilePicUrl = await getDownloadURL(profileStorageRef);
-                    }
+    if (documentFile) {
+        showToast("Subindo foto de documento...", false);
+        const documentStorageRef = ref(storage, `collectors/${username}/document.jpg`);
+        await uploadBytes(documentStorageRef, documentFile);
+        documentPicUrl = await getDownloadURL(documentStorageRef);
+    }
 
-                    if (documentFile) {
-                        showToast("Subindo foto de documento...", false);
-                        const documentStorageRef = ref(storage, `collectors/${username}/document.jpg`);
-                        await uploadBytes(documentStorageRef, documentFile);
-                        documentPicUrl = await getDownloadURL(documentStorageRef);
-                    }
+    // --- 2. PREPARAR DATOS (AHORA INCLUYE LAS URLs) ---
+    // (Esto reemplaza el 'collectorData' que borraste)
+    const collectorData = {
+        username: username,
+        name,
+        documentNumber: document.getElementById('collector-document').value.trim(),
+        address: document.getElementById('collector-address').value,
+        phone: document.getElementById('collector-phone').value,
+        whatsapp: document.getElementById('collector-whatsapp').value,
+        operatingCurrency: document.getElementById('collector-currency').value, 
+        startingCapital: capital,
+        profilePictureUrl: profilePicUrl,   // <-- ¡URL de perfil guardada!
+        documentPictureUrl: documentPicUrl  // <-- ¡URL de documento guardada!
+    };
 
-                    const collectorData = {
-                        username: username,
-                        name: name,
-                        documentNumber: document.getElementById('collector-document').value.trim(),
-                        address: document.getElementById('collector-address').value,
-                        phone: document.getElementById('collector-phone').value,
-                        whatsapp: document.getElementById('collector-whatsapp').value,
-                        operatingCurrency: document.getElementById('collector-currency').value, 
-                        startingCapital: capital,
-                        profilePictureUrl: profilePicUrl,
-                        documentPictureUrl: documentPicUrl
-                    };
+    // --- 3. GUARDAR/ACTUALIZAR ---
+    if (isEditMode) {
+        // MODO EDICIÓN: Solo actualizamos los datos en Firestore
+        await updateDoc(doc(db, "collectors", collectorId), collectorData);
 
-                    if (isEditMode) {
-                        await updateDoc(doc(db, "collectors", collectorId), collectorData);
-                        showToast(translations[currentLang].collectorUpdated);
-                        formModal.classList.remove('active'); 
+        // (Opcional: Si se actualizó la foto en modo edición, 
+        // también deberíamos actualizar el perfil de Auth del cobrador. 
+        // Esto es más avanzado, pero se haría aquí.)
 
-                    } else {
-                        const collectorEmailForAuth = document.getElementById('collector-email').value.trim();
-                        try {
-                            if (!auth.currentUser) throw new Error("Admin não está autenticado.");
-                            const idToken = await auth.currentUser.getIdToken(true); 
+        showToast(translations[currentLang].collectorUpdated);
+    
+    } else {
+        // --- TAREA 5: INICIO (MODO CREACIÓN con Cloud Function) ---
 
-                            const dataToSend = {
-                                collectorEmail: collectorEmailForAuth,
-                                collectorPassword: password,
-                                collectorData: collectorData 
-                            };
+        // 1. Obtenemos el password (ya validamos que no está vacío)
+        const password = document.getElementById('collector-password').value.trim();
+        
+        // --- INICIO DE LA CORRECCIÓN ---
+    // 2. Obtenemos el Email REAL del nuevo campo del formulario
+    const collectorEmailForAuth = document.getElementById('collector-email').value.trim();
+    // (El 'username' de la línea 1481 se usará solo para el ID de Firestore)
+    console.log(`Usando Email: ${collectorEmailForAuth} e Username: ${username}`);
+    // --- FIN DE LA CORRECCIÓN ---
 
-                            const functionUrl = "https://us-central1-lumix-financas-app.cloudfunctions.net/createCollector";
+        try {
+            // 3. Obtener el Token de Autenticación del Admin
+            if (!auth.currentUser) throw new Error("Admin não está autenticado.");
+            const idToken = await auth.currentUser.getIdToken(true); // 'true' para forçar atualização
 
-                            console.log("Chamando Cloud Function 'createCollector'...");
-                            const response = await fetch(functionUrl, {
-                                method: 'POST',
-                                headers: {
-                                    'Content-Type': 'application/json',
-                                    'Authorization': `Bearer ${idToken}`
-                                },
-                                body: JSON.stringify({ data: dataToSend })
-                            });
+            // 4. Preparar los datos para enviar a la Cloud Function
+            // 'collectorData' ya contiene las URLs de las fotos y otros datos (preparado en la línea 1515)
+            const dataToSend = {
+                collectorEmail: collectorEmailForAuth,
+                collectorPassword: password,
+                collectorData: collectorData // Este objeto ya lo preparamos arriba
+            };
 
-                            if (!response.ok) {
-                                const errorData = await response.json().catch(() => ({})); 
-                                const errorCode = errorData.error?.code;
-                                
-                                if (response.status === 409 && errorCode === 'auth/email-already-in-use') {
-                                     throw new Error(`Erro: O email '${collectorEmailForAuth}' já está em uso.`);
-                                } else {
-                                    throw new Error(errorData.error?.message || `Error HTTP ${response.status}`);
-                                }
-                            }
+            // 5. Definir la URL de la Cloud Function
+            // (Asegúrate que coincida con tu proyecto: lumix-financas-app)
+            const functionUrl = "https://us-central1-lumix-financas-app.cloudfunctions.net/createCollector";
 
-                            const result = await response.json();
-                            console.log("Cloud Function 'createCollector' bem-sucedida:", result);
-
-                            showToast(translations[currentLang].collectorAdded);
-                            formModal.classList.remove('active'); 
-
-                        } catch (error) {
-                            console.error("ERRO ao chamar 'createCollector':", error);
-                            const errorMessage = error.message || "Ocorreu um erro desconhecido ao criar o cobrador.";
-                            showToast(errorMessage, true); 
-                        }
-                    }
-                } catch (error) {
-                    console.error("ERRO DETALHADO AO SALVAR COBRADOR: ", error);
-                    let userMessage = translations[currentLang].errorSaving; 
-                    if (error.code) {
-                        switch (error.code) {
-                            case 'auth/email-already-in-use':
-                                userMessage = "Erro: Esse nome de usuário (email) já existe.";
-                                break;
-                            case 'auth/weak-password':
-                                userMessage = "Erro: A senha deve ter pelo menos 6 caracteres.";
-                                break;
-                            case 'storage/unauthorized':
-                                userMessage = "Erro de Permissão: Verifique suas Regras do Storage (storage/unauthorized)";
-                                break;
-                            case 'storage/retry-limit-exceeded':
-                                 userMessage = "Erro de Conexão com Storage (Tente novamente)";
-                                 break;
-                            default:
-                                userMessage = `Erro desconhecido: ${error.code}`;
-                        }
-                    }
-                    showToast(userMessage, true);
-                } finally {
-                    saveBtn.disabled = false;
-                    saveBtn.innerHTML = originalButtonHTML; 
-                    lucide.createIcons({ nodes: saveBtn.querySelectorAll('i') }); 
-                }
+            // 6. Llamar a la Cloud Function
+            console.log("Chamando Cloud Function 'createCollector'...");
+            const response = await fetch(functionUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${idToken}`
+                },
+                body: JSON.stringify({ data: dataToSend }) // Envuelve en 'data'
             });
-            // --- FIN: LISTENER DE GUARDAR ---
+
+            // 7. Manejar la respuesta
+            if (!response.ok) {
+                // Si la respuesta no es 200, lee el error
+                const errorData = await response.json().catch(() => ({})); // Intenta leer el JSON
+                const errorCode = errorData.error?.code;
+                
+                // Manejar errores específicos devueltos por nuestra función
+                if (response.status === 409 && errorCode === 'auth/email-already-in-use') {
+                     throw new Error(`Erro: O nome de usuário '${username}' (email ${collectorEmailForAuth}) já está em uso.`);
+                } else {
+                    throw new Error(errorData.error?.message || `Error HTTP ${response.status}`);
+                }
+            }
+
+            // 8. Éxito
+            const result = await response.json();
+            console.log("Cloud Function 'createCollector' bem-sucedida:", result);
+
+            showToast(translations[currentLang].collectorAdded);
+            formModal.classList.remove('active'); // Cierra el modal SÓLO si todo fue exitoso
+
+        } catch (error) {
+            // --- INICIO: Manejo de error MEJORADO en frontend ---
+            console.error("ERRO ao chamar 'createCollector':", error);
+            
+            // Usamos el mensaje de error que viene directamente del backend (si existe),
+            // o un mensaje genérico si no.
+            const errorMessage = error.message || "Ocorreu um erro desconhecido ao criar o cobrador.";
+            
+            showToast(errorMessage, true); // Muestra el error específico
+            // No cerramos el modal si hay un error
+            // --- FIN: Manejo de error MEJORADO ---
+        }
+        // --- TAREA 5: FIN ---
+    }
+
+
+    formModal.classList.remove('active'); // Cerramos el modal
+
+} catch (error) {
+    // Este es el catch correcto para GUARDAR UN COBRADOR
+    console.error("ERRO DETALHADO AO SALVAR COBRADOR: ", error);
+
+    let userMessage = translations[currentLang].errorSaving; // Mensaje por defecto
+
+    if (error.code) {
+        switch (error.code) {
+            // Erros de Autenticação (al crear el cobrador)
+            case 'auth/email-already-in-use':
+                userMessage = "Erro: Esse nome de usuário (email) já existe.";
+                break;
+            case 'auth/weak-password':
+                userMessage = "Erro: A senha deve ter pelo menos 6 caracteres.";
+                break;
+
+            // ¡ERROS DE STORAGE! (Esta es la parte importante)
+            case 'storage/unauthorized':
+                userMessage = "Erro de Permissão: Verifique suas Regras do Storage (storage/unauthorized)";
+                break;
+            case 'storage/retry-limit-exceeded':
+                 userMessage = "Erro de Conexão com Storage (Tente novamente)";
+                 break;
+
+            // Erro genérico do Firebase
+            default:
+                // Muestra el código de erro real
+                userMessage = `Erro desconhecido: ${error.code}`;
+        }
+    }
+
+    showToast(userMessage, true); // Muestra el mensaje de error detallado
+}
+
+finally {
+    saveBtn.disabled = false; // Volvemos a habilitar el botón, incluso si hay error
+}
+// --- FIN DEL NUEVO BLOQUE TRY/CATCH ---
+
+
+});
+
+
 
         }
         
@@ -4576,7 +4591,3 @@ async function submitCollectorReport(collectorId) {
     </script>
 </body>
 </html>
-
-
-
-
