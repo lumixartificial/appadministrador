@@ -15,6 +15,7 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://unpkg.com/jspdf-autotable@3.5.23/dist/jspdf.plugin.autotable.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.css">
     <style>
         :root {
@@ -828,6 +829,7 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
 
         let calculatedCollectorMetrics = new Map(); // Guardará métricas por ID de cobrador
         let calculatedGlobalMetrics = {}; // Guardará métricas globales
+        let reportChartInstance = null;
 
         let currentAdmin = { id: 'admin', name: 'Administrador', profilePic: '' };
         let currentLang = localStorage.getItem('adminLanguage') || 'pt';
@@ -1044,10 +1046,7 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                     updateReportsView();
                 }
 
-            } else {
-                // Informa qué datos aún faltan (útil para depuración)
-                console.log(`[ADMIN-APP] Esperando datos... Cobradores: ${collectorsReady}, Clientes: ${clientsReady}, Gastos: ${expensesReady}, Liquidaciones: ${settlementsReady}, Aportes: ${capitalInjectionsReady}`);
-            }
+            } 
         }
 
 
@@ -1445,13 +1444,11 @@ currentAdmin.name = currentCompanyData.owner?.name || companyName;
                     updateCollectorMarkers(); 
                 }, 50);
             }
+            
             if (viewName === 'reports') {
                 updateReportsView();
             }
-
-            if (viewName === 'community') {
-            renderCommunityView();
-            }
+            
 
         }
 
@@ -1514,21 +1511,37 @@ currentAdmin.name = currentCompanyData.owner?.name || companyName;
                     <div id="map-view" class="view" style="height:100%; padding:0;">
                         <div id="map-container" style="height:100%; width:100%;"></div>
                     </div>
-                    <div id="reports-view" class="view container">
+                    
+                    
+                    <div id="reports-view" class="view container" style="padding-bottom: 50px;">
                         <h1 class="section-title" data-lang-key="reports"></h1>
-                        <div class="report-filters">
+                        
+                        <!-- Novos Filtros Profissionais -->
+                        <div class="kpi-card" style="margin-bottom: 20px;">
+                            <h3 class="kpi-title" style="margin: 0 0 15px; font-size: 1.1em; color: var(--text-primary);"><i data-lucide="filter"></i> Filtros do Relatório</h3>
+                            <div class="report-filters" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
                                 <div class="form-group">
-                                <label>Filtrar por Cobrador</label>
-                                <select id="report-collector-filter"></select>
+                                    <label for="report-collector-filter">Filtrar por Cobrador</label>
+                                    <select id="report-collector-filter"></select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="report-date-start">Data Início</label>
+                                    <input type="date" id="report-date-start">
+                                </div>
+                                <div class="form-group">
+                                    <label for="report-date-end">Data Fim</label>
+                                    <input type="date" id="report-date-end">
+                                </div>
                             </div>
+                            <button id="report-generate-btn" class="btn-primary" style="width: 100%; margin-top: 15px;">
+                                <i data-lucide="bar-chart-3"></i> Gerar Relatório
+                            </button>
                         </div>
-                        <div class="filter-buttons">
-                            <button class="filter-btn active" data-period="today">Hoje</button>
-                            <button class="filter-btn" data-period="week">Esta Semana</button>
-                            <button class="filter-btn" data-period="month">Este Mês</button>
-                            <button class="filter-btn" data-period="all">Desde o Início</button>
+
+                        <!-- Onde os resultados aparecerão -->
+                        <div id="report-results">
+                            <!-- O conteúdo será preenchido por JS -->
                         </div>
-                        <div id="report-results"></div>
                     </div>
                     
                         
@@ -2538,67 +2551,262 @@ async function submitCollectorReport(collectorId) {
             }
         }
 
+        
         function updateReportsView() {
             const collectorFilter = document.getElementById('report-collector-filter');
-            const periodFilter = document.querySelector('#reports-view .filter-btn.active');
+            const dateStartInput = document.getElementById('report-date-start');
+            const dateEndInput = document.getElementById('report-date-end');
             const resultsContainer = document.getElementById('report-results');
-            if(!collectorFilter || !periodFilter || !resultsContainer) return;
-            
-            const selectedCollectorId = collectorFilter.value;
-            const selectedPeriod = periodFilter.dataset.period;
-            
-            collectorFilter.innerHTML = `<option value="all">Todos os Cobradores</option>` + allCollectors.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
-            collectorFilter.value = selectedCollectorId;
+            const generateBtn = document.getElementById('report-generate-btn');
 
-            let filteredClients = (selectedCollectorId === 'all') ? allClients : allClients.filter(c => c.collectorId === selectedCollectorId);
-            
-            let startDate;
-            const now = new Date();
-            if (selectedPeriod === 'today') startDate = new Date(now.setHours(0,0,0,0));
-            else if (selectedPeriod === 'week') {
-                 startDate = new Date(now.setDate(now.getDate() - now.getDay()));
-                 startDate.setHours(0,0,0,0);
-            } else if (selectedPeriod === 'month') {
-                startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+            if (!collectorFilter || !dateStartInput || !dateEndInput || !resultsContainer || !generateBtn) {
+                console.error("Elementos de relatório faltando no DOM.");
+                return;
             }
 
-            let paymentsInPeriod = [];
-            filteredClients.forEach(client => {
-                (client.history || []).forEach(h => {
-                    if (h.date?.seconds) {
-                        const paymentDate = new Date(h.date.seconds * 1000);
-                        if (!startDate || paymentDate >= startDate) {
-                            paymentsInPeriod.push({ ...h, clientName: client.name });
-                        }
-                    }
-                });
+            // --- 1. POPULAR FILTRO DE COBRADOR (sempre) ---
+            const currentSelectedCollector = collectorFilter.value;
+            collectorFilter.innerHTML = `<option value="all">Todos os Cobradores</option>` + allCollectors.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+            collectorFilter.value = currentSelectedCollector || 'all';
+
+            // --- 2. CONFIGURAR DATAS PADRÃO (se vazias) ---
+            const today = new Date();
+            const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+            if (!dateStartInput.value) {
+                dateStartInput.value = firstDayOfMonth.toISOString().split('T')[0];
+            }
+            if (!dateEndInput.value) {
+                dateEndInput.value = today.toISOString().split('T')[0];
+            }
+
+            // --- 3. EXIBIR CARREGAMENTO E DESABILITAR BOTÃO ---
+            resultsContainer.innerHTML = `<div class="loading" style="padding: 30px; text-align: center;"><i data-lucide="loader-circle" style="animation: spin 1s linear infinite;"></i> Carregando dados...</div>`;
+            lucide.createIcons({nodes: resultsContainer.querySelectorAll('[data-lucide]')});
+            generateBtn.disabled = true;
+
+            // --- 4. OBTER VALORES DOS FILTROS ---
+            const selectedCollectorId = collectorFilter.value;
+            // Configura as datas para incluir o dia inteiro (00:00:00 a 23:59:59)
+            const startDate = new Date(dateStartInput.value);
+            startDate.setHours(0, 0, 0, 0);
+            const endDate = new Date(dateEndInput.value);
+            endDate.setHours(23, 59, 59, 999);
+
+            // --- 5. LÓGICA DE FILTRAGEM (CORRIGIDA) ---
+            
+            // A. Filtrar Pagamentos
+            const filteredPayments = [];
+            allClients.forEach(client => {
+                if (selectedCollectorId === 'all' || client.collectorId === selectedCollectorId) {
+                    (client.loans || []).forEach((loan, loanIndex) => {
+                        (loan.history || []).forEach(h => {
+                            if (h.date?.seconds && h.status !== 'pending_verification' && h.status !== 'rejected' && h.status !== 'postponed') {
+                                const paymentDate = new Date(h.date.seconds * 1000);
+                                if (paymentDate >= startDate && paymentDate <= endDate) {
+                                    filteredPayments.push({ ...h, clientName: client.name, collectorId: client.collectorId, loanIndex: loanIndex + 1 });
+                                }
+                            }
+                        });
+                    });
+                }
             });
 
-            const totalCollected = paymentsInPeriod.reduce((sum, p) => sum + p.amount, 0);
-
-            let loansDeployed = filteredClients.reduce((sum, c) => {
-                const interestRate = c.interestRate || globalSettings.defaultInterest || 20;
-                const principal = (c.totalLoan || 0) / (1 + interestRate / 100);
-                if (!startDate || (c.startDate?.seconds && new Date(c.startDate.seconds * 1000) >= startDate)) {
-                    return sum + principal;
+            // B. Filtrar Novos Empréstimos (Capital Desplegado)
+            const filteredNewLoans = [];
+            allClients.forEach(client => {
+                if (selectedCollectorId === 'all' || client.collectorId === selectedCollectorId) {
+                    (client.loans || []).forEach((loan, loanIndex) => {
+                         if (loan.startDate?.seconds) {
+                            const loanDate = new Date(loan.startDate.seconds * 1000);
+                            if (loanDate >= startDate && loanDate <= endDate) {
+                                filteredNewLoans.push({ ...loan, clientName: client.name, collectorId: client.collectorId, loanIndex: loanIndex + 1 });
+                            }
+                        }
+                    });
                 }
-                return sum;
-            }, 0);
+            });
 
-            const interestGenerated = totalCollected - loansDeployed;
+            // C. Filtrar Despesas
+            const filteredExpenses = allExpenses.filter(e => {
+                if (selectedCollectorId !== 'all' && e.collectorId !== selectedCollectorId) return false;
+                if (!e.date?.seconds) return false;
+                const expenseDate = new Date(e.date.seconds * 1000);
+                return expenseDate >= startDate && expenseDate <= endDate;
+            });
 
-            const lateClients = filteredClients.filter(c => c.status === 'late').length;
-            const delinquencyRate = filteredClients.length > 0 ? (lateClients / filteredClients.length) * 100 : 0;
+            // D. Filtrar Liquidações
+            const filteredSettlements = allSettlements.filter(s => {
+                if (selectedCollectorId !== 'all' && s.collectorId !== selectedCollectorId) return false;
+                if (!s.date?.seconds) return false;
+                const settlementDate = new Date(s.date.seconds * 1000);
+                return settlementDate >= startDate && settlementDate <= endDate;
+            });
+
+            // E. Filtrar Aportes de Capital
+            const filteredInjections = allCapitalInjections.filter(i => {
+                if (selectedCollectorId !== 'all' && i.collectorId !== selectedCollectorId) return false;
+                if (!i.date?.seconds) return false;
+                const injectionDate = new Date(i.date.seconds * 1000);
+                return injectionDate >= startDate && injectionDate <= endDate;
+            });
+
+            // --- 6. CÁLCULO DE MÉTRICAS ---
+            const totalCollected = filteredPayments.reduce((sum, p) => sum + p.amount, 0);
+            const totalExpenses = filteredExpenses.reduce((sum, e) => sum + e.value, 0);
+            const totalSettled = filteredSettlements.reduce((sum, s) => sum + s.amount, 0);
+            const totalInjected = filteredInjections.reduce((sum, i) => sum + i.amount, 0);
             
+            // Capital Desplegado = Soma do Principal (valor base) dos novos empréstimos
+            const totalDeployed = filteredNewLoans.reduce((sum, l) => sum + (l.principalAmount || (l.totalLoan / 1.2)), 0); // Usa 1.2 como fallback
+
+            // Saldo Líquido do Período
+            const netBalance = (totalCollected + totalInjected) - (totalDeployed + totalExpenses + totalSettled);
+
+            // --- 7. RENDERIZAR RESULTADOS ---
             resultsContainer.innerHTML = `
-                <div class="kpi-grid">
-                    <div class="kpi-card"><h3 class="kpi-title" data-lang-key="capitalDeployed"></h3><p class="kpi-value">${money(loansDeployed)}</p></div>
-                    <div class="kpi-card"><h3 class="kpi-title" data-lang-key="interestGenerated"></h3><p class="kpi-value">${money(interestGenerated)}</p></div>
-                    <div class="kpi-card"><h3 class="kpi-title" data-lang-key="delinquencyRate"></h3><p class="kpi-value" style="color:${delinquencyRate > 20 ? 'var(--danger-color)' : 'var(--accent-green)'}">${delinquencyRate.toFixed(1)}%</p></div>
+                <!-- KPIs (Resumo Geral) -->
+                <div class="kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));">
+                    <div class="kpi-card">
+                        <h3 class="kpi-title" style="color: var(--accent-green);"><i data-lucide="arrow-up"></i> Total Recebido</h3>
+                        <p class="kpi-value" style="color: var(--accent-green);">${money(totalCollected)}</p>
+                    </div>
+                    <div class="kpi-card">
+                        <h3 class="kpi-title" style="color: var(--danger-color);"><i data-lucide="arrow-down"></i> Total Despesas</h3>
+                        <p class="kpi-value" style="color: var(--danger-color);">${money(totalExpenses)}</p>
+                    </div>
+                    <div class="kpi-card">
+                        <h3 class="kpi-title" style="color: var(--danger-color);"><i data-lucide="arrow-down"></i> Novos Empréstimos</h3>
+                        <p class="kpi-value" style="color: var(--danger-color);">${money(totalDeployed)}</p>
+                    </div>
+                    <div class="kpi-card">
+                        <h3 class="kpi-title"><i data-lucide="briefcase"></i> Liquidações</h3>
+                        <p class="kpi-value">${money(totalSettled)}</p>
+                    </div>
+                     <div class="kpi-card">
+                        <h3 class="kpi-title"><i data-lucide="trending-up"></i> Aportes de Capital</h3>
+                        <p class="kpi-value">${money(totalInjected)}</p>
+                    </div>
+                    <div class="kpi-card" style="border-color: ${netBalance >= 0 ? 'var(--accent-green)' : 'var(--danger-color)'}; border-width: 2px;">
+                        <h3 class="kpi-title" style="color: var(--text-primary); font-weight: 600;"><i data-lucide="scale"></i> Saldo Líquido (Período)</h3>
+                        <p class="kpi-value" style="color: ${netBalance >= 0 ? 'var(--accent-green)' : 'var(--danger-color)'}; font-size: 1.8em;">${money(netBalance)}</p>
+                    </div>
+                </div>
+
+                <!-- Gráfico -->
+                <div class="kpi-card" style="margin-top: 25px;">
+                    <h3 class="kpi-title" style="font-size: 1.1em; color: var(--text-primary);">
+                        <i data-lucide="bar-chart-2"></i> Fluxo de Caixa (Entradas vs. Saídas)
+                    </h3>
+                    <canvas id="report-chart"></canvas>
+                </div>
+                
+                <!-- Listas Detalhadas -->
+                <div id="report-details-lists" style="margin-top: 25px; display: flex; flex-direction: column; gap: 15px;">
+                    ${generateDetailListHTML('Pagamentos Recebidos', 'check-circle', 'var(--accent-green)', filteredPayments, (p) => `
+                        <span>${p.clientName} (E${p.loanIndex}) - <i>${p.collectorId}</i></span>
+                        <span style="font-weight: 600; color: var(--accent-green);">${money(p.amount)}</span>`)}
+                    
+                    ${generateDetailListHTML('Despesas Registradas', 'arrow-down-circle', 'var(--danger-color)', filteredExpenses, (e) => `
+                        <span>${translations[currentLang][e.category] || e.category} - <i>${e.collectorId}</i></span>
+                        <span style="font-weight: 600; color: var(--danger-color);">-${money(e.value)}</span>`)}
+
+                    ${generateDetailListHTML('Novos Empréstimos (Desplegados)', 'arrow-down-circle', 'var(--danger-color)', filteredNewLoans, (l) => `
+                        <span>${l.clientName} (E${l.loanIndex}) - <i>${l.collectorId}</i></span>
+                        <span style="font-weight: 600; color: var(--danger-color);">-${money(l.principalAmount || (l.totalLoan / 1.2))}</span>`)}
+
+                    ${generateDetailListHTML('Liquidações Aprovadas', 'briefcase', 'var(--text-secondary)', filteredSettlements.filter(s => s.status === 'approved'), (s) => `
+                        <span>${s.collectorName} (<i>${s.collectorId}</i>)</span>
+                        <span style="font-weight: 600; color: var(--text-secondary);">-${money(s.amount)}</span>`)}
+                    
+                    ${generateDetailListHTML('Aportes de Capital Aprovados', 'trending-up', 'var(--accent-green)', filteredInjections.filter(i => i.status === 'approved'), (i) => `
+                        <span>${i.collectorName} (<i>${i.collectorId}</i>)</span>
+                        <span style="font-weight: 600; color: var(--accent-green);">${money(i.amount)}</span>`)}
                 </div>
             `;
+
+            // --- 8. RENDERIZAR GRÁFICO ---
+            const chartCtx = document.getElementById('report-chart').getContext('2d');
+            if (reportChartInstance) {
+                reportChartInstance.destroy(); // Destruir gráfico anterior
+            }
+            reportChartInstance = new Chart(chartCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['Fluxo de Caixa'],
+                    datasets: [
+                        {
+                            label: 'Entradas (Recebidos + Aportes)',
+                            data: [totalCollected + totalInjected],
+                            backgroundColor: 'rgba(34, 197, 94, 0.7)', // Verde
+                            borderColor: 'rgba(34, 197, 94, 1)',
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'Saídas (Despesas + Empréstimos)',
+                            data: [totalExpenses + totalDeployed],
+                            backgroundColor: 'rgba(239, 68, 68, 0.7)', // Vermelho
+                            borderColor: 'rgba(239, 68, 68, 1)',
+                            borderWidth: 1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: { beginAtZero: true }
+                    },
+                    plugins: {
+                        legend: { position: 'top' },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.dataset.label}: ${money(context.raw)}`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            // --- 9. REABILITAR BOTÃO E APLICAR ÍCONES/IDIOMA ---
+            generateBtn.disabled = false;
+            lucide.createIcons({nodes: resultsContainer.querySelectorAll('[data-lucide]')});
             applyLanguage(currentLang);
         }
+
+        // Função auxiliar para gerar as listas detalhadas
+        function generateDetailListHTML(title, icon, iconColor, items, renderItem) {
+            if (items.length === 0) {
+                return `
+                <details class="kpi-card" style="cursor: default;">
+                    <summary style="font-weight: 600; color: var(--text-secondary); display: flex; align-items: center; gap: 8px;">
+                        <i data-lucide="${icon}" style="color: ${iconColor}; width: 18px; height: 18px;"></i>
+                        ${title} (0)
+                    </summary>
+                    <div class="item-list" style="margin-top: 15px; border-top: 1px solid var(--border-color); padding-top: 15px;">
+                        <p class="no-items">Nenhuma transação neste período.</p>
+                    </div>
+                </details>`;
+            }
+
+            return `
+            <details class="kpi-card" style="cursor: pointer;">
+                <summary style="font-weight: 600; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
+                    <i data-lucide="${icon}" style="color: ${iconColor}; width: 18px; height: 18px;"></i>
+                    ${title} (${items.length})
+                </summary>
+                <div class="item-list" style="margin-top: 15px; border-top: 1px solid var(--border-color); padding-top: 15px; display: flex; flex-direction: column; gap: 10px;">
+                    ${items.map(item => `
+                        <div class="payment-history-item" style="padding: 10px; cursor: default; background-color: var(--bg);">
+                            <span style="font-size: 0.9em;">${renderItem(item)}</span>
+                        </div>
+                    `).join('')}
+                </div>
+            </details>`;
+        }
+
+
+
 
         function showReportOptionsModal(collectorId) {
              const modal = document.getElementById('reportOptionsModal');
@@ -4336,12 +4544,10 @@ if (isEditMode && collector.documentPictureUrl) {
                     }
                 }
 
-                const reportsFilterBtn = target.closest('#reports-view .filter-btn');
-                if(reportsFilterBtn) {
-                    document.querySelectorAll('#reports-view .filter-btn').forEach(btn => btn.classList.remove('active'));
-                    reportsFilterBtn.classList.add('active');
-                    updateReportsView();
+                if (target.closest('#report-generate-btn')) {
+                    updateReportsView(); // Chama a nova função de relatório
                 }
+
             });
 
             document.body.addEventListener('change', e => {
@@ -4436,8 +4642,32 @@ if (isEditMode && collector.documentPictureUrl) {
             if (elements.installBannerLogo) elements.installBannerLogo.src = companyLogo; // Añadido
         }
 
+        
         async function handleLogin(event) {
     event.preventDefault();
+    
+    // --- [INICIO: MODIFICACIÓN BOTÓN DE LOGIN] ---
+    const loginForm = event.target;
+    const loginButton = loginForm.querySelector('button[type="submit"]');
+    let originalButtonHTML = '';
+
+    if (loginButton) {
+        originalButtonHTML = loginButton.innerHTML; // 1. Guardar HTML original
+        loginButton.disabled = true; // 2. Deshabilitar
+
+        // 3. Poner estado de carga (con spinner)
+        // Usamos "Acessando..." para el texto de carga
+        loginButton.innerHTML = `
+            <span style="display: flex; align-items: center; justify-content: center; gap: 8px;">
+                <i data-lucide="loader-circle" style="animation: spin 1s linear infinite; width: 20px; height: 20px;"></i>
+                Acessando...
+            </span>`;
+        
+        // 4. Renderizar el nuevo ícono
+        lucide.createIcons({ nodes: [loginButton.querySelector('i')] });
+    }
+    // --- [FIN: MODIFICACIÓN BOTÓN DE LOGIN] ---
+
     const email = document.getElementById('username').value; // Ahora es un email
     const pass = document.getElementById('password').value;
 
@@ -4447,20 +4677,30 @@ if (isEditMode && collector.documentPictureUrl) {
         await signInWithEmailAndPassword(auth, email, pass);
 
         // No necesitamos llamar a showMainApp() aquí.
-        // El 'listener' del Paso 5 se encargará automáticamente.
+        // El 'listener' de onAuthStateChanged se encargará automáticamente.
+        // El botón desaparecerá junto con la pantalla de login.
 
     } catch (error) {
-    // Este es el catch correcto para el LOGIN
-    console.error("Erro de login:", error.code);
-    if (error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password' || error.code === 'auth/user-not-found') {
-        showToast('Email ou senha inválidos.', true);
-    } else if (error.code === 'auth/invalid-email') {
-        showToast('Formato de email inválido.', true);
-    } else {
-        showToast('Erro ao tentar fazer login.', true);
+        // Este es el catch correcto para el LOGIN
+        console.error("Erro de login:", error.code);
+        if (error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password' || error.code === 'auth/user-not-found') {
+            showToast('Email ou senha inválidos.', true);
+        } else if (error.code === 'auth/invalid-email') {
+            showToast('Formato de email inválido.', true);
+        } else {
+            showToast('Erro ao tentar fazer login.', true);
+        }
+
+        // --- [INICIO: RESTAURAR BOTÓN EN ERROR] ---
+        // Si el login falla, restauramos el botón a su estado original
+        if (loginButton) {
+            loginButton.disabled = false;
+            loginButton.innerHTML = originalButtonHTML; // Restaurar HTML original
+        }
+        // --- [FIN: RESTAURAR BOTÓN EN ERROR] ---
     }
 }
-}
+
 
         
         function init() {
