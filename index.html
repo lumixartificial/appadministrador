@@ -814,6 +814,7 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
     <div id="clientFormModal" class="modal-view"></div>
     <div id="cropperModal" class="modal-view"></div>
     <div id="reportOptionsModal" class="modal-overlay"></div>
+    <div id="settlementVerificationModal" class="modal-view"></div>
     <div id="toast-container"></div>
     
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
@@ -1100,7 +1101,7 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
         }
 
 
-        function calculateGlobalMetrics(collectors, clients, expenses, settlements, capitalInjections) {
+            function calculateGlobalMetrics(collectors, clients, expenses, settlements, capitalInjections) {
             let totalStartingCapital = 0;
             let totalPaidFromHistory = 0;
             let totalPrincipalFromLoans = 0;
@@ -1151,7 +1152,7 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             });
 
             const totalExpensesGlobal = expenses.reduce((sum, expense) => sum + (expense.value || 0), 0);
-            const totalSettlementsGlobal = settlements.reduce((sum, s) => sum + (s.amount || 0), 0);
+            const totalSettlementsGlobal = settlements.filter(s => s.status === 'approved').reduce((sum, s) => sum + (s.amount || 0), 0);
             const totalInjectionsGlobal = capitalInjections.filter(i => i.status === 'approved').reduce((sum, i) => sum + (i.amount || 0), 0);
             
             // --- Fórmulas Contables Globales (Net Worth de la Empresa) ---
@@ -1185,11 +1186,17 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
         }
 
         // --- FUNCIÓN MAESTRA 2: MÉTRICAS DE COBRADOR (CAPITAL EN MANOS) ---
-        function calculateCollectorMetrics(collectorId, collector, allClients, allExpenses, allSettlements, allCapitalInjections) {
+        
+
+            function calculateCollectorMetrics(collectorId, collector, allClients, allExpenses, allSettlements, allCapitalInjections) {
             
             const collectorClients = allClients.filter(c => c.collectorId === collectorId);
             const collectorExpenses = allExpenses.filter(e => e.collectorId === collectorId);
-            const collectorSettlements = allSettlements.filter(s => s.collectorId === collectorId);
+            // --- [INICIO CORRECCIÓN] ---
+            // 1. Filtra 'allSettlements' (no 'allExpenses')
+            // 2. Filtra solo por status 'approved'
+            const collectorSettlements = allSettlements.filter(s => s.collectorId === collectorId && s.status === 'approved');
+            // --- [FIN CORRECCIÓN] ---
             const collectorInjections = allCapitalInjections.filter(i => i.collectorId === collectorId && i.status === 'approved');
 
             let totalPaid = 0;
@@ -3897,6 +3904,110 @@ async function submitCollectorReport(collectorId) {
         }
 
 
+        function showSettlementVerificationModal(settlement) {
+            const modal = document.getElementById('settlementVerificationModal');
+            if (!settlement) {
+                showToast('Erro: Liquidação não encontrada.', true);
+                return;
+            }
+
+            const collector = allCollectors.find(c => c.id === settlement.collectorId);
+            const placeholderUrl = `https://placehold.co/80x80/0f172a/FFFFFF?text=${(collector?.name || 'C').charAt(0)}`;
+            const photoUrl = collector?.profilePictureUrl || placeholderUrl;
+            
+            const date = settlement.date?.seconds ? new Date(settlement.date.seconds * 1000) : null;
+            const dateString = date ? date.toLocaleDateString('pt-BR') : 'Data inválida';
+            const timeString = date ? date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '';
+            
+            modal.innerHTML = `
+                <header class="modal-header">
+                    <button id="closeSettlementVerifyModal"><i data-lucide="arrow-left"></i></button>
+                    <span class="modal-title" data-lang-key="settlementVerification"></span>
+                </header>
+                <div class="modal-content-wrapper container">
+                    <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 20px;">
+                        <img src="${photoUrl}" alt="Foto do Cobrador" style="width: 64px; height: 64px; border-radius: 50%; object-fit: cover;">
+                        <div>
+                            <h3 style="margin: 0 0 5px;">${settlement.collectorName || 'Cobrador Desconhecido'}</h3>
+                            <p style="color: var(--text-secondary); margin: 0;">${dateString} às ${timeString}</p>
+                        </div>
+                    </div>
+
+                    <div class="kpi-card" style="margin-bottom: 20px; text-align: center;">
+                        <h4 class="kpi-title" style="justify-content: center;">Valor Enviado para Aprovação</h4>
+                        <p class="kpi-value" style="font-size: 1.8em; color: var(--accent-blue);">${money(settlement.amount)}</p>
+                    </div>
+
+                    ${settlement.notes ? `
+                        <div class="kpi-card" style="margin-bottom: 20px;">
+                            <h4 class="kpi-title">Observações do Cobrador</h4>
+                            <p style="font-style: italic;">${settlement.notes}</p>
+                        </div>
+                    ` : ''}
+
+                    <h4 style="margin-bottom: 10px;">Comprovante Anexado</h4>
+                    <div style="background-color: var(--surface); border: 1px solid var(--border-color); border-radius: 8px; padding: 10px; min-height: 150px; display: flex; justify-content: center; align-items: center;">
+                        ${settlement.receiptUrl ?
+                            `<img src="${settlement.receiptUrl}" alt="Comprovante" style="max-width: 100%; max-height: 50vh; object-fit: contain; border-radius: 4px;">` :
+                            `<p class="no-items">Nenhum comprovante anexado.</p>`
+                        }
+                    </div>
+                </div> 
+                <div class="action-buttons"> 
+                    <button id="reject-settlement-btn" class="btn-danger" style="flex-grow: 1;">
+                        <i data-lucide="x-circle"></i> <span data-lang-key="delete"></span>
+                    </button>
+                    <button id="approve-settlement-btn" class="btn-primary" style="flex-grow: 1;">
+                        <i data-lucide="check-circle"></i> Aprovar
+                    </button>
+                </div>
+            `;
+            
+            modal.classList.add('active');
+            lucide.createIcons({ nodes: modal.querySelectorAll('[data-lucide]') });
+            applyLanguage(currentLang);
+
+            // --- Listeners de Ação ---
+            modal.querySelector('#closeSettlementVerifyModal').addEventListener('click', () => modal.classList.remove('active'));
+
+            const settlementRef = doc(db, 'companies', currentCompanyId, 'settlements', settlement.id);
+
+            // Botão REJEITAR
+            modal.querySelector('#reject-settlement-btn').addEventListener('click', async (e) => {
+                e.currentTarget.disabled = true;
+                try {
+                    await updateDoc(settlementRef, { status: 'rejected' });
+                    showToast('Liquidação Rejeitada.');
+                    modal.classList.remove('active');
+                } catch (error) {
+                    showToast('Erro ao rejeitar: ' + error.message, true);
+                    e.currentTarget.disabled = false;
+                }
+            });
+
+            // Botão APROVAR
+            modal.querySelector('#approve-settlement-btn').addEventListener('click', async (e) => {
+                e.currentTarget.disabled = true;
+                e.currentTarget.innerHTML = `<i data-lucide="loader-circle" style="animation: spin 1s linear infinite;"></i> Aprovando...`;
+                lucide.createIcons({nodes: [e.currentTarget.querySelector('i')]});
+                
+                try {
+                    // La única acción es aprobar el documento.
+                    // El 'onSnapshot' de 'settlements' y 'checkAndRunGlobalUpdate'
+                    // se encargarán automáticamente de recalcular la contabilidad.
+                    await updateDoc(settlementRef, { status: 'approved' });
+                    showToast('Liquidação APROVADA com sucesso!');
+                    modal.classList.remove('active');
+                } catch (error) {
+                    showToast('Erro ao aprovar: ' + error.message, true);
+                    e.currentTarget.disabled = false;
+                    e.currentTarget.innerHTML = `<i data-lucide="check-circle"></i> Aprovar`;
+                    lucide.createIcons({nodes: [e.currentTarget.querySelector('i')]});
+                }
+            });
+        }
+
+
         function showCollectorFormModal(collectorId = null) {
             const isEditMode = collectorId !== null;
             const collector = isEditMode ? allCollectors.find(c => c.id === collectorId) : {};
@@ -4742,29 +4853,28 @@ if (isEditMode && collector.documentPictureUrl) {
                     const { type, clientId, collectorId, loanIndex, historyIndex, settlementId } = notificationCard.dataset;
                     
                     if (type === 'payment') {
-                        // Abre los detalles del cliente
+                        // Abre los detalles del cliente para VERIFICAR PAGO
+                        // (Asumimos que la lógica de verificación está en showClientDetails)
                         showClientDetails(clientId, parseInt(loanIndex, 10));
                     } 
                     else if (type === 'settlement') {
-                        // Abre los detalles del cobrador
-                        showCollectorDetails(collectorId);
+                        // ¡CORRECCIÓN! Abre el nuevo modal de verificación de liquidación
+                        const settlement = allSettlements.find(s => s.id === settlementId);
+                        if (settlement) {
+                            showSettlementVerificationModal(settlement);
+                        } else {
+                            showToast('Erro: Liquidação não encontrada ou já processada.', true);
+                        }
                     }
                     else if (type === 'refinance') {
-                        // Abre los detalles del cliente
+                        // Abre los detalles del cliente para VERIFICAR REFINANCIACIÓN
+                        // (Asumimos que la lógica de verificación está en showClientDetails)
                         showClientDetails(clientId, 0); // Abrir el primer préstamo
                     }
-                }
-
-
-
+                }                
 
 
             });
-
-
-
-
-
 
 
             document.body.addEventListener('change', e => {
