@@ -1444,8 +1444,14 @@ currentAdmin.name = currentCompanyData.owner?.name || companyName;
             // [NUEVO CÓDIGO] Cargar publicaciones de la comunidad
             const postsQuery = query(collection(db, 'communityPosts'), orderBy('createdAt', 'desc'));
             onSnapshot(postsQuery, (snapshot) => {
-            allCommunityPosts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            // ¡YA NO RENDERIZAMOS AQUÍ! Solo actualizamos los datos.
+                allCommunityPosts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                
+                // --- [INICIO CORRECCIÓN COMUNIDADE] ---
+                // Si estamos viendo la pestaña de comunidade, la actualizamos en vivo.
+                if (document.getElementById('community-view')?.classList.contains('active')) {
+                    renderCommunityView();
+                }
+                // --- [FIN CORRECCIÓN COMUNIDADE] ---
             });
         }
 
@@ -1532,9 +1538,12 @@ currentAdmin.name = currentCompanyData.owner?.name || companyName;
             }
 
             if (viewName === 'notifications') {
-                // Los datos ya fueron calculados por el listener global.
-                // Solo necesitamos forzar el renderizado del HTML.
                 updateAdminNotificationsView(); 
+            }
+
+            if (viewName === 'community') {
+                // Esta función ya existe, solo la estamos llamando.
+                renderCommunityView(); 
             }
             
 
