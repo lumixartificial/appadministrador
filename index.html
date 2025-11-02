@@ -770,6 +770,28 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
 }
 /* --- Fin Estilos Reporte --- */
         
+.validation-message {
+            font-size: 0.85em;
+            font-weight: 500;
+            margin-top: 8px;
+            display: none; /* Oculto por defecto */
+            align-items: center;
+            gap: 5px;
+        }
+        .validation-message.checking {
+            display: flex;
+            color: var(--text-secondary);
+        }
+        .validation-message.valid {
+            display: flex;
+            color: var(--accent-green);
+        }
+        .validation-message.invalid {
+            display: flex;
+            color: var(--danger-color);
+        }
+
+
 
     </style>
 </head>
@@ -946,7 +968,8 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             notifications: 'Notificações',
             paymentVerification: 'Verificação de Pagamento',
             settlementVerification: 'Verificação de Liquidação',
-            refinanceRequest: 'Solicitação de Refinanciamento'
+            refinanceRequest: 'Solicitação de Refinanciamento',
+            aportarCapital: 'Aportar Capital'
 
             
         },
@@ -1000,7 +1023,8 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             notificaciones: 'Notificaciones',
             paymentVerification: 'Verificación de Pago',
             settlementVerification: 'Verificación de Liquidación',
-            refinanceRequest: 'Solicitud de Refinanciación'
+            refinanceRequest: 'Solicitud de Refinanciación',
+            aportarCapital: 'Aportar Capital'
         },
         en: {
             dashboard: 'Dashboard', reports: 'Reports', settings: 'Settings', profile: 'Profile', map: 'Map',
@@ -1047,7 +1071,8 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             notifications: 'Notifications',
             paymentVerification: 'Payment Verification',
             settlementVerification: 'Settlement Verification',
-            refinanceRequest: 'Refinance Request'
+            refinanceRequest: 'Refinance Request',
+            contributeCapital: 'Contribute Capital'
         }
     };
 
@@ -3278,6 +3303,96 @@ async function submitCollectorReport(collectorId) {
         }
     });
 } // Fin de showSettlementModal
+
+
+        function showCapitalInjectionModal(collectorId, collectorName) {
+            // Reutilizamos el modal overlay genérico 'reportOptionsModal'
+            const modal = document.getElementById('reportOptionsModal');
+            modal.classList.add('active'); // Muestra el overlay oscuro
+
+            modal.innerHTML = `
+            <div class="modal-content" style="max-width: 400px;">
+                <button class="close-modal-btn" style="position: absolute; top: 10px; right: 10px; background: none; border: none; font-size: 24px; color: var(--text-secondary);">&times;</button>
+
+                <h3 style="margin-bottom: 15px; text-align: center;" data-lang-key="aportarCapital"></h3>
+                <p style="text-align: center; color: var(--text-secondary); margin-bottom: 25px;">
+                    Para: <strong>${collectorName}</strong>
+                </p>
+
+                <div class="form-group">
+                    <label for="injection-amount">Valor a Aportar (Injetar):</label>
+                    <input type="number" id="injection-amount" step="0.01" placeholder="0.00" required style="font-size: 1.5em; text-align: center; padding: 15px;">
+                </div>
+
+                <div class="form-group">
+                    <label for="injection-notes">Observações (Opcional):</label>
+                    <textarea id="injection-notes" rows="2" placeholder="Ex: Adiantamento para despesas..."></textarea>
+                </div>
+
+                <div style="display: flex; gap: 10px; justify-content: center; margin-top: 25px;">
+                    <button class="btn-secondary" id="cancel-injection-btn" style="flex-grow: 1;">Cancelar</button>
+                    <button class="btn-primary" id="confirm-injection-btn" style="flex-grow: 1; background-color: var(--accent-green); border-color: var(--accent-green);">Confirmar Aporte</button>
+                </div>
+            </div>
+            `;
+            
+            applyLanguage(currentLang); // Para el título del modal
+            lucide.createIcons({ nodes: modal.querySelectorAll('[data-lucide]') });
+
+            // --- Lógica de los Botones del Modal ---
+            const confirmBtn = modal.querySelector('#confirm-injection-btn');
+            const cancelBtn = modal.querySelector('#cancel-injection-btn');
+            const closeModalBtn = modal.querySelector('.close-modal-btn');
+            const amountInput = modal.querySelector('#injection-amount');
+            const notesInput = modal.querySelector('#injection-notes');
+
+            // Cerrar modal
+            const closeModal = () => modal.classList.remove('active');
+            cancelBtn.addEventListener('click', closeModal);
+            closeModalBtn.addEventListener('click', closeModal);
+
+            // Confirmar y Guardar
+            confirmBtn.addEventListener('click', async () => {
+                const amount = parseFloat(amountInput.value);
+                if (isNaN(amount) || amount <= 0) {
+                    showToast('Por favor, insira um valor válido.', true);
+                    amountInput.style.borderColor = 'var(--danger-color)';
+                    setTimeout(() => { amountInput.style.borderColor = ''; }, 2000);
+                    return;
+                }
+
+                confirmBtn.disabled = true;
+                confirmBtn.innerHTML = `<i data-lucide="loader-circle" style="animation: spin 1s linear infinite;"></i> Registrando...`;
+                lucide.createIcons({ nodes: [confirmBtn.querySelector('i')] });
+
+                const injectionData = {
+                    collectorId: collectorId,
+                    collectorName: collectorName,
+                    amount: amount,
+                    notes: notesInput.value.trim(),
+                    date: serverTimestamp(),
+                    adminId: auth.currentUser ? auth.currentUser.uid : 'admin_manual',
+                    status: 'approved' // Aportes de capital se aprueban automáticamente
+                };
+
+                try {
+                    // Añade el documento a la colección 'capitalInjections'
+                    await addDoc(collection(db, 'companies', currentCompanyId, 'capitalInjections'), injectionData);
+                    showToast('Aporte de capital registrado com sucesso!');
+                    closeModal();
+                    // El listener 'onSnapshot' de 'capitalInjections' (línea 586)
+                    // detectará este cambio y llamará a 'checkAndRunGlobalUpdate',
+                    // que recalculará toda la contabilidad automáticamente.
+                } catch (error) {
+                    console.error("Erro ao registrar aporte de capital:", error);
+                    showToast('Erro ao salvar o aporte.', true);
+                    confirmBtn.disabled = false;
+                    confirmBtn.innerHTML = `Confirmar Aporte`;
+                }
+            });
+        }
+
+
         
         async function saveGlobalSettings() {
             const saveBtn = document.getElementById('save-settings-btn');
@@ -3318,6 +3433,8 @@ async function submitCollectorReport(collectorId) {
                 saveBtn.disabled = false;
             }
         }
+
+
 
         function updateProfileView() {
             if(!document.getElementById('kpi-distributed-capital')) return;
@@ -3560,6 +3677,9 @@ async function submitCollectorReport(collectorId) {
                     <button id="register-settlement-btn" data-collector-id="${collectorId}" class="btn-primary">
                     <i data-lucide="arrow-down-circle"></i> Registrar Liquidación
                     </button>
+                    <button id="add-capital-injection-btn" data-collector-id="${collectorId}" class="btn-primary" style="flex-grow: 1; background-color: var(--accent-green); border-color: var(--accent-green);">
+                        <i data-lucide="arrow-up-circle"></i> <span data-lang-key="aportarCapital"></span>
+                    </button>
                 </div>
             `;
 
@@ -3620,7 +3740,23 @@ async function submitCollectorReport(collectorId) {
                     showSettlementModal(collectorId, collector.name, capitalOnHand); 
                 });
             }
+
+            // --- [INICIO NUEVO LISTENER] ---
+            const addCapitalBtn = detailView.querySelector('#add-capital-injection-btn');
+            if (addCapitalBtn) {
+                addCapitalBtn.addEventListener('click', (e) => {
+                    const collectorId = e.currentTarget.dataset.collectorId;
+                    const collector = allCollectors.find(c => c.id === collectorId);
+                    // Llama a la nueva función que crearemos
+                    showCapitalInjectionModal(collectorId, collector.name);
+                });
+            }
+            // --- [FIN NUEVO LISTENER] ---
+
+
         }
+
+
         
         function showClientDetails(clientId, loanIndex = 0) { // <-- Acepta un loanIndex
             const client = allClients.find(c => c.id === clientId);
@@ -4009,6 +4145,8 @@ async function submitCollectorReport(collectorId) {
 
 
         function showCollectorFormModal(collectorId = null) {
+            let isUsernameGloballyAvailable = false;
+            let isEmailFormatValid = false;
             const isEditMode = collectorId !== null;
             const collector = isEditMode ? allCollectors.find(c => c.id === collectorId) : {};
 
@@ -4069,10 +4207,17 @@ async function submitCollectorReport(collectorId) {
                         <div class="form-group">
                             <label for="collector-username" data-lang-key="username"></label>
                             <input type="text" id="collector-username" required value="${collector.id || ''}" ${isEditMode ? 'readonly' : ''}>
+                        <div id="username-validation-msg" class="validation-message">
+                                <i data-lucide="loader-circle" style="animation: spin 1s linear infinite; width: 14px; height: 14px;"></i>
+                                <span>Verificando...</span>
+                            </div>
                         </div>
                         <div class="form-group">
                         <label for="collector-email">Email (para autenticação)</label>
                         <input type="email" id="collector-email" required autocomplete="off">
+                        <div id="email-validation-msg" class="validation-message">
+                                <!-- El contenido se añadirá por JS -->
+                            </div>
                     </div>
                         <div class="form-group">
                             <label for="collector-password" data-lang-key="password"></label>
@@ -4225,6 +4370,91 @@ if (isEditMode && collector.documentPictureUrl) {
             if (isEditMode) {
             verifyCollectorInSystem(collectorId);
             }
+
+
+            const usernameInput = formModal.querySelector('#collector-username');
+            const emailInput = formModal.querySelector('#collector-email');
+            const usernameMsg = formModal.querySelector('#username-validation-msg');
+            const emailMsg = formModal.querySelector('#email-validation-msg');
+
+            // Si estamos en modo edición, marcamos ambos como "válidos" por defecto
+            // porque no se pueden cambiar.
+            if (isEditMode) {
+                isUsernameGloballyAvailable = true;
+                isEmailFormatValid = true; 
+                // Ocultamos los mensajes de validación en modo edición
+                usernameMsg.style.display = 'none';
+                emailMsg.style.display = 'none';
+            }
+
+            // 1. Listener para el Nombre de Usuario (Username)
+            usernameInput.addEventListener('blur', async () => {
+                if (isEditMode) return; // No verificar si estamos editando
+                
+                const username = usernameInput.value.trim();
+                if (username.length < 4) {
+                    usernameMsg.className = 'validation-message invalid';
+                    usernameMsg.innerHTML = `<i data-lucide="x-circle"></i> Mínimo 4 caracteres.`;
+                    isUsernameGloballyAvailable = false;
+                    lucide.createIcons({nodes: [usernameMsg.querySelector('i')]});
+                    return;
+                }
+
+                usernameMsg.className = 'validation-message checking';
+                usernameMsg.innerHTML = `<i data-lucide="loader-circle" style="animation: spin 1s linear infinite; width: 14px; height: 14px;"></i> Verificando disponibilidade...`;
+                lucide.createIcons({nodes: [usernameMsg.querySelector('i')]});
+
+                try {
+                    // Consulta GLOBAL (requiere reglas de seguridad abiertas para 'read' en 'collectors')
+                    const collectorRef = doc(db, 'collectors', username);
+                    const docSnap = await getDoc(collectorRef);
+                    
+                    if (docSnap.exists()) {
+                        // ¡Encontrado! El nombre de usuario NO está disponible
+                        usernameMsg.className = 'validation-message invalid';
+                        usernameMsg.innerHTML = `<i data-lucide="x-circle"></i> Usuário já existe no sistema.`;
+                        isUsernameGloballyAvailable = false;
+                    } else {
+                        // ¡No encontrado! El nombre de usuario ESTÁ disponible
+                        usernameMsg.className = 'validation-message valid';
+                        usernameMsg.innerHTML = `<i data-lucide="check-circle"></i> Nome de usuário disponível!`;
+                        isUsernameGloballyAvailable = true;
+                    }
+                } catch (error) {
+                    console.error("Erro ao verificar username:", error);
+                    usernameMsg.className = 'validation-message invalid';
+                    usernameMsg.innerHTML = `<i data-lucide="alert-triangle"></i> Erro ao verificar.`;
+                    isUsernameGloballyAvailable = false; // No permitir si hay error
+                }
+                lucide.createIcons({nodes: [usernameMsg.querySelector('i')]});
+            });
+
+            // 2. Listener para el Email
+            emailInput.addEventListener('blur', () => {
+                if (isEditMode) return; // No verificar si estamos editando
+                
+                const email = emailInput.value.trim();
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+                if (!email) {
+                    emailMsg.className = 'validation-message';
+                    isEmailFormatValid = false;
+                    return;
+                }
+
+                if (emailRegex.test(email)) {
+                    emailMsg.className = 'validation-message valid';
+                    emailMsg.innerHTML = `<i data-lucide="check-circle"></i> Formato de email válido.`;
+                    isEmailFormatValid = true;
+                } else {
+                    emailMsg.className = 'validation-message invalid';
+                    emailMsg.innerHTML = `<i data-lucide="x-circle"></i> Formato de email inválido.`;
+                    isEmailFormatValid = false;
+                }
+                lucide.createIcons({nodes: [emailMsg.querySelector('i')]});
+            });
+
+
 // --- Fin Lógica de Verificación ---
             lucide.createIcons({nodes: formModal.querySelectorAll('[data-lucide]')});
             applyLanguage(currentLang);
@@ -4250,6 +4480,17 @@ if (isEditMode && collector.documentPictureUrl) {
                 const email = document.getElementById('collector-email').value.trim(); // Este es para Auth
                 const password = document.getElementById('collector-password').value.trim();
                 const capital = parseFloat(document.getElementById('collector-capital').value);
+
+
+                if (!isEditMode && !isUsernameGloballyAvailable) {
+                    showToast('Esse nome de usuário já está em uso ou não foi verificado.', true);
+                    return; // Detiene el guardado
+                }
+                if (!isEditMode && !isEmailFormatValid) {
+                     showToast('Por favor, insira um formato de email válido.', true);
+                    return; // Detiene el guardado
+                }
+
 
                 // 3. Validación
                 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -5171,4 +5412,5 @@ if (isEditMode && collector.documentPictureUrl) {
     </script>
 </body>
 </html>
+
 
