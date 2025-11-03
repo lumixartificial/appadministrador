@@ -1076,7 +1076,7 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
         }
     };
 
-        function checkAndRunGlobalUpdate() {
+            function checkAndRunGlobalUpdate() {
             // Esta función se asegura de que TODAS las colecciones de
             // datos (cobradores, clientes, gastos, etc.) se hayan
             // cargado al menos una vez ANTES de intentar calcular la contabilidad.
@@ -1116,15 +1116,18 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
 
                 updateAdminNotificationsView();
                 
-                // [NUEVO] También actualizamos la vista de reportes si está activa,
-                // ya que también depende de estos datos.
+                // --- [INICIO DE LA CORRECCIÓN CRÍTICA] ---
+                // RESTAURAMOS la llamada automática.
+                // Esto asegura que si los datos terminan de cargarse MIENTRAS
+                // el usuario está en la pestaña de reportes, esta se actualice.
                 if (document.getElementById('reports-view') && document.getElementById('reports-view').classList.contains('active')) {
+                    console.log("[ADMIN-APP] Actualizando 'Relatórios' automáticamente (los datos terminaron de cargar).");
                     updateReportsView();
                 }
+                // --- [FIN DE LA CORRECCIÓN CRÍTICA] ---
 
             } 
         }
-
 
             function calculateGlobalMetrics(collectors, clients, expenses, settlements, capitalInjections) {
             let totalStartingCapital = 0;
@@ -1506,6 +1509,7 @@ currentAdmin.name = currentCompanyData.owner?.name || companyName;
     }
 }
 
+        
         function showView(viewName) {
             document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
             
@@ -1533,9 +1537,15 @@ currentAdmin.name = currentCompanyData.owner?.name || companyName;
                 }, 50);
             }
             
+            // --- [INICIO DE LA CORRECCIÓN CRÍTICA] ---
+            // RESTAURAMOS la llamada automática.
+            // Esto es lo que carga el reporte la PRIMERA VEZ que
+            // el usuario hace clic en la pestaña "Relatórios".
             if (viewName === 'reports') {
+                console.log("[ADMIN-APP] Abriendo pestaña 'Relatórios'. Llamando a updateReportsView().");
                 updateReportsView();
             }
+            // --- [FIN DE LA CORRECCIÓN CRÍTICA] ---
 
             if (viewName === 'notifications') {
                 updateAdminNotificationsView(); 
@@ -1548,6 +1558,8 @@ currentAdmin.name = currentCompanyData.owner?.name || companyName;
             
 
         }
+
+
 
         function renderMainLayout() {
             document.getElementById('app-container').innerHTML = `
@@ -2702,7 +2714,7 @@ async function submitCollectorReport(collectorId) {
             const endDate = new Date(dateEndInput.value);
             endDate.setHours(23, 59, 59, 999);
 
-            // --- 5. LÓGICA DE FILTRAGEM (CORRIGIDA) ---
+            // --- 5. LÓGICA DE FILTRAGEM (Usa los arrays globales que ya están cargados) ---
             
             // A. Filtrar Pagamentos
             const filteredPayments = [];
@@ -2760,16 +2772,20 @@ async function submitCollectorReport(collectorId) {
                 return injectionDate >= startDate && injectionDate <= endDate;
             });
 
-            // --- 6. CÁLCULO DE MÉTRICAS ---
+            // --- 6. CÁLCULO DE MÉTRICAS (Usa los filtros 'approved' o 'undefined') ---
             const totalCollected = filteredPayments.reduce((sum, p) => sum + p.amount, 0);
             const totalExpenses = filteredExpenses.reduce((sum, e) => sum + e.value, 0);
-            const totalSettled = filteredSettlements.reduce((sum, s) => sum + s.amount, 0);
-            const totalInjected = filteredInjections.reduce((sum, i) => sum + i.amount, 0);
             
-            // Capital Desplegado = Soma do Principal (valor base) dos novos empréstimos
-            const totalDeployed = filteredNewLoans.reduce((sum, l) => sum + (l.principalAmount || (l.totalLoan / 1.2)), 0); // Usa 1.2 como fallback
+            const totalSettled = filteredSettlements
+                .filter(s => s.status === 'approved' || s.status === undefined)
+                .reduce((sum, s) => sum + (s.amount || 0), 0);
+            
+            const totalInjected = filteredInjections
+                .filter(i => i.status === 'approved' || i.status === undefined)
+                .reduce((sum, i) => sum + (i.amount || 0), 0);
+            
+            const totalDeployed = filteredNewLoans.reduce((sum, l) => sum + (l.principalAmount || (l.totalLoan / 1.2)), 0); 
 
-            // Saldo Líquido do Período
             const netBalance = (totalCollected + totalInjected) - (totalDeployed + totalExpenses + totalSettled);
 
             // --- 7. RENDERIZAR RESULTADOS ---
@@ -2788,14 +2804,9 @@ async function submitCollectorReport(collectorId) {
                         <h3 class="kpi-title" style="color: var(--danger-color);"><i data-lucide="arrow-down"></i> Novos Empréstimos</h3>
                         <p class="kpi-value" style="color: var(--danger-color);">${money(totalDeployed)}</p>
                     </div>
-                    <div class="kpi-card">
-                        <h3 class="kpi-title"><i data-lucide="briefcase"></i> Liquidações</h3>
-                        <p class="kpi-value">${money(totalSettled)}</p>
-                    </div>
-                     <div class="kpi-card">
-                        <h3 class="kpi-title"><i data-lucide="trending-up"></i> Aportes de Capital</h3>
-                        <p class="kpi-value">${money(totalInjected)}</p>
-                    </div>
+                    
+
+                     
                     <div class="kpi-card" style="border-color: ${netBalance >= 0 ? 'var(--accent-green)' : 'var(--danger-color)'}; border-width: 2px;">
                         <h3 class="kpi-title" style="color: var(--text-primary); font-weight: 600;"><i data-lucide="scale"></i> Saldo Líquido (Período)</h3>
                         <p class="kpi-value" style="color: ${netBalance >= 0 ? 'var(--accent-green)' : 'var(--danger-color)'}; font-size: 1.8em;">${money(netBalance)}</p>
@@ -2810,7 +2821,7 @@ async function submitCollectorReport(collectorId) {
                     <canvas id="report-chart"></canvas>
                 </div>
                 
-                <!-- Listas Detalhadas -->
+                <!-- Listas Detalhadas (Esta parte ya estaba correcta) -->
                 <div id="report-details-lists" style="margin-top: 25px; display: flex; flex-direction: column; gap: 15px;">
                     ${generateDetailListHTML('Pagamentos Recebidos', 'check-circle', 'var(--accent-green)', filteredPayments, (p) => `
                         <span>${p.clientName} (E${p.loanIndex}) - <i>${p.collectorId}</i></span>
@@ -2824,22 +2835,16 @@ async function submitCollectorReport(collectorId) {
                         <span>${l.clientName} (E${l.loanIndex}) - <i>${l.collectorId}</i></span>
                         <span style="font-weight: 600; color: var(--danger-color);">-${money(l.principalAmount || (l.totalLoan / 1.2))}</span>`)}
 
-                    ${generateDetailListHTML('Liquidações Aprovadas', 'briefcase', 'var(--text-secondary)', filteredSettlements.filter(s => s.status === 'approved'), (s) => `
-                        <span>${s.collectorName} (<i>${s.collectorId}</i>)</span>
-                        <span style="font-weight: 600; color: var(--text-secondary);">-${money(s.amount)}</span>`)}
                     
-                    ${generateDetailListHTML('Aportes de Capital Aprovados', 'trending-up', 'var(--accent-green)', filteredInjections.filter(i => i.status === 'approved'), (i) => `
-                        <span>${i.collectorName} (<i>${i.collectorId}</i>)</span>
-                        <span style="font-weight: 600; color: var(--accent-green);">${money(i.amount)}</span>`)}
+                    
+                    
                 </div>
             `;
 
             // --- 8. RENDERIZAR GRÁFICO ---
-            
-
             const chartCtx = document.getElementById('report-chart').getContext('2d');
             if (reportChartInstance) {
-                reportChartInstance.destroy(); // Destruir gráfico anterior
+                reportChartInstance.destroy(); 
             }
             reportChartInstance = new Chart(chartCtx, {
                 type: 'bar',
@@ -2849,18 +2854,18 @@ async function submitCollectorReport(collectorId) {
                         {
                             label: 'Entradas (Recebidos + Aportes)',
                             data: [totalCollected + totalInjected],
-                            backgroundColor: 'rgba(34, 197, 94, 0.7)', // Verde
+                            backgroundColor: 'rgba(34, 197, 94, 0.7)', 
                             borderColor: 'rgba(34, 197, 94, 1)',
                             borderWidth: 1,
-                            maxBarThickness: 100 // <--- [AJUSTE ESTÉTICO AÑADIDO]
+                            maxBarThickness: 100 
                         },
                         {
                             label: 'Saídas (Despesas + Empréstimos)',
                             data: [totalExpenses + totalDeployed],
-                            backgroundColor: 'rgba(239, 68, 68, 0.7)', // Vermelho
+                            backgroundColor: 'rgba(239, 68, 68, 0.7)', 
                             borderColor: 'rgba(239, 68, 68, 1)',
                             borderWidth: 1,
-                            maxBarThickness: 100 // <--- [AJUSTE ESTÉTICO AÑADIDO]
+                            maxBarThickness: 100 
                         }
                     ]
                 },
@@ -2882,15 +2887,14 @@ async function submitCollectorReport(collectorId) {
                 }
             });
 
-
-
-
-
             // --- 9. REABILITAR BOTÃO E APLICAR ÍCONES/IDIOMA ---
             generateBtn.disabled = false;
             lucide.createIcons({nodes: resultsContainer.querySelectorAll('[data-lucide]')});
             applyLanguage(currentLang);
         }
+
+
+
 
         // Função auxiliar para gerar as listas detalhadas
         function generateDetailListHTML(title, icon, iconColor, items, renderItem) {
@@ -3294,7 +3298,8 @@ async function submitCollectorReport(collectorId) {
             amount: amount,
             notes: notesInput.value.trim(),
             date: serverTimestamp(), // Fecha y hora del servidor
-            adminId: auth.currentUser ? auth.currentUser.uid : 'admin_manual' // Quién registró
+            adminId: auth.currentUser ? auth.currentUser.uid : 'admin_manual', // Quién registró
+            status: 'approved' // <-- [¡CORRECCIÓN CRÍTICA AÑADIDA!]
         };
 
         try {
@@ -3302,8 +3307,9 @@ async function submitCollectorReport(collectorId) {
             await addDoc(collection(db, 'companies', currentCompanyId, 'settlements'), settlementData);
             showToast('Liquidación registrada com sucesso!');
             closeModal();
-            // Opcional: Podrías forzar una actualización de la vista de detalles aquí si fuera necesario
-            // showCollectorDetails(collectorId);
+            // El 'onSnapshot' de la colección 'settlements' (línea 1000)
+            // detectará este nuevo documento APROBADO, llamará a
+            // checkAndRunGlobalUpdate() y la contabilidad se recalculará automáticamente.
         } catch (error) {
             console.error("Erro ao registrar liquidação:", error);
             showToast('Erro ao salvar a liquidação.', true);
@@ -3311,7 +3317,7 @@ async function submitCollectorReport(collectorId) {
             confirmBtn.innerHTML = `Confirmar Registro`;
         }
     });
-} // Fin de showSettlementModal
+}
 
 
         function showCapitalInjectionModal(collectorId, collectorName) {
@@ -3450,6 +3456,13 @@ async function submitCollectorReport(collectorId) {
             
             // --- 1. LEER Métricas Globales (pre-calculadas) ---
             const {
+                
+                // --- [INICIO DE LA CORRECCIÓN] ---
+                // Añadimos la variable 'totalCapital', que es el valor
+                // correcto (los R$ 100.000,00) que se muestra en el Dashboard.
+                totalCapital = 0,
+                // --- [FIN DE LA CORRECCIÓN] ---
+
                 totalStartingCapital = 0, // <- totalStartingCapital es el "distributedCapital"
                 expectedToday = 0,
                 fieldValue = 0,
@@ -3458,7 +3471,13 @@ async function submitCollectorReport(collectorId) {
             // --- FIN NUEVO CÁLCULO ---
 
             // --- 2. Actualizar KPIs ---
-            document.getElementById('kpi-distributed-capital').textContent = money(totalStartingCapital);
+            
+            // --- [INICIO DE LA CORRECCIÓN] ---
+            // Usamos 'totalCapital' en lugar de 'totalStartingCapital'
+            // para que este valor sea IDÉNTICO al del Dashboard.
+            document.getElementById('kpi-distributed-capital').textContent = money(totalCapital);
+            // --- [FIN DE LA CORRECCIÓN] ---
+            
             document.getElementById('kpi-expected-today').textContent = money(expectedToday);
             document.getElementById('kpi-field-value').textContent = money(fieldValue);
             document.getElementById('kpi-gross-profit').textContent = money(grossProfit); 
@@ -3495,6 +3514,9 @@ async function submitCollectorReport(collectorId) {
                 planCollectorsElement.textContent = `${allCollectors.length} / ?`;
             }
         }
+
+
+
         
         function showCollectorDetails(collectorId) {
             const detailView = document.getElementById('collectorDetailView');
@@ -5421,4 +5443,5 @@ if (isEditMode && collector.documentPictureUrl) {
     </script>
 </body>
 </html>
+
 
