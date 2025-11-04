@@ -4177,7 +4177,8 @@ async function submitCollectorReport(collectorId) {
 
         function showCollectorFormModal(collectorId = null) {
             let isUsernameGloballyAvailable = false;
-            let isEmailFormatValid = false;
+            // [CAMBIO] La validación de email ya no es necesaria en el formulario
+            // let isEmailFormatValid = false; 
             const isEditMode = collectorId !== null;
             const collector = isEditMode ? allCollectors.find(c => c.id === collectorId) : {};
 
@@ -4235,25 +4236,22 @@ async function submitCollectorReport(collectorId) {
                         </h3>
                         <hr style="border: 1px solid var(--border-color); margin-top: 10px; margin-bottom: 25px;">
 
+                        <!-- [CAMBIO] Solo hay UN campo de usuario. El campo 'Email' fue removido. -->
                         <div class="form-group">
-                            <label for="collector-username" data-lang-key="username"></label>
-                            <input type="text" id="collector-username" required value="${collector.id || ''}" ${isEditMode ? 'readonly' : ''}>
-                        <div id="username-validation-msg" class="validation-message">
-                                <i data-lucide="loader-circle" style="animation: spin 1s linear infinite; width: 14px; height: 14px;"></i>
-                                <span>Verificando...</span>
-                            </div>
-                        </div>
-                        <div class="form-group">
-                        <label for="collector-email">Email (para autenticação)</label>
-                        <input type="email" id="collector-email" required autocomplete="off">
-                        <div id="email-validation-msg" class="validation-message">
+                            <label for="collector-username">Usuário (para acessar o app)</label>
+                            <input type="text" id="collector-username" required value="${collector.id || ''}" ${isEditMode ? 'readonly' : ''} autocomplete="off" autocapitalize="none">
+                            <div id="username-validation-msg" class="validation-message">
                                 <!-- El contenido se añadirá por JS -->
                             </div>
-                    </div>
+                        </div>
+                        
+                        <!-- [CAMBIO] El campo 'Email' (collector-email) fue ELIMINADO de aquí -->
+
                         <div class="form-group">
                             <label for="collector-password" data-lang-key="password"></label>
-                            <input type="password" id="collector-password" ${!isEditMode ? 'required' : ''} placeholder="${isEditMode ? 'Deixe em branco para não alterar' : ''}">
+                            <input type="password" id="collector-password" ${!isEditMode ? 'required' : ''} placeholder="${isEditMode ? 'Deixe em branco para não alterar' : ''}" autocomplete="new-password">
                         </div>
+
 
                         <h3 class="section-title" style="margin-top: 30px; border-bottom: none; font-size: 1.1em;">
                         <i data-lucide="dollar-sign" style="width: 18px; height: 18px; margin-right: 8px;"></i>
@@ -4323,44 +4321,38 @@ async function submitCollectorReport(collectorId) {
             `;
             formModal.classList.add('active');
 
-            formModal.classList.add('active');
+            // --- INICIA NUEVO CÓDIGO PARA VISTA PREVIA DE IMAGEN ---
+            const profileInput = formModal.querySelector('#collector-profile-pic');
+            const profilePreview = formModal.querySelector('#profile-preview');
+            const documentInput = formModal.querySelector('#collector-document-pic');
+            const documentPreview = formModal.querySelector('#document-preview');
 
-// --- INICIA NUEVO CÓDIGO PARA VISTA PREVIA DE IMAGEN ---
-const profileInput = formModal.querySelector('#collector-profile-pic');
-const profilePreview = formModal.querySelector('#profile-preview');
-const documentInput = formModal.querySelector('#collector-document-pic');
-const documentPreview = formModal.querySelector('#document-preview');
+            if (profileInput) {
+                profileInput.addEventListener('change', (e) => {
+                    const file = e.target.files[0];
+                    if (file) {
+                        profilePreview.src = URL.createObjectURL(file);
+                    }
+                });
+            }
 
-// Escucha si se selecciona una foto de PERFIL
-if (profileInput) {
-    profileInput.addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            // Muestra la imagen seleccionada en el <img> de 'profile-preview'
-            profilePreview.src = URL.createObjectURL(file);
-        }
-    });
-}
+            if (documentInput) {
+                documentInput.addEventListener('change', (e) => {
+                    const file = e.target.files[0];
+                    if (file) {
+                        documentPreview.src = URL.createObjectURL(file);
+                    }
+                });
+            }
 
-// Escucha si se selecciona una foto de DOCUMENTO
-if (documentInput) {
-    documentInput.addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            // Muestra la imagen seleccionada en el <img> de 'document-preview'
-            documentPreview.src = URL.createObjectURL(file);
-        }
-    });
-}
-
-// Si estamos en modo EDICIÓN, muestra las fotos que ya están guardadas
-if (isEditMode && collector.profilePictureUrl) {
-    profilePreview.src = collector.profilePictureUrl;
-}
-if (isEditMode && collector.documentPictureUrl) {
-    documentPreview.src = collector.documentPictureUrl;
-}
-// --- FIN NUEVO CÓDIGO PARA VISTA PREVIA DE IMAGEN ---
+            // Si estamos en modo EDICIÓN, muestra las fotos que ya están guardadas
+            if (isEditMode && collector.profilePictureUrl) {
+                profilePreview.src = collector.profilePictureUrl;
+            }
+            if (isEditMode && collector.documentPictureUrl) {
+                documentPreview.src = collector.documentPictureUrl;
+            }
+            // --- FIN NUEVO CÓDIGO PARA VISTA PREVIA DE IMAGEN ---
 
 
 
@@ -4368,12 +4360,10 @@ if (isEditMode && collector.documentPictureUrl) {
             const currencySelect = formModal.querySelector('#collector-currency');
             const capitalSymbolSpan = formModal.querySelector('#capital-currency-symbol');
 
-            // Poblar el select de monedas
             currencySelect.innerHTML = Object.entries(CURRENCY_CONFIGS).map(([code, config]) => 
                 `<option value="${code}" ${ (collector.operatingCurrency || 'BRL') === code ? 'selected' : '' }>${code} - ${config.name}</option>`
             ).join('');
 
-            // Función para actualizar el símbolo
             const updateCurrencySymbol = () => {
                 const selectedCurrencyCode = currencySelect.value;
                 const config = CURRENCY_CONFIGS[selectedCurrencyCode];
@@ -4382,7 +4372,6 @@ if (isEditMode && collector.documentPictureUrl) {
                  }
             };
 
-            // Actualizar al cargar y al cambiar
             updateCurrencySymbol(); 
             currencySelect.addEventListener('change', updateCurrencySymbol);
             // --- Fin Lógica de Moeda ---
@@ -4390,32 +4379,28 @@ if (isEditMode && collector.documentPictureUrl) {
             // --- Lógica de Verificación ---
             const fieldsToVerify = ['collector-name', 'collector-document', 'collector-phone', 'collector-whatsapp'];
             fieldsToVerify.forEach(fieldId => {
-            const input = formModal.querySelector(`#${fieldId}`);
-            if (input) {
-            // Usamos 'blur' para verificar cuando el usuario sale del campo
-            input.addEventListener('blur', () => verifyCollectorInSystem(collectorId));
-            }
+                const input = formModal.querySelector(`#${fieldId}`);
+                if (input) {
+                    input.addEventListener('blur', () => verifyCollectorInSystem(collectorId));
+                }
             });
 
-            // Ejecuta una verificación inicial si estamos en modo edición y ya hay datos
             if (isEditMode) {
-            verifyCollectorInSystem(collectorId);
+                verifyCollectorInSystem(collectorId);
             }
 
-
+            // --- [CAMBIO] Lógica de validación de Username y Email ---
             const usernameInput = formModal.querySelector('#collector-username');
-            const emailInput = formModal.querySelector('#collector-email');
+            const emailInput = formModal.querySelector('#collector-email'); // <-- Esta variable ahora es null, la eliminamos
             const usernameMsg = formModal.querySelector('#username-validation-msg');
-            const emailMsg = formModal.querySelector('#email-validation-msg');
+            const emailMsg = formModal.querySelector('#email-validation-msg'); // <-- Este elemento ya no existe
 
-            // Si estamos en modo edición, marcamos ambos como "válidos" por defecto
-            // porque no se pueden cambiar.
+            // Si estamos en modo edición, marcamos como "válidos" por defecto
             if (isEditMode) {
                 isUsernameGloballyAvailable = true;
-                isEmailFormatValid = true; 
-                // Ocultamos los mensajes de validación en modo edición
+                // isEmailFormatValid = true; // <-- Ya no es necesaria
                 usernameMsg.style.display = 'none';
-                emailMsg.style.display = 'none';
+                // if(emailMsg) emailMsg.style.display = 'none'; // <-- Ya no es necesario
             }
 
             // 1. Listener para el Nombre de Usuario (Username)
@@ -4430,6 +4415,15 @@ if (isEditMode && collector.documentPictureUrl) {
                     lucide.createIcons({nodes: [usernameMsg.querySelector('i')]});
                     return;
                 }
+                // [CAMBIO] Verificamos que no contenga @
+                if (username.includes('@')) {
+                    usernameMsg.className = 'validation-message invalid';
+                    usernameMsg.innerHTML = `<i data-lucide="x-circle"></i> Não pode conter '@'.`;
+                    isUsernameGloballyAvailable = false;
+                    lucide.createIcons({nodes: [usernameMsg.querySelector('i')]});
+                    return;
+                }
+
 
                 usernameMsg.className = 'validation-message checking';
                 usernameMsg.innerHTML = `<i data-lucide="loader-circle" style="animation: spin 1s linear infinite; width: 14px; height: 14px;"></i> Verificando disponibilidade...`;
@@ -4441,12 +4435,10 @@ if (isEditMode && collector.documentPictureUrl) {
                     const docSnap = await getDoc(collectorRef);
                     
                     if (docSnap.exists()) {
-                        // ¡Encontrado! El nombre de usuario NO está disponible
                         usernameMsg.className = 'validation-message invalid';
                         usernameMsg.innerHTML = `<i data-lucide="x-circle"></i> Usuário já existe no sistema.`;
                         isUsernameGloballyAvailable = false;
                     } else {
-                        // ¡No encontrado! El nombre de usuario ESTÁ disponible
                         usernameMsg.className = 'validation-message valid';
                         usernameMsg.innerHTML = `<i data-lucide="check-circle"></i> Nome de usuário disponível!`;
                         isUsernameGloballyAvailable = true;
@@ -4460,33 +4452,10 @@ if (isEditMode && collector.documentPictureUrl) {
                 lucide.createIcons({nodes: [usernameMsg.querySelector('i')]});
             });
 
-            // 2. Listener para el Email
-            emailInput.addEventListener('blur', () => {
-                if (isEditMode) return; // No verificar si estamos editando
-                
-                const email = emailInput.value.trim();
-                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            // 2. [CAMBIO] El listener para el Email fue ELIMINADO
+            
+            // --- Fin Lógica de Verificación ---
 
-                if (!email) {
-                    emailMsg.className = 'validation-message';
-                    isEmailFormatValid = false;
-                    return;
-                }
-
-                if (emailRegex.test(email)) {
-                    emailMsg.className = 'validation-message valid';
-                    emailMsg.innerHTML = `<i data-lucide="check-circle"></i> Formato de email válido.`;
-                    isEmailFormatValid = true;
-                } else {
-                    emailMsg.className = 'validation-message invalid';
-                    emailMsg.innerHTML = `<i data-lucide="x-circle"></i> Formato de email inválido.`;
-                    isEmailFormatValid = false;
-                }
-                lucide.createIcons({nodes: [emailMsg.querySelector('i')]});
-            });
-
-
-// --- Fin Lógica de Verificación ---
             lucide.createIcons({nodes: formModal.querySelectorAll('[data-lucide]')});
             applyLanguage(currentLang);
             
@@ -4494,9 +4463,8 @@ if (isEditMode && collector.documentPictureUrl) {
             
             
             
-            
+            // --- [CAMBIO] Lógica de Guardado ---
             formModal.querySelector('#saveCollectorBtn').addEventListener('click', async (e) => {
-                // 1. Obtener el botón y deshabilitarlo
                 const saveBtn = e.currentTarget;
                 const originalBtnHTML = saveBtn.innerHTML;
                 saveBtn.disabled = true;
@@ -4506,38 +4474,45 @@ if (isEditMode && collector.documentPictureUrl) {
                 // 2. Obtener todos los valores del formulario
                 const profileFile = document.getElementById('collector-profile-pic')?.files[0];
                 const documentFile = document.getElementById('collector-document-pic')?.files[0];
-                const username = document.getElementById('collector-username').value.trim(); // Este es el ID del documento
+                const username = document.getElementById('collector-username').value.trim(); // Este es el ID del documento Y la base del email
                 const name = document.getElementById('collector-name').value.trim();
-                const email = document.getElementById('collector-email').value.trim(); // Este es para Auth
+                
+                // [CAMBIO] El email se construye a partir del 'username' con el sufijo @gmail.com
+                const email = `${username}@gmail.com`; 
+                
                 const password = document.getElementById('collector-password').value.trim();
                 const capital = parseFloat(document.getElementById('collector-capital').value);
 
 
                 if (!isEditMode && !isUsernameGloballyAvailable) {
                     showToast('Esse nome de usuário já está em uso ou não foi verificado.', true);
+                    saveBtn.disabled = false;
+                    saveBtn.innerHTML = originalBtnHTML;
+                    lucide.createIcons({ nodes: [saveBtn.querySelector('i')] });
                     return; // Detiene el guardado
                 }
-                if (!isEditMode && !isEmailFormatValid) {
-                     showToast('Por favor, insira um formato de email válido.', true);
-                    return; // Detiene el guardado
-                }
-
+                
+                // [CAMBIO] Ya no validamos isEmailFormatValid
 
                 // 3. Validación
-                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-                if (!email || !emailRegex.test(email)) {
-                    showToast("Por favor, insira um formato de email válido.", true);
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/; // Mantenemos el regex para chequear el *resultado*
+                
+                // [CAMBIO] Verificamos el 'username' y 'password' (el email ya no viene del form)
+                if (!username || !name || isNaN(capital) ||
+                    (!isEditMode && !password)
+                    // [CAMBIO] Las fotos ya no son obligatorias
+                    // (!isEditMode && (!profileFile || !documentFile)) 
+                ) {
+                    showToast(translations[currentLang].fillFields, true);
                     saveBtn.disabled = false;
                     saveBtn.innerHTML = originalBtnHTML;
                     lucide.createIcons({ nodes: [saveBtn.querySelector('i')] });
                     return;
                 }
-                
-                if (!username || !name || isNaN(capital) ||
-                    (!isEditMode && !password) ||
-                    (!isEditMode && (!profileFile || !documentFile)) // Fotos obligatorias solo al crear
-                ) {
-                    showToast(translations[currentLang].fillFields + (isEditMode ? "" : " (E fotos)"), true);
+
+                // [CAMBIO] Verificamos el 'email' construido
+                 if (!emailRegex.test(email)) {
+                    showToast("O nome de usuário não pode ser usado para criar um email válido (evite caracteres especiais ou espaços).", true);
                     saveBtn.disabled = false;
                     saveBtn.innerHTML = originalBtnHTML;
                     lucide.createIcons({ nodes: [saveBtn.querySelector('i')] });
@@ -4552,7 +4527,6 @@ if (isEditMode && collector.documentPictureUrl) {
 
                     if (profileFile) {
                         showToast("Subindo foto de perfil...", false);
-                        // [RUTA CORREGIDA] Usa el companyId
                         const profileStorageRef = ref(storage, `companies/${currentCompanyId}/collectors/${username}/profile.jpg`);
                         await uploadBytes(profileStorageRef, profileFile);
                         profilePicUrl = await getDownloadURL(profileStorageRef);
@@ -4560,7 +4534,6 @@ if (isEditMode && collector.documentPictureUrl) {
 
                     if (documentFile) {
                         showToast("Subindo foto de documento...", false);
-                        // [RUTA CORREGIDA] Usa el companyId
                         const documentStorageRef = ref(storage, `companies/${currentCompanyId}/collectors/${username}/document.jpg`);
                         await uploadBytes(documentStorageRef, documentFile);
                         documentPicUrl = await getDownloadURL(documentStorageRef);
@@ -4568,9 +4541,10 @@ if (isEditMode && collector.documentPictureUrl) {
 
                     // 6. Definir el objeto de datos del cobrador UNA SOLA VEZ
                     const collectorData = {
-                        companyId: currentCompanyId, // [CORRECCIÓN] Añade el companyId
+                        companyId: currentCompanyId, 
                         username: username, // Este será el ID del documento
                         name,
+                        email: email, // [CAMBIO] Guardamos el email construido en Firestore
                         documentNumber: document.getElementById('collector-document').value.trim(),
                         address: document.getElementById('collector-address').value,
                         phone: document.getElementById('collector-phone').value,
@@ -4579,17 +4553,16 @@ if (isEditMode && collector.documentPictureUrl) {
                         startingCapital: capital,
                         profilePictureUrl: profilePicUrl,
                         documentPictureUrl: documentPicUrl
-                        // La contraseña NUNCA se guarda en Firestore
                     };
 
                     // 7. Lógica de Edición o Creación
                     if (isEditMode) {
                         // --- MODO EDICIÓN ---
-                        const { username: id, ...dataToUpdate } = collectorData; // Quitamos 'username' de los datos a actualizar
+                        const { username: id, email: emailToUpdate, ...dataToUpdate } = collectorData; // Quitamos 'username' y 'email' de los datos a actualizar
 
                         if (password) {
-                            // TODO: Se necesita una Cloud Function separada para actualizar la contraseña.
-                            console.warn("A atualização de senha no modo 'Editar' precisa de uma Cloud Function dedicada.");
+                            console.warn("A atualização de senha no modo 'Editar' precisa de uma Cloud Function dedicada. A senha NÃO foi alterada.");
+                            showToast("A senha não pode ser alterada no modo de edição.", true);
                         }
                         
                         await updateDoc(doc(db, "collectors", collectorId), dataToUpdate);
@@ -4599,18 +4572,15 @@ if (isEditMode && collector.documentPictureUrl) {
                     } else {
                         // --- MODO CREACIÓN ---
                         
-                        // 8. Obtener Token del Admin
                         if (!auth.currentUser) throw new Error("Admin não está autenticado.");
                         const idToken = await auth.currentUser.getIdToken(true);
 
-                        // 9. Preparar datos para la Cloud Function
                         const dataToSend = {
-                            collectorEmail: email, // El email para Auth
-                            collectorPassword: password, // La contraseña para Auth
-                            collectorData: collectorData // El objeto completo para Firestore
+                            collectorEmail: email, // [CAMBIO] Usa el email construido
+                            collectorPassword: password,
+                            collectorData: collectorData
                         };
 
-                        // 10. URL y llamada Fetch
                         const functionUrl = "https://us-central1-lumix-financas-app.cloudfunctions.net/createCollector";
 
                         console.log("Chamando Cloud Function 'createCollector'...");
@@ -4623,16 +4593,13 @@ if (isEditMode && collector.documentPictureUrl) {
                             body: JSON.stringify({ data: dataToSend })
                         });
 
-                        // 11. Manejar la respuesta
                         if (!response.ok) {
-                            // Si la respuesta no es 200, lee el error
                             const errorData = await response.json().catch(() => ({}));
                             const errorCode = errorData.error?.code;
                             const errorMessage = errorData.error?.message || `Error HTTP ${response.status}`;
                             
-                            // Manejar errores específicos devueltos por nuestra función
                             if (response.status === 409 && errorCode === 'auth/email-already-in-use') {
-                                 throw new Error(`Erro: O email '${email}' já está em uso.`);
+                                 throw new Error(`Erro: O email '${email}' (criado a partir do usuário) já está em uso.`);
                             } else if (response.status === 409 && errorCode === 'firestore/already-exists') {
                                  throw new Error(`Erro: O nome de usuário '${username}' já existe.`);
                             }
@@ -4649,11 +4616,10 @@ if (isEditMode && collector.documentPictureUrl) {
                     }
 
                 } catch (error) {
-                    // Este es el catch principal para validación, subidas, y llamadas a la API
                     console.error("ERRO DETALHADO AO SALVAR COBRADOR: ", error);
                     let userMessage = error.message || translations[currentLang].errorSaving;
 
-                    if (error.code) { // Manejar errores específicos del SDK de Firebase (ej. Storage)
+                    if (error.code) { 
                         switch (error.code) {
                             case 'storage/unauthorized':
                                 userMessage = "Erro de Permissão: Verifique suas Regras do Storage.";
@@ -4665,20 +4631,17 @@ if (isEditMode && collector.documentPictureUrl) {
                                 userMessage = `Erro: ${error.message}`;
                         }
                     }
-                    showToast(userMessage, true); // Muestra el mensaje de error detallado
+                    showToast(userMessage, true);
 
                 } finally {
-                    // 10. Rehabilitar el botón
                     saveBtn.disabled = false;
                     saveBtn.innerHTML = originalBtnHTML;
                     lucide.createIcons({ nodes: [saveBtn.querySelector('i')] });
                 }
             });
-            // --- FIN DEL BLOQUE CORREGIDO ---
-
-        
 
         }
+        
         
         function showClientFormModal(clientId) {
             const client = allClients.find(c => c.id === clientId);
@@ -5443,5 +5406,3 @@ if (isEditMode && collector.documentPictureUrl) {
     </script>
 </body>
 </html>
-
-
