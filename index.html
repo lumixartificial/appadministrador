@@ -228,7 +228,16 @@
         .modal-view, .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 200; }
         .modal-view { background-color: var(--bg); transform: translateX(100%); transition: transform 0.3s ease-in-out; display: flex; flex-direction: column; }
         .modal-view.active { transform: translateX(0); }
-        .modal-overlay { background-color: rgba(0,0,0,0.5); backdrop-filter: blur(4px); display: none; justify-content: center; align-items: center; }
+
+        .modal-overlay { 
+    z-index: 300; /* <-- AÑADIDO: z-index más alto para que aparezca ENCIMA de .modal-view */
+    background-color: rgba(0,0,0,0.5); 
+    backdrop-filter: blur(4px); 
+    display: none; 
+    justify-content: center; 
+    align-items: center; 
+}
+        
         .modal-overlay.active { display: flex; }
         .modal-content { background-color: var(--surface); padding: 20px; border-radius: 12px; width: 90%; max-width: 500px; }
 
@@ -770,6 +779,95 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
 }
 /* --- Fin Estilos Reporte --- */
         
+
+.payment-history-item[data-history-index] {
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+.payment-history-item[data-history-index]:hover {
+    background-color: var(--bg);
+}
+
+/* Estilos para el nuevo modal de detalle de pago */
+#paymentDetailModal .receipt-preview {
+    width: 100%;
+    max-height: 40vh;
+    object-fit: contain;
+    border-radius: 8px;
+    margin-top: 10px;
+    border: 1px solid var(--border-color);
+    background-color: var(--bg);
+}
+#paymentDetailModal .no-receipt {
+    color: var(--text-secondary);
+    text-align: center;
+    padding: 30px;
+    background-color: var(--bg);
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+}
+
+
+/* === INICIO: CÓDIGO AÑADIDO PARA PESTAÑAS DE PRÉSTAMO === */
+
+/* Contenedor principal que da el fondo y borde (copiado de app-cobrador) */
+.loan-tabs-wrapper {
+    background-color: var(--surface);
+    border-bottom: 1px solid var(--border-color);
+    /* El padding horizontal se aplica aquí, en el marco */
+    padding: 0 20px; 
+}
+
+/* Contenedor que permite el scroll horizontal */
+.loan-tabs-container {
+    display: flex;
+    gap: 8px;
+    padding: 12px 0; /* Padding vertical dentro del wrapper */
+    overflow-x: auto; /* Permite scroll horizontal */
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE y Edge */
+}
+
+/* Oculta la barra de scroll en Chrome/Safari/Opera */
+.loan-tabs-container::-webkit-scrollbar {
+    display: none;
+}
+
+/* Estilo de cada "píldora" (botón de pestaña) */
+.loan-tab {
+    padding: 10px 20px; 
+    border: 2px solid transparent; 
+    background-color: var(--bg); 
+    color: var(--text-secondary); 
+    border-radius: 20px; /* Bordes redondeados para píldora */
+    font-weight: 600; 
+    font-size: 0.9em; 
+    cursor: pointer;
+    white-space: nowrap; /* Evita que el texto se rompa */
+    transition: all 0.2s; 
+    flex-shrink: 0; /* Evita que los botones se encojan */
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+}
+
+/* Estilo de la pestaña activa */
+.loan-tab.active {
+    background-color: var(--accent-blue); /* Color de fondo activo (azul) */
+    color: white; /* Texto blanco */
+    border-color: var(--accent-blue); /* Borde del mismo color */
+    font-weight: 700; 
+}
+
+/* Estilo hover para pestañas inactivas */
+.loan-tab:not(.active):hover {
+    background-color: var(--border-color); 
+    color: var(--text-primary);
+}
+/* === FIN: CÓDIGO AÑADIDO === */
+
+
+
 .validation-message {
             font-size: 0.85em;
             font-weight: 500;
@@ -837,6 +935,7 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
     <div id="cropperModal" class="modal-view"></div>
     <div id="reportOptionsModal" class="modal-overlay"></div>
     <div id="settlementVerificationModal" class="modal-view"></div>
+    <div id="paymentDetailModal" class="modal-view"></div>
     <div id="toast-container"></div>
     
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
@@ -1473,6 +1572,63 @@ currentAdmin.name = currentCompanyData.owner?.name || companyName;
                 setTimeout(() => toast.remove(), 500);
             }, 3500);
         }
+
+
+        /* === INICIO DEL CÓDIGO A AÑADIR (BLOQUE 3) === */
+/**
+ * Muestra un modal de confirmación genérico usando el overlay #reportOptionsModal.
+ * @param {string} title - El título del modal.
+ * @param {string} message - El mensaje de confirmación.
+ * @param {string} confirmText - El texto del botón de confirmación (ej: "Eliminar").
+ * @param {string} confirmClass - 'btn-danger' o 'btn-primary'.
+ * @returns {Promise<boolean>} - Resuelve 'true' si se confirma, 'false' si se cancela.
+ */
+function showConfirmationModal(title, message, confirmText = 'Confirmar', confirmClass = 'btn-danger') {
+    return new Promise((resolve) => {
+        const modal = document.getElementById('reportOptionsModal');
+        if (!modal) {
+            console.error("Modal de overlay #reportOptionsModal no encontrado.");
+            resolve(false); // Rechaza si el modal no existe
+            return;
+        }
+
+        modal.innerHTML = `
+        <div class="modal-content" style="max-width: 450px; text-align: center;">
+            <i data-lucide="alert-triangle" style="width: 48px; height: 48px; color: ${confirmClass === 'btn-danger' ? 'var(--danger-color)' : 'var(--accent-blue)'}; margin-bottom: 15px;"></i>
+            <h3 style="font-size: 1.25em; font-weight: 600; margin-top: 0; margin-bottom: 10px;">${title}</h3>
+            <p style="color: var(--text-secondary); margin-bottom: 25px; line-height: 1.5;">${message}</p>
+            <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                <button id="confirm-cancel" class="btn-secondary" style="background-color: var(--surface); border-color: var(--border-color); color: var(--text-secondary);">Cancelar</button>
+                <button id="confirm-accept" class="${confirmClass}">${confirmText}</button>
+            </div>
+        </div>
+        `;
+        
+        lucide.createIcons({ nodes: modal.querySelectorAll('[data-lucide]') });
+        modal.classList.add('active');
+
+        const btnCancel = modal.querySelector('#confirm-cancel');
+        const btnAccept = modal.querySelector('#confirm-accept');
+
+        const close = (result) => {
+            modal.classList.remove('active');
+            // Limpia el modal después de cerrar para no interferir con otros usos
+            setTimeout(() => modal.innerHTML = '', 300); 
+            resolve(result); // Resuelve la promesa
+        };
+
+        // Listeners
+        btnCancel.addEventListener('click', () => close(false));
+        btnAccept.addEventListener('click', () => close(true));
+        // Cierra si se hace clic en el fondo (overlay)
+        modal.addEventListener('click', (e) => {
+             if (e.target.id === 'reportOptionsModal') close(false);
+        }, { once: true });
+    });
+}
+
+
+
 
         function showBlockedView(message) {
     console.error("Acceso bloqueado:", message);
@@ -3789,176 +3945,330 @@ async function submitCollectorReport(collectorId) {
 
 
         
-        function showClientDetails(clientId, loanIndex = 0) { // <-- Acepta un loanIndex
-            const client = allClients.find(c => c.id === clientId);
-            if (!client) {
-                showToast('Cliente não encontrado.', true);
-                return;
+        // REEMPLAZA ESTA FUNCIÓN COMPLETA (BLOQUE 5)
+function showClientDetails(clientId, loanIndex = 0) { // <-- Acepta un loanIndex
+    const client = allClients.find(c => c.id === clientId);
+    
+    if (!client) {
+        showToast('Erro: Cliente não encontrado.', true);
+        return;
+    }
+
+    const detailModal = document.getElementById('clientDetailModal');
+    
+    // --- LÓGICA DE SELECCIÓN DE PRÉSTAMO ---
+    // (Esta lógica es para las pestañas, similar a la app del cobrador)
+    const displayableLoans = (client.loans || []).filter(l => l.status !== 'finished');
+    const activeOrLastFinishedLoans = displayableLoans.length > 0 ? displayableLoans : (client.loans && client.loans.length > 0 ? [client.loans[client.loans.length - 1]] : []);
+    
+    const currentLoanIndex = (loanIndex >= 0 && client.loans && loanIndex < client.loans.length && (client.loans[loanIndex].status !== 'finished' || activeOrLastFinishedLoans.some(l => client.loans[loanIndex] === l)))
+                   ? loanIndex
+                   : (activeOrLastFinishedLoans.length > 0 ? client.loans.findIndex(l => l === activeOrLastFinishedLoans[0]) : 0);
+
+    if (!client.loans || !client.loans[currentLoanIndex]) {
+        console.error(`Cliente o préstamo con índice ${currentLoanIndex} no encontrado para ${clientId}`);
+        showToast("Erro ao carregar detalhes do empréstimo.", true);
+        return;
+    }
+    
+    const loan = client.loans[currentLoanIndex];
+    const hasMultipleDisplayable = activeOrLastFinishedLoans.length > 1;
+    // --- FIN LÓGICA DE SELECCIÓN ---
+    
+    const paidAmount = (loan.history || [])
+        .filter(h => h.status === 'approved' || (!h.status && h.date))
+        .reduce((sum, h) => sum + (h.amount || 0), 0) + (loan.initialMigratedAmount || 0);
+
+    const totalAmount = loan.totalLoan || 0;
+    const remainingAmount = Math.max(0, totalAmount - paidAmount) + (loan.lateFeesAccumulated || 0);
+
+    const loanDetails = calculateLoanDetails(loan);
+    const currentStatus = loanDetails.status;
+    const statusClass = `status-${currentStatus}`;
+    const statusText = (translations[currentLang] && translations[currentLang][currentStatus]) || currentStatus;
+
+    // --- [INICIO DE LA MODIFICACIÓN (BLOQUE 5.1)] ---
+    const historyHtml = (loan.history && loan.history.length > 0) ? 
+        [...loan.history].sort((a,b) => (b.date?.seconds || 0) - (a.date?.seconds || 0)).map((p) => {
+            // 1. Obtenemos el índice original del array SIN ORDENAR
+            const originalIndex = loan.history.indexOf(p);
+            
+            let dateStr = 'N/A';
+            if (p.date?.seconds) {
+                dateStr = new Date(p.date.seconds * 1000).toLocaleDateString();
             }
+
+            // 2. Añadimos el data-history-index al div y la clase clicable
+            return `
+            <div class="payment-history-item" data-history-index="${originalIndex}">
+                <span>${dateStr}</span>
+                <strong>${money(p.amount)}</strong>
+            </div>
+            `
+        }).join('') : '<p>Nenhum histórico de pagamento.</p>';
+    // --- [FIN DE LA MODIFICACIÓN (BLOQUE 5.1)] ---
+    
+    const docsHtml = (client.documents && client.documents.length > 0) ?
+        client.documents.map(doc => `
+            <div class="document-list-item">
+                <i data-lucide="file-text"></i>
+                <a href="${doc.url}" target="_blank" rel="noopener noreferrer">${doc.name}</a>
+            </div>
+        `).join('') : '<p>Nenhum documento anexado.</p>';
+    
+    detailModal.innerHTML = `
+        <header class="modal-header">
+            <button id="closeClientDetail"><i data-lucide="arrow-left"></i></button>
+            <span class="modal-title">${client.name}</span>
+            <button id="editClientBtn" data-client-id="${client.id}" data-loan-index="${currentLoanIndex}"><i data-lucide="edit"></i></button>
+        </header>
+        
+        ${hasMultipleDisplayable ? `
+        <div class="loan-tabs-wrapper"> 
+            <div class="loan-tabs-container" id="loan-tabs-container">
+                ${client.loans.map((l, index) => {
+                    const isRelevant = activeOrLastFinishedLoans.some(relevantLoan => client.loans[index] === relevantLoan);
+                    if (isRelevant || index === currentLoanIndex) {
+                        return `<button class="loan-tab ${index === currentLoanIndex ? 'active' : ''}" data-loan-index="${index}">
+                                    Préstamo ${index + 1} ${l.status === 'finished' ? '(Finalizado)' : ''}
+                                </button>`;
+                    }
+                    return '';
+                }).join('')}
+            </div>
+        </div>` : ''}
+
+        <div class="modal-content-wrapper container">
+            <div class="kpi-card" style="text-align: center; margin-bottom: 20px;">
+                <h3 class="kpi-title" style="justify-content: center;">Estado do Préstamo ${currentLoanIndex + 1}</h3>
+                <span class="payment-status ${statusClass}" style="font-size: 1.2em; font-weight: 600; padding: 8px 20px;">
+                    ${statusText}
+                </span>
+            </div>
             
-            // --- [INICIO CORRECCIÓN ESTRUCTURA] ---
-            // Asegura que el loanIndex sea válido
-            if (!client.loans || !client.loans[loanIndex]) {
-                 console.error(`showClientDetails: Préstamo con índice ${loanIndex} no encontrado para cliente ${clientId}.`);
-                 // Fallback: buscar el primer préstamo activo si el índice falla
-                 loanIndex = client.loans ? client.loans.findIndex(l => l.status !== 'finished') : -1;
-                 if (loanIndex === -1) loanIndex = 0; // Si no hay activos, muestra el primero
-                 if (!client.loans[loanIndex]) { // Si sigue sin encontrar nada
-                    showToast('Cliente não possui dados de empréstimo válidos.', true);
-                    return;
-                 }
+            <section class="loan-summary">
+                <div class="kpi-card"><h3 class="kpi-title">Total</h3><p class="kpi-value">${money(totalAmount)}</p></div>
+                <div class="kpi-card"><h3 class="kpi-title">Pago</h3><p class="kpi-value green">${money(paidAmount)}</p></div>
+                <div class="kpi-card"><h3 class="kpi-title">Restante</h3><p class="kpi-value" style="color: var(--danger-color);">${money(remainingAmount)}</p></div>
+                <div class="kpi-card"><h3 class="kpi-title">Parcela</h3><p class="kpi-value purple">${money(loan.originalInstallmentAmount)}</p></div>
+            </section>
+            
+            <section>
+                <h2 class="section-title">Histórico de Pagamentos (Préstamo ${currentLoanIndex + 1})</h2>
+                <!-- [INICIO DE LA MODIFICACIÓN (BLOQUE 5.2)] --- (Añadimos un ID al contenedor) -->
+                <div class="item-list" id="client-payment-history-list">${historyHtml}</div>
+                <!-- [FIN DE LA MODIFICACIÓN (BLOQUE 5.2)] --- -->
+            </section>
+            <section>
+                <h2 class="section-title">Documentos</h2>
+                <div class="item-list">${docsHtml}</div>
+            </section>
+        </div>
+    `;
+
+    history.pushState({ modal: 'clientDetailView', clientId: clientId, loanIndex: currentLoanIndex }, `Details for ${client.name}`, `#client/${clientId}/${currentLoanIndex}`);
+    detailModal.classList.add('active');
+    lucide.createIcons({ nodes: detailModal.querySelectorAll('[data-lucide]') });
+
+    detailModal.querySelector('#closeClientDetail').addEventListener('click', () => window.history.back());
+    
+    // --- [INICIO DE LA MODIFICACIÓN (BLOQUE 5.3)] ---
+    // (Pasa el loanIndex al modal de edición)
+    detailModal.querySelector('#editClientBtn').addEventListener('click', (e) => {
+        showClientFormModal(e.currentTarget.dataset.clientId, false, parseInt(e.currentTarget.dataset.loanIndex, 10));
+    });
+
+    // --- INICIO DEL CÓDIGO A AÑADIR (BLOQUE 5.4) ---
+    // Listener para el clic en los items del historial
+    const historyList = detailModal.querySelector('#client-payment-history-list');
+    if (historyList) {
+        historyList.addEventListener('click', (e) => {
+            const item = e.target.closest('.payment-history-item[data-history-index]');
+            if (item) {
+                const hIndex = parseInt(item.dataset.historyIndex, 10);
+                if (!isNaN(hIndex)) {
+                    // Llama al nuevo modal de detalles del pago
+                    showPaymentDetailModal(clientId, currentLoanIndex, hIndex);
+                }
             }
-            
-            // Usa el préstamo específico
-            const loan = client.loans[loanIndex];
-            
-            const detailModal = document.getElementById('clientDetailModal');
-            
-            // Calcula el total pagado DESDE EL HISTORIAL del préstamo
-            const displayTotalPaid = (loan.history || [])
-                .filter(h => h.status !== 'pending_verification' && h.status !== 'rejected' && h.status !== 'postponed')
-                .reduce((sum, h) => sum + (h.amount || 0), 0);
-            
-            // Genera el historial DESDE EL PRÉSTAMO
-            const historyHtml = (loan.history && loan.history.length > 0) ? 
-                [...loan.history].sort((a,b) => b.date.seconds - a.date.seconds).map(p => `
-                    <div class="payment-history-item">
-                        <span>${new Date(p.date.seconds * 1000).toLocaleDateString()}</span>
-                        <strong>${money(p.amount)}</strong>
-                    </div>
-                `).join('') : '<p>Nenhum histórico de pagamento.</p>';
-            // --- [FIN CORRECCIÓN ESTRUCTURA] ---
-            
-            const docsHtml = (client.documents && client.documents.length > 0) ?
-                client.documents.map(doc => `
-                    <a href="${doc.url}" target="_blank" class="document-item">
-                        <i data-lucide="file-text"></i>
-                        <span>${doc.name}</span>
-                        <i data-lucide="external-link"></i>
-                    </a>
-                `).join('') : '<p>Nenhum documento anexado.</p>';
-            
-            // --- [INICIO CORRECCIÓN CÁLCULOS] ---
-            // Usa los datos del PRÉSTAMO (loan), no del CLIENTE (client)
-            const remainingBalance = (loan.totalLoan || 0) - displayTotalPaid;
-            const totalInstallments = loan.installments ? loan.installments.split('/')[1] : 'N/A';
-            
-            // Usa el valor de cuota del préstamo y el total pagado del préstamo
-            const paidInstallments = (loan.originalInstallmentAmount || 0) > 0 
-                ? Math.floor(displayTotalPaid / loan.originalInstallmentAmount) 
-                : 0; 
-            
-            const progressPercentage = (totalInstallments > 0 && totalInstallments !== 'N/A') ? (paidInstallments / totalInstallments) * 100 : 0;
-            const circleCircumference = 2 * Math.PI * 54;
-            const strokeDashoffset = circleCircumference - (progressPercentage / 100) * circleCircumference;
+        });
+    }
+    // --- FIN DEL CÓDIGO A AÑADIR (BLOQUE 5.4) ---
 
-            const nameInitial = (client.name || 'C').charAt(0).toUpperCase();
-            const placeholderUrl = `https://placehold.co/100x100/3b82f6/FFFFFF?text=${nameInitial}`;
-            const photoUrl = client.profilePictureUrl || placeholderUrl;
-
-            // Usa la función moderna
-            const loanDetails = calculateLoanDetails(loan);
-            const lateDays = loanDetails.lateDays;
-            // --- [FIN CORRECCIÓN CÁLCULOS] ---
-            
-            const score = Math.max(0, 10 - lateDays);
-            
-            let reputationStatusKey = 'reputationBad';
-            if (score === 10) reputationStatusKey = 'reputationPerfect';
-            else if (score >= 7) reputationStatusKey = 'reputationGood';
-            else if (score >= 3) reputationStatusKey = 'reputationRegular';
-
-            let barStatusClass = 'status-bad';
-            if (score === 10) barStatusClass = 'status-perfect';
-            else if (score >= 7) barStatusClass = 'status-good';
-            else if (score >= 3) barStatusClass = 'status-regular';
-            const paymentDaysText = (loan.paymentDays || []).map(dayIndex => translations[currentLang].daysShort[dayIndex] || '').join(', ');
-
-            detailModal.innerHTML = `
-                <header class="modal-header">
-                    <button id="closeClientDetail"><i data-lucide="arrow-left"></i></button>
-                    <span class="modal-title">${client.name}</span>
-                    <button id="editClientBtn" data-client-id="${client.id}" data-loan-index="${loanIndex}" class="header-btn"><i data-lucide="edit"></i></button>
-                </header>
-                <div class="modal-content-wrapper container">
-                <div style="display: flex; justify-content: center; margin-bottom: 20px;">
-                    <img src="${photoUrl}" alt="Foto do Cliente" style="width: 100px; height: 100px; border-radius: 50%; object-fit: cover; border: 3px solid var(--accent-blue);">
-                </div>
-
-                <div class="kpi-card" style="margin-bottom: 20px; text-align: center;">
-                    <h3 class="kpi-title" style="justify-content: center;" data-lang-key="loanProgress"></h3>
-                    <div class="progress-circle">
-                        <svg><circle class="bg-circle" cx="60" cy="60" r="54"></circle><circle class="progress-bar" cx="60" cy="60" r="54" style="stroke-dasharray: ${circleCircumference}; stroke-dashoffset: ${strokeDashoffset};"></circle></svg>
-                        <div class="progress-text">${paidInstallments}/${totalInstallments}</div>
-                    </div>
-                </div>
-
-                <div class="kpi-card" style="margin-bottom: 20px;">
-                    <h3 class="kpi-title">Reputação</h3>
-                    <div class="reputation-bar-container">
-                        <div class="reputation-bar ${barStatusClass}" style="width: ${score * 10}%"></div>
-                    </div>
-                    <div class="reputation-status">
-                        <span class="reputation-value">${score} / 10</span>
-                        <span class="reputation-text ${barStatusClass}">${translations[currentLang][reputationStatusKey]}</span>
-                    </div>
-                </div>
-                <section style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px;">
-                    <div class="kpi-card" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 15px;">
-                        <h3 class="kpi-title" data-lang-key="totalValue" style="margin: 0; font-size: 0.95em;"></h3>
-                        <p class="kpi-value" style="font-size: 1.2em;">${money(loan.totalLoan)}</p>
-                    </div>
-                    
-                    <div class="kpi-card" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 15px;">
-                    <h3 class="kpi-title" data-lang-key="totalPaid" style="margin: 0; font-size: 0.95em;"></h3>
-                    <p class="kpi-value" style="font-size: 1.2em; color: var(--accent-green);">${money(displayTotalPaid)}</p>
-                    </div>
-
-                    <div class="kpi-card" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 15px;">
-                        <h3 class="kpi-title" data-lang-key="installmentValue" style="margin: 0; font-size: 0.95em;"></h3>
-                        <p class="kpi-value" style="font-size: 1.2em; color: var(--accent-blue);">${money(loan.originalInstallmentAmount)}</p>
-                    </div>
-                    <div class="kpi-card" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 15px;">
-                        <h3 class="kpi-title" data-lang-key="remainingBalance" style="margin: 0; font-size: 0.95em;"></h3>
-                        <p class="kpi-value" style="font-size: 1.2em; color: var(--danger-color);">${money(remainingBalance)}</p>
-                    </div>
-                </section>
-
-                    <section>
-                        <h2 class="section-title">Informações do Cliente</h2>
-                        <div class="info-grid">
-                            <div><label>Endereço</label><p>${client.address || 'N/A'}</p></div>
-                            <div><label>Cidade</label><p>${client.city || 'N/A'}</p></div>
-                            <div><label>Telefone (WhatsApp)</label><p>${client.whatsapp || 'Não informado'}</p></div>
-                            <div><label>Telefone Opcional</label><p>${client.phone || 'Não informado'}</p></div>
-                            <div><label>Dias de Pagamento</label><p>${paymentDaysText}</p></div>
-                            <div><label>Taxa de Juros</label><p>${client.interestRate || 'N/A'}%</p></div>
-                        </div>
-                    </section>
-
-                    <section>
-                        <h2 class="section-title">Histórico de Pagamentos (Préstamo ${loanIndex + 1})</h2>
-                        <div class="item-list">${historyHtml}</div>
-                    </section>
-
-                    <section>
-                        <h2 class="section-title">Documentos</h2>
-                        <div class="item-list">${docsHtml}</div>
-                    </section>
-                </div>
-            `;
-
-            detailModal.classList.add('active');
-            lucide.createIcons({nodes: detailModal.querySelectorAll('[data-lucide]')});
-            applyLanguage(currentLang);
-            detailModal.querySelector('#closeClientDetail').addEventListener('click', () => detailModal.classList.remove('active'));
-            
-            // --- [CORRECCIÓN LISTENER] ---
-            // Pasa el loanIndex al modal de edición
-            detailModal.querySelector('#editClientBtn').addEventListener('click', (e) => {
-                showClientFormModal(e.currentTarget.dataset.clientId, false, parseInt(e.currentTarget.dataset.loanIndex, 10));
+    // --- INICIO CÓDIGO AÑADIDO (PESTAÑAS) ---
+    if (hasMultipleDisplayable) {
+        detailModal.querySelectorAll('.loan-tab').forEach(tab => {
+            tab.addEventListener('click', (e) => {
+                const newLoanIndex = parseInt(e.currentTarget.dataset.loanIndex, 10);
+                showClientDetails(clientId, newLoanIndex);
             });
-        }
+        });
+    }
+    // --- FIN CÓDIGO AÑADIDO (PESTAÑAS) ---
+}
+
+
+        /* === INICIO DEL CÓDIGO A AÑADIR (BLOQUE 4) === */
+
+
+        async function showPaymentDetailModal(clientId, loanIndex, historyIndex) {
+    const modal = document.getElementById('paymentDetailModal');
+    
+    // --- (CORRECCIÓN INICIO) ---
+    // 1. Obtenemos el cliente FRESCO desde el array global CADA VEZ que se abre el modal
+    const client = allClients.find(c => c.id === clientId);
+    // --- (CORRECCIÓN FIN) ---
+
+    // Validaciones
+    if (!client || !client.loans || !client.loans[loanIndex] || !client.loans[loanIndex].history || !client.loans[loanIndex].history[historyIndex]) {
+        showToast('Erro: Não foi possível encontrar os dados deste pagamento.', true);
+        return;
+    }
+
+    const loan = client.loans[loanIndex];
+    const payment = loan.history[historyIndex];
+
+    const paymentDate = payment.date?.seconds ? new Date(payment.date.seconds * 1000) : null;
+    const dateString = paymentDate ? paymentDate.toLocaleDateString(currentLang === 'pt' ? 'pt-BR' : 'es-ES') : 'N/A';
+    const timeString = paymentDate ? paymentDate.toLocaleTimeString(currentLang === 'pt' ? 'pt-BR' : 'es-ES', { hour: '2-digit', minute: '2-digit' }) : '';
+    
+    let receiptHtml = '';
+    if (payment.receiptUrl) {
+        receiptHtml = `<img src="${payment.receiptUrl}" alt="Comprovante" class="receipt-preview">`;
+    } else {
+        receiptHtml = `<p class="no-receipt">Nenhum comprovante anexado para este pagamento.</p>`;
+    }
+
+    // Determina el estado del pago
+    let statusText, statusClass;
+    switch(payment.status) {
+        case 'pending_verification': statusText = 'Pendente'; statusClass = 'status-pending'; break;
+        case 'rejected': statusText = 'Rejeitado'; statusClass = 'status-late'; break;
+        case 'postponed': statusText = 'Adiado'; statusClass = 'status-paid'; break;
+        default: statusText = 'Aprovado'; statusClass = 'status-paid';
+    }
+
+    const canDelete = (payment.status === 'approved' || (!payment.status && payment.date));
+
+    modal.innerHTML = `
+        <header class="modal-header">
+            <button id="closePaymentDetailModal"><i data-lucide="arrow-left"></i></button>
+            <span class="modal-title">Detalhes do Pagamento</span>
+        </header>
+        <div class="modal-content-wrapper container">
+            <div class="kpi-card" style="margin-bottom: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <div>
+                        <h3 class="kpi-title">Data</h3>
+                        <p class="kpi-value" style="font-size: 1.2em;">${dateString} às ${timeString}</p>
+                    </div>
+                    <div>
+                        <h3 class="kpi-title" style="justify-content: flex-end;">Status</h3>
+                        <p class="kpi-value ${statusClass}" style="font-size: 1.2em;">${statusText}</p>
+                    </div>
+                </div>
+                <div style="text-align: center;">
+                    <h3 class="kpi-title" style="justify-content: center;">Valor Pago</h3>
+                    <p class="kpi-value" style="font-size: 1.8em; color: var(--accent-green);">${money(payment.amount)}</p>
+                </div>
+            </div>
+            
+            <h3 class="section-title" style="border: none; margin-bottom: 10px;">Comprovante</h3>
+            ${receiptHtml}
+        </div>
+        <div class="action-buttons">
+            <button id="delete-payment-btn" class="btn-danger" ${canDelete ? '' : 'disabled'} title="${canDelete ? '' : 'Não é possível excluir pagamentos pendentes, rejeitados ou adiados.'}">
+                <i data-lucide="trash-2"></i> Excluir Pagamento
+            </button>
+        </div>
+    `;
+
+    history.pushState({ modal: 'paymentDetailModal' }, 'Payment Details', '#payment-detail');
+    modal.classList.add('active');
+    
+    try {
+        lucide.createIcons({ nodes: modal.querySelectorAll('[data-lucide]') });
+    } catch (iconError) {
+        console.warn("Lucide icons failed to render in paymentDetailModal:", iconError);
+    }
+    // --- [FIN DE LA CORRECCIÓN 2/2] ---
+
+    // --- Listeners del Modal ---
+    modal.querySelector('#closePaymentDetailModal').addEventListener('click', () => window.history.back());
+
+
+    const deleteBtn = modal.querySelector('#delete-payment-btn');
+    if (canDelete) {
+        deleteBtn.addEventListener('click', async () => {
+            
+            // --- (CORRECCIÓN INICIO) 2. Muestra la confirmación ANTES de hacer nada ---
+            const confirmed = await showConfirmationModal(
+                'Confirmar Exclusão',
+                'Você está prestes a excluir este pagamento. Esta ação é IRREVERSÍVEL e irá reverter a contabilidade (o saldo do cliente e o capital do cobrador serão recalculados). Deseja continuar?',
+                'Sim, Excluir Pagamento',
+                'btn-danger'
+            );
+
+            if (!confirmed) return; // Si el admin cancela, no hacemos nada.
+            // --- (CORRECCIÓN FIN) 2. ---
+
+            // Mostrar estado de carga en el botón
+            deleteBtn.disabled = true;
+            deleteBtn.innerHTML = `<i data-lucide="loader-circle" style="animation: spin 1s linear infinite;"></i> Excluindo...`;
+            lucide.createIcons({ nodes: [deleteBtn.querySelector('i')] });
+
+            try {
+                const clientRef = doc(db, 'companies', currentCompanyId, "clients", clientId);
+                
+                // --- (CORRECCIÓN INICIO) 3. Busca el cliente FRESCO OTRA VEZ ---
+                //    Esto garantiza que estamos editando los datos más actuales de 'allClients'.
+                const latestClientData = allClients.find(c => c.id === clientId);
+                if (!latestClientData) throw new Error("Cliente desapareceu durante a operação.");
+
+                // 4. Hacemos la copia profunda de los datos FRESCOS.
+                const updatedLoans = JSON.parse(JSON.stringify(latestClientData.loans));
+                // --- (CORRECCIÓN FIN) 3 y 4 ---
+
+                const loanToUpdate = updatedLoans[loanIndex];
+
+                if (!loanToUpdate || !loanToUpdate.history || !loanToUpdate.history[historyIndex]) {
+                    throw new Error("Referência de pagamento inválida ao tentar excluir.");
+                }
+
+                // Elimina el pago del array de historial
+                const deletedPayment = loanToUpdate.history.splice(historyIndex, 1);
+                console.log("Pagamento excluído do array local:", deletedPayment);
+
+                // Actualiza el documento del cliente en Firestore
+                await updateDoc(clientRef, {
+                    loans: updatedLoans
+                });
+
+                showToast('Pagamento excluído com sucesso! A contabilidade será recalculada.', false);
+
+                window.history.back(); 
+                
+                // Forzamos el recálculo global (esto revertirá la contabilidad)
+                checkAndRunGlobalUpdate();
+                
+                // Refrescamos la vista de detalles del cliente si sigue abierta
+                if (document.getElementById('clientDetailModal').classList.contains('active')) {
+                     showClientDetails(clientId, loanIndex);
+                }
+
+            } catch (error) {
+                console.error("Erro ao excluir pagamento:", error);
+                showToast(`Falha ao excluir pagamento: ${error.message}`, true);
+                deleteBtn.disabled = false;
+                deleteBtn.innerHTML = `<i data-lucide="trash-2"></i> Excluir Pagamento`;
+                lucide.createIcons({ nodes: [deleteBtn.querySelector('i')] });
+            }
+        });
+    }
+}
+
+
+
 
 
         function updateAdminNotificationsView() {
@@ -4798,6 +5108,8 @@ async function submitCollectorReport(collectorId) {
             });
         }
 
+
+
         function showCropperModal(file) {
             const cropperModal = document.getElementById('cropperModal');
             cropperModal.innerHTML = `
@@ -4885,6 +5197,40 @@ async function submitCollectorReport(collectorId) {
         }
 
         function setupEventListeners() {
+
+            window.addEventListener('popstate', (event) => {
+                console.log("[POPSTATE] Evento popstate disparado.");
+        
+                // Cierra TODOS los modales de pantalla completa
+                document.querySelectorAll('.modal-view.active').forEach(modal => {
+                    console.log(`[POPSTATE] Forçando fechamento do modal: #${modal.id}`);
+                    modal.classList.remove('active');
+                });
+        
+                // Lógica para reabrir un modal si el estado lo indica (navegación entre modales)
+                if (event.state && event.state.modal) {
+                    const modalToRestore = document.getElementById(event.state.modal);
+                    if (modalToRestore) {
+                        console.log(`[POPSTATE] Restaurando modal: #${modalToRestore.id}`);
+                        modalToRestore.classList.add('active');
+        
+                        // Si volvemos a la vista de detalles del cliente, refresca los datos
+                        if (event.state.modal === 'clientDetailView' && event.state.clientId) {
+                            console.log(`[POPSTATE] Restaurando e atualizando clientDetailView...`);
+                            showClientDetails(event.state.clientId, event.state.loanIndex || 0);
+                        }
+                    }
+                } else {
+                    // Si no hay estado de modal, estamos volviendo a una vista principal.
+                    // Actualiza la vista principal basada en el hash.
+                    const viewName = location.hash.substring(1) || 'dashboard';
+                    console.log(`[POPSTATE] Voltando para a vista principal: ${viewName}`);
+                    showView(viewName);
+                }
+            });
+
+
+
             document.body.addEventListener('click', e => {
                 const target = e.target;
 
@@ -5406,3 +5752,4 @@ async function submitCollectorReport(collectorId) {
     </script>
 </body>
 </html>
+
