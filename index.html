@@ -1644,13 +1644,19 @@ function showConfirmationModal(title, message, confirmText = 'Confirmar', confir
         const close = (result) => {
             modal.classList.remove('active');
             // Limpia el modal después de cerrar para no interferir con otros usos
-            setTimeout(() => modal.innerHTML = '', 300); 
+            
             resolve(result); // Resuelve la promesa
         };
 
         // Listeners
-        btnCancel.addEventListener('click', () => close(false));
-        btnAccept.addEventListener('click', () => close(true));
+        btnCancel.addEventListener('click', (e) => {
+            e.stopPropagation(); // <-- [AÑADIR ESTA LÍNEA (aprox. 5337)]
+            close(false);
+        });
+        btnAccept.addEventListener('click', (e) => {
+            e.stopPropagation(); // <-- [AÑADIR ESTA LÍNEA (aprox. 5340)]
+            close(true);
+        });
         // Cierra si se hace clic en el fondo (overlay)
         modal.addEventListener('click', (e) => {
              if (e.target.id === 'reportOptionsModal') close(false);
@@ -5696,6 +5702,7 @@ async function showRefinanceVerificationModal(clientId) {
 
     // Botón RECHAZAR
     modal.querySelector('#reject-refinance-btn').addEventListener('click', async (e) => {
+        const rejectBtn = e.currentTarget;
         const confirmed = await showConfirmationModal(
             'Rejeitar Solicitação',
             'Tem certeza que deseja rejeitar esta solicitação de refinanciamento?',
@@ -5703,7 +5710,7 @@ async function showRefinanceVerificationModal(clientId) {
         );
         if (!confirmed) return;
 
-        const rejectBtn = e.currentTarget;
+        
         rejectBtn.disabled = true;
         rejectBtn.innerHTML = `<i data-lucide="loader-circle" style="animation: spin 1s linear infinite;"></i> Rejeitando...`;
         lucide.createIcons({ nodes: [rejectBtn.querySelector('i')] });
@@ -5733,6 +5740,7 @@ async function showRefinanceVerificationModal(clientId) {
 
     // Botón APROBAR (Enviar al Cobrador)
     modal.querySelector('#approve-refinance-btn').addEventListener('click', async (e) => {
+        const approveBtn = e.currentTarget;
         const confirmed = await showConfirmationModal(
             'Aprovar Verificação',
             'Isto confirma a identidade do cliente e envia a solicitação ao cobrador para aprovação final. Deseja continuar?',
@@ -5740,7 +5748,7 @@ async function showRefinanceVerificationModal(clientId) {
         );
         if (!confirmed) return;
 
-        const approveBtn = e.currentTarget;
+        
         approveBtn.disabled = true;
         approveBtn.innerHTML = `<i data-lucide="loader-circle" style="animation: spin 1s linear infinite;"></i> Enviando...`;
         lucide.createIcons({ nodes: [approveBtn.querySelector('i')] });
@@ -5997,5 +6005,6 @@ async function showRefinanceVerificationModal(clientId) {
     </script>
 </body>
 </html>
+
 
 
