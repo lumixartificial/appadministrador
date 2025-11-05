@@ -890,6 +890,36 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
         }
 
 
+        /* === INICIO: CÓDIGO AÑADIDO (FASE 3 - BLOQUE 1/6) === */
+.photo-comparison-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr; /* Dos columnas iguales */
+    gap: 15px;
+    margin-top: 15px;
+}
+.photo-comparison-item {
+    text-align: center;
+}
+.photo-comparison-item label {
+    font-weight: 600;
+    font-size: 0.9em;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+    display: block;
+}
+.photo-comparison-item img {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 1 / 1; /* Fuerza un cuadrado */
+    object-fit: cover;
+    border-radius: 8px;
+    border: 2px solid var(--border-color);
+    background-color: var(--bg);
+}
+/* === FIN: CÓDIGO AÑADIDO (FASE 3 - BLOQUE 1/6) === */
+
+
+
 
     </style>
 </head>
@@ -936,6 +966,7 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
     <div id="reportOptionsModal" class="modal-overlay"></div>
     <div id="settlementVerificationModal" class="modal-view"></div>
     <div id="paymentDetailModal" class="modal-view"></div>
+    <div id="refinanceVerificationModal" class="modal-view"></div>
     <div id="toast-container"></div>
     
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
@@ -1630,6 +1661,9 @@ function showConfirmationModal(title, message, confirmText = 'Confirmar', confir
 
 
 
+
+
+
         function showBlockedView(message) {
     console.error("Acceso bloqueado:", message);
     // Ocultamos todas las vistas principales
@@ -1664,6 +1698,82 @@ function showConfirmationModal(title, message, confirmText = 'Confirmar', confir
         });
     }
 }
+
+
+        /* === INICIO: CÓDIGO AÑADIDO (FASE 3 - BLOQUE 5/6) === */
+
+/**
+ * Envía una notificación INTERNA y PUSH a un CLIENTE específico.
+ */
+async function sendNotificationToClient(clientId, title, body, type, icon = 'info') {
+    if (!clientId || !currentCompanyId) {
+        console.error(`[ADMIN->CLIENTE] Error: Faltan IDs para enviar notificación.`);
+        return;
+    }
+    try {
+        const clientRef = doc(db, 'companies', currentCompanyId, 'clients', clientId);
+
+        // 1. Notificación INTERNA (para la app del cliente)
+        const internalNotif = {
+            title: title, body: body, icon: icon, read: false,
+            timestamp: new Date(), id: `${type}_${Date.now()}`
+        };
+        await updateDoc(clientRef, { notifications: arrayUnion(internalNotif) });
+        console.log(`[ADMIN->CLIENTE] Notificación INTERNA para cliente [${clientId}] creada.`);
+
+        // 2. Ticket PUSH (para la Cloud Function del cliente)
+        const ticketRef = collection(db, 'companies', currentCompanyId, 'clients', clientId, 'pushNotificationTickets');
+        await addDoc(ticketRef, {
+            title: title, body: body, type: type, icon: icon,
+            url: `https://lumix-financas-app.web.app/client/index.html?page=notifications`,
+            createdAt: serverTimestamp()
+        });
+        console.log(`[ADMIN->CLIENTE] Ticket PUSH para cliente [${clientId}] enviado.`);
+    } catch (error) {
+        console.error(`[ADMIN->CLIENTE] Error al enviar notificación al cliente [${clientId}]:`, error);
+    }
+}
+
+/**
+ * Envía una notificación INTERNA y PUSH a un COBRADOR específico.
+ */
+async function sendNotificationToCollector(collectorId, title, body, type, icon = 'info', clientId = null) {
+    if (!collectorId) {
+        console.error(`[ADMIN->COBRADOR] Error: Falta collectorId.`);
+        return;
+    }
+    try {
+        // 1. Notificación INTERNA (para la app del cobrador)
+        // (Nota: la colección 'collectors' está en la raíz)
+        const notificationsCollectionRef = collection(db, 'collectors', collectorId, 'notifications');
+        const notificationData = {
+            title: title, body: body,
+            from: 'Administrador', // El remitente es el Admin
+            clientId: clientId || '', // Pasa el clientId si está disponible
+            timestamp: serverTimestamp(),
+            read: false, type: type, icon: icon,
+            profilePictureUrl: currentCompanyData?.plan?.companyLogo || DEFAULT_LOGO_URL // Usa el logo de la empresa
+        };
+        await addDoc(notificationsCollectionRef, notificationData);
+        console.log(`[ADMIN->COBRADOR] Notificación INTERNA para cobrador [${collectorId}] creada.`);
+
+        // 2. Ticket PUSH (para la Cloud Function del cobrador)
+        const collectorTicketRef = collection(db, 'collectors', collectorId, 'pushNotificationTickets');
+        const ticketData = {
+            title: title, body: body, type: type, icon: icon,
+            url: clientId ? `https://lumix-financas-app.web.app/collector/index.html?page=client-details&clientId=${clientId}` : 'https://lumix-financas-app.web.app/collector/index.html?page=notifications',
+            senderAdminId: auth.currentUser.uid,
+            createdAt: serverTimestamp()
+        };
+        await addDoc(collectorTicketRef, ticketData);
+        console.log(`[ADMIN->COBRADOR] Ticket PUSH para cobrador [${collectorId}] enviado.`);
+    } catch (error) {
+        console.error(`[ADMIN->COBRADOR] Error al enviar notificación al cobrador [${collectorId}]:`, error);
+    }
+}
+/* === FIN: CÓDIGO AÑADIDO (FASE 3 - BLOQUE 5/6) === */
+
+
 
         
         function showView(viewName) {
@@ -4271,114 +4381,122 @@ function showClientDetails(clientId, loanIndex = 0) { // <-- Acepta un loanIndex
 
 
 
-        function updateAdminNotificationsView() {
-            const container = document.getElementById('admin-notifications-list');
-            const badge = document.getElementById('admin-notification-badge');
-            if (!badge) return; // Si el badge no existe, la UI no está lista
+        /* === INICIO: REEMPLAZO COMPLETO (FASE 3 - BLOQUE 3/6) === */
+/* Reemplaza la función 'updateAdminNotificationsView' (aprox. línea 2583) */
 
-            let notifications = [];
+function updateAdminNotificationsView() {
+    const container = document.getElementById('admin-notifications-list');
+    const badge = document.getElementById('admin-notification-badge');
+    if (!badge) return; // Si el badge no existe, la UI no está lista
 
-            // 1. Buscar Pagos Pendientes de Verificación
-            allClients.forEach(client => {
-                (client.loans || []).forEach((loan, loanIndex) => {
-                    (loan.history || []).forEach((payment, historyIndex) => {
-                        if (payment && payment.status === 'pending_verification') {
-                            notifications.push({
-                                type: 'payment',
-                                date: payment.date,
-                                clientId: client.id,
-                                clientName: client.name,
-                                profilePictureUrl: client.profilePictureUrl,
-                                amount: payment.amount,
-                                loanIndex: loanIndex,
-                                historyIndex: historyIndex,
-                                textKey: 'paymentVerification'
-                            });
-                        }
-                    });
-                });
-            });
+    let notifications = [];
 
-            // 2. Buscar Liquidaciones Pendientes
-            allSettlements.forEach(settlement => {
-                if (settlement && settlement.status === 'pending_verification') {
-                    const collector = allCollectors.find(c => c.id === settlement.collectorId);
+    // 1. Buscar Pagos Pendientes de Verificación (Lógica existente)
+    allClients.forEach(client => {
+        (client.loans || []).forEach((loan, loanIndex) => {
+            (loan.history || []).forEach((payment, historyIndex) => {
+                if (payment && payment.status === 'pending_verification') {
                     notifications.push({
-                        type: 'settlement',
-                        date: settlement.date,
-                        collectorId: settlement.collectorId,
-                        collectorName: settlement.collectorName || collector?.name || 'Desconhecido',
-                        profilePictureUrl: collector?.profilePictureUrl,
-                        amount: settlement.amount,
-                        settlementId: settlement.id,
-                        textKey: 'settlementVerification' 
-                    });
-                }
-            });
-
-            // 3. Buscar Solicitudes de Refinanciamiento
-            allClients.forEach(client => {
-                if (client.refinanceRequest && client.refinanceRequest.status === 'pending') {
-                     notifications.push({
-                        type: 'refinance',
-                        date: client.refinanceRequest.requestDate,
+                        type: 'payment',
+                        date: payment.date,
                         clientId: client.id,
                         clientName: client.name,
                         profilePictureUrl: client.profilePictureUrl,
-                        amount: client.refinanceRequest.amount,
-                        textKey: 'refinanceRequest'
+                        amount: payment.amount,
+                        loanIndex: loanIndex,
+                        historyIndex: historyIndex,
+                        textKey: 'paymentVerification'
                     });
                 }
             });
-            
-            // Ordenar por fecha (más reciente primero)
-            notifications.sort((a, b) => (b.date?.seconds || 0) - (a.date?.seconds || 0));
+        });
+    });
 
-            // Actualizar el badge (SIEMPRE)
-            badge.textContent = notifications.length;
-            badge.style.display = notifications.length > 0 ? 'flex' : 'none';
-            badge.classList.toggle('visible', notifications.length > 0);
-
-            // Renderizar la lista (SOLO SI LA VISTA ESTÁ ACTIVA Y EL CONTENEDOR EXISTE)
-            const viewIsActive = document.getElementById('notifications-view')?.classList.contains('active');
-            if (container && viewIsActive) {
-                console.log("[ADMIN-APP] Renderizando lista de notificaciones...");
-                if (notifications.length === 0) {
-                    container.innerHTML = `<p class="no-items" style="text-align: center; padding: 20px; color: var(--text-secondary);">Nenhuma notificação pendente.</p>`;
-                    return;
-                }
-
-                container.innerHTML = notifications.map(n => {
-                    const name = n.clientName || n.collectorName || 'N/A';
-                    const nameInitial = (name).charAt(0).toUpperCase();
-                    const placeholderUrl = `https://placehold.co/80x80/6f42c1/FFFFFF?text=${nameInitial}`;
-                    const photoUrl = n.profilePictureUrl || placeholderUrl;
-                    
-                    let subtitle = '';
-                    if (n.type === 'payment') {
-                        subtitle = `Enviou um pagamento de <strong>${money(n.amount)}</strong>. Por favor, verifique.`;
-                    } else if (n.type === 'settlement') {
-                        subtitle = `Enviou uma liquidação de <strong>${money(n.amount)}</strong>. Por favor, aprove.`;
-                    } else if (n.type === 'refinance') {
-                        subtitle = `Solicitou um refinanciamento de <strong>${money(n.amount)}</strong>.`;
-                    }
-
-                    return `
-                    <div class="client-card" data-type="${n.type}" data-client-id="${n.clientId || ''}" data-collector-id="${n.collectorId || ''}" data-loan-index="${n.loanIndex || 0}" data-history-index="${n.historyIndex || 0}" data-settlement-id="${n.settlementId || ''}" style="cursor: pointer;">
-                        <img src="${photoUrl}" alt="Foto" class="item-avatar" style="width: 48px; height: 48px;">
-                        <div class="item-info">
-                            <h4 class="item-name">${name}</h4>
-                            <p class="item-subtext" style="font-size: 0.9em;">${subtitle}</p>
-                        </div>
-                        <i data-lucide="chevron-right" style="color: var(--text-secondary); flex-shrink: 0;"></i>
-                    </div>`;
-                }).join('');
-                
-                lucide.createIcons({nodes: container.querySelectorAll('[data-lucide]')});
-            } else {
-                 console.log("[ADMIN-APP] Badge de notificaciones actualizado en segundo plano.");
-            }
+    // 2. Buscar Liquidaciones Pendientes (Lógica existente)
+    allSettlements.forEach(settlement => {
+        if (settlement && settlement.status === 'pending_verification') {
+            const collector = allCollectors.find(c => c.id === settlement.collectorId);
+            notifications.push({
+                type: 'settlement',
+                date: settlement.date,
+                collectorId: settlement.collectorId,
+                collectorName: settlement.collectorName || collector?.name || 'Desconhecido',
+                profilePictureUrl: collector?.profilePictureUrl,
+                amount: settlement.amount,
+                settlementId: settlement.id,
+                textKey: 'settlementVerification' 
+            });
         }
+    });
+
+    // --- [INICIO DE LA MODIFICACIÓN] ---
+    // 3. (NUEVO) Buscar Solicitudes de Refinanciamiento
+    allClients.forEach(client => {
+        if (client.refinanceRequest && client.refinanceRequest.status === 'pending') {
+             notifications.push({
+                type: 'refinance', // <-- Nuevo tipo
+                date: client.refinanceRequest.requestDate,
+                clientId: client.id,
+                clientName: client.name,
+                profilePictureUrl: client.profilePictureUrl,
+                amount: client.refinanceRequest.amount,
+                textKey: 'refinanceRequest'
+            });
+        }
+    });
+    // --- [FIN DE LA MODIFICACIÓN] ---
+    
+    // Ordenar por fecha (más reciente primero)
+    notifications.sort((a, b) => (b.date?.seconds || 0) - (a.date?.seconds || 0));
+
+    // Actualizar el badge (SIEMPRE)
+    badge.textContent = notifications.length;
+    badge.style.display = notifications.length > 0 ? 'flex' : 'none';
+    badge.classList.toggle('visible', notifications.length > 0);
+
+    // Renderizar la lista (SOLO SI LA VISTA ESTÁ ACTIVA Y EL CONTENEDOR EXISTE)
+    const viewIsActive = document.getElementById('notifications-view')?.classList.contains('active');
+    if (container && viewIsActive) {
+        console.log("[ADMIN-APP] Renderizando lista de notificaciones...");
+        if (notifications.length === 0) {
+            container.innerHTML = `<p class="no-items" style="text-align: center; padding: 20px; color: var(--text-secondary);">Nenhuma notificação pendente.</p>`;
+            return;
+        }
+
+        container.innerHTML = notifications.map(n => {
+            const name = n.clientName || n.collectorName || 'N/A';
+            const nameInitial = (name).charAt(0).toUpperCase();
+            const placeholderUrl = `https://placehold.co/80x80/6f42c1/FFFFFF?text=${nameInitial}`;
+            const photoUrl = n.profilePictureUrl || placeholderUrl;
+            
+            let subtitle = '';
+            if (n.type === 'payment') {
+                subtitle = `Enviou um pagamento de <strong>${money(n.amount)}</strong>. Por favor, verifique.`;
+            } else if (n.type === 'settlement') {
+                subtitle = `Enviou uma liquidação de <strong>${money(n.amount)}</strong>. Por favor, aprove.`;
+            } else if (n.type === 'refinance') {
+                // --- [INICIO DE LA MODIFICACIÓN] ---
+                subtitle = `Solicitou um refinanciamento de <strong>${money(n.amount)}</strong>. Verifique a identidade.`;
+                // --- [FIN DE LA MODIFICACIÓN] ---
+            }
+
+            return `
+            <div class="client-card" data-type="${n.type}" data-client-id="${n.clientId || ''}" data-collector-id="${n.collectorId || ''}" data-loan-index="${n.loanIndex || 0}" data-history-index="${n.historyIndex || 0}" data-settlement-id="${n.settlementId || ''}" style="cursor: pointer;">
+                <img src="${photoUrl}" alt="Foto" class="item-avatar" style="width: 48px; height: 48px;">
+                <div class="item-info">
+                    <h4 class="item-name">${name}</h4>
+                    <p class="item-subtext" style="font-size: 0.9em;">${subtitle}</p>
+                </div>
+                <i data-lucide="chevron-right" style="color: var(--text-secondary); flex-shrink: 0;"></i>
+            </div>`;
+        }).join('');
+        
+        lucide.createIcons({nodes: container.querySelectorAll('[data-lucide]')});
+    } else {
+         console.log("[ADMIN-APP] Badge de notificaciones actualizado en segundo plano.");
+    }
+}
+/* === FIN: REEMPLAZO COMPLETO (FASE 3 - BLOQUE 3/6) === */
 
 
         function showSettlementVerificationModal(settlement) {
@@ -5196,7 +5314,11 @@ function showClientDetails(clientId, loanIndex = 0) { // <-- Acepta un loanIndex
             });
         }
 
-        function setupEventListeners() {
+        
+        /* === INICIO: REEMPLAZO COMPLETO (FASE 3 - BLOQUE 4/6) === */
+/* Reemplaza la función 'setupEventListeners' (aprox. línea 2651) */
+
+function setupEventListeners() {
 
             window.addEventListener('popstate', (event) => {
                 console.log("[POPSTATE] Evento popstate disparado.");
@@ -5260,21 +5382,18 @@ function showClientDetails(clientId, loanIndex = 0) { // <-- Acepta un loanIndex
                 submitNewPost();
                 }
 
-                // Listener para el botón "Me Gusta"
             const likeBtn = target.closest('.action-btn[data-action="like"]');
             if (likeBtn) {
-                e.preventDefault(); // Evita cualquier comportamiento por defecto
+                e.preventDefault(); 
                 handlePostLike(likeBtn.dataset.postId);
             }
 
-            // Listener para el botón "Comentar" (para mostrar/ocultar)
             const commentBtn = target.closest('.action-btn[data-action="comment"]');
             if (commentBtn) {
                 e.preventDefault();
                 toggleCommentSection(commentBtn.dataset.postId);
             }
 
-            // Listener para el botón "Enviar Comentario"
             const submitCommentBtn = target.closest('.submit-comment-btn');
             if (submitCommentBtn) {
                 e.preventDefault();
@@ -5283,45 +5402,38 @@ function showClientDetails(clientId, loanIndex = 0) { // <-- Acepta un loanIndex
                 submitNewComment(postId, inputElement);
             }
 
-            // Listener para el botón "Eliminar Publicación" (abre el modal)
             const deletePostBtn = target.closest('.post-delete-btn[data-action="delete-post"]');
             if (deletePostBtn) {
                 e.preventDefault();
                 showDeleteConfirmationModal(deletePostBtn.dataset.postId);
             }
 
-            // Listener para el botón "Cancelar" en el modal
             const cancelDeleteBtn = target.closest('#cancel-delete-btn');
             if (cancelDeleteBtn) {
                 document.getElementById('reportOptionsModal').classList.remove('active');
             }
 
-            // Listener para el botón "Confirmar Eliminación" en el modal
             const confirmDeleteBtn = target.closest('#confirm-delete-btn');
             if (confirmDeleteBtn) {
                 handlePostDelete(confirmDeleteBtn.dataset.postId);
             }
 
-            // Listener para el botón "Reportar Cobrador" (abre modal de reporte)
             const reportCollectorBtn = target.closest('#reportCollectorBtn');
             if (reportCollectorBtn) {
                 e.preventDefault();
-                // Necesitamos el ID y Nombre del cobrador que se está editando
                 const formModal = document.getElementById('collectorFormModal');
-                const collectorIdInput = formModal.querySelector('#collector-username'); // El ID está en el username
+                const collectorIdInput = formModal.querySelector('#collector-username'); 
                 const collectorNameInput = formModal.querySelector('#collector-name');
                 if (collectorIdInput && collectorNameInput) {
                     showReportCollectorModal(collectorIdInput.value, collectorNameInput.value);
                 }
             }
 
-            // Listener para "Cancelar" en el modal de reporte
             const cancelReportBtn = target.closest('#cancel-report-btn');
             if (cancelReportBtn) {
                 document.getElementById('reportOptionsModal').classList.remove('active');
             }
 
-            // Listener para "Confirmar Reporte" en el modal de reporte
             const confirmReportBtn = target.closest('#confirm-report-btn');
             if (confirmReportBtn) {
                 submitCollectorReport(confirmReportBtn.dataset.collectorId);
@@ -5359,45 +5471,29 @@ function showClientDetails(clientId, loanIndex = 0) { // <-- Acepta un loanIndex
                     if (mapInstance) {
                         mapInstance.closePopup();
                     }
-                    showView(navItem.dataset.view); // Llama a la función centralizada
+                    showView(navItem.dataset.view); 
                 }
                  
                 if (target.closest('#addCollectorBtn')) {
-                // 1. Obter limite do plano (lógica similar a la de updateProfileView)
-                let limit = Infinity; // Padrão ilimitado
-                let planType = 'pro'; // Assume pro se não houver dados
+                let limit = Infinity; 
+                let planType = 'pro'; 
 
-                // Verifica si tenemos los datos de la empresa y del plan
                 if (currentCompanyData && currentCompanyData.plan) {
-                    planType = currentCompanyData.plan.type; // Obtiene 'demo' o 'pro'
+                    planType = currentCompanyData.plan.type; 
 
                     if (planType === 'demo') {
-                        // Límite para Demo (o 1 por defecto)
                         limit = currentCompanyData.plan.collectorLimit || 1; 
                     } else if (currentCompanyData.plan.collectorLimit && currentCompanyData.plan.collectorLimit !== -1) {
-                        // Límite numérico para Pro (si no es -1)
                         limit = currentCompanyData.plan.collectorLimit;
                     } 
-                    // Si es Pro y el límite es -1, se queda como Infinity (Ilimitado)
-
                 } else {
-                     // Si no hay datos del plan, muestra una advertencia en consola
                      console.warn("Dados do plano não encontrados para verificação de limite.");
-                     // Podrías decidir si permitir o bloquear por defecto aquí.
-                     // Por seguridad, podríamos asumir un límite bajo o infinito.
-                     // Asumiremos infinito por ahora para no bloquear inesperadamente.
                      limit = Infinity; 
                 }
-
-                // 2. Obter contagem atual de cobradores
                 const currentCount = allCollectors.length;
-
-                // 3. Verificar si el conteo actual es mayor o igual al límite
                 if (currentCount >= limit) {
-                    // Limite atingido! Mostrar mensagem de erro.
                     showToast(`Limite de ${limit} cobradores atingido para o plano ${planType.toUpperCase()}. Contate o suporte para upgrade.`, true);
                 } else {
-                    // Limite NÃO atingido. Abrir o formulário como antes.
                     showCollectorFormModal(); 
                 }
             }
@@ -5407,16 +5503,12 @@ function showClientDetails(clientId, loanIndex = 0) { // <-- Acepta un loanIndex
                     saveGlobalSettings();
                 }
 
-                // --- BLOQUE AÑADIDO ---
                 if (target.closest('#logout-btn')) {
                 signOut(auth).catch((error) => {
                     console.error("Erro ao sair:", error);
                     showToast('Erro ao tentar sair.', true);
                 });
-                // onAuthStateChanged (del Paso 5) se encargará
-                // automáticamente de mostrar la pantalla de login.
 }
-// --- FIN BLOQUE AÑADIDO ---
 
                  if (target.closest('#reportOptionsModal')) {
                     if (target.classList.contains('modal-overlay') || target.closest('.close-modal-btn')) {
@@ -5425,7 +5517,7 @@ function showClientDetails(clientId, loanIndex = 0) { // <-- Acepta un loanIndex
                 }
 
                 if (target.closest('#report-generate-btn')) {
-                    updateReportsView(); // Chama a nova função de relatório
+                    updateReportsView(); 
                 }
 
 
@@ -5434,12 +5526,9 @@ function showClientDetails(clientId, loanIndex = 0) { // <-- Acepta un loanIndex
                     const { type, clientId, collectorId, loanIndex, historyIndex, settlementId } = notificationCard.dataset;
                     
                     if (type === 'payment') {
-                        // Abre los detalles del cliente para VERIFICAR PAGO
-                        // (Asumimos que la lógica de verificación está en showClientDetails)
                         showClientDetails(clientId, parseInt(loanIndex, 10));
                     } 
                     else if (type === 'settlement') {
-                        // ¡CORRECCIÓN! Abre el nuevo modal de verificación de liquidación
                         const settlement = allSettlements.find(s => s.id === settlementId);
                         if (settlement) {
                             showSettlementVerificationModal(settlement);
@@ -5447,11 +5536,12 @@ function showClientDetails(clientId, loanIndex = 0) { // <-- Acepta un loanIndex
                             showToast('Erro: Liquidação não encontrada ou já processada.', true);
                         }
                     }
+                    // --- [INICIO DE LA MODIFICACIÓN] ---
                     else if (type === 'refinance') {
-                        // Abre los detalles del cliente para VERIFICAR REFINANCIACIÓN
-                        // (Asumimos que la lógica de verificación está en showClientDetails)
-                        showClientDetails(clientId, 0); // Abrir el primer préstamo
+                        // ¡Llama a la nueva función de verificación de refinanciamiento!
+                        showRefinanceVerificationModal(clientId);
                     }
+                    // --- [FIN DE LA MODIFICACIÓN] ---
                 }                
 
 
@@ -5482,7 +5572,7 @@ function showClientDetails(clientId, loanIndex = 0) { // <-- Acepta un loanIndex
                 const preview = document.getElementById('post-image-preview');
                 preview.src = URL.createObjectURL(e.target.files[0]);
                 preview.style.display = 'block';
-                document.getElementById('submit-post-btn').disabled = false; // Habilita el botón si se añade imagen
+                document.getElementById('submit-post-btn').disabled = false; 
                 }
 
             });
@@ -5500,13 +5590,16 @@ function showClientDetails(clientId, loanIndex = 0) { // <-- Acepta un loanIndex
                 }
 
                 if (target.id === 'post-text-input') {
-                // Habilita el botón solo si hay texto o si ya hay una imagen cargada
                 const hasImage = document.getElementById('post-image-preview').style.display === 'block';
                 document.getElementById('submit-post-btn').disabled = target.value.trim().length === 0 && !hasImage;
                 }
 
             });
         }
+/* === FIN: REEMPLAZO COMPLETO (FASE 3 - BLOQUE 4/6) === */
+
+
+
         
         function applyTheme(theme) {
             document.body.classList.toggle('dark-mode', theme === 'dark');
@@ -5530,6 +5623,158 @@ function showClientDetails(clientId, loanIndex = 0) { // <-- Acepta un loanIndex
     const saveBtn = document.getElementById('save-settings-btn');
     if (saveBtn) saveBtn.disabled = true;
 }
+
+
+        /* === INICIO: CÓDIGO AÑADIDO (FASE 3 - BLOQUE 6/6) === */
+
+async function showRefinanceVerificationModal(clientId) {
+    const modal = document.getElementById('refinanceVerificationModal');
+    const client = allClients.find(c => c.id === clientId);
+
+    if (!client || !client.refinanceRequest || !client.refinanceRequest.challengePhotoUrl || !client.fotoBaseUrl) {
+        showToast('Erro: Dados de verificação do cliente estão incompletos.', true);
+        updateAdminNotificationsView(); // Refresca la lista por si la solicitud ya fue procesada
+        return;
+    }
+
+    const request = client.refinanceRequest;
+    const collector = allCollectors.find(c => c.id === client.collectorId);
+
+    const placeholderBase = `https://placehold.co/200x200/0f172a/FFFFFF?text=FOTO+BASE`;
+    const placeholderDesafio = `https://placehold.co/200x200/0f172a/FFFFFF?text=FOTO+DESAFIO`;
+
+    modal.innerHTML = `
+        <header class="modal-header">
+            <button id="closeRefinanceModal"><i data-lucide="arrow-left"></i></button>
+            <span class="modal-title">Verificar Refinanciamento</span>
+        </header>
+        <div class="modal-content-wrapper container">
+            <div class="kpi-card" style="margin-bottom: 20px;">
+                <h4 class="kpi-title" style="font-size: 1.1em; color: var(--text-primary);">Solicitação de ${client.name}</h4>
+                <div class="info-grid" style="grid-template-columns: 1fr 1fr; background: none; padding: 0; border: none;">
+                    <div>
+                        <label>Valor Solicitado</label>
+                        <p style="color: var(--accent-green); font-size: 1.2em;">${money(request.amount)}</p>
+                    </div>
+                    <div>
+                        <label>Nº de Parcelas</label>
+                        <p style="font-size: 1.2em;">${request.installments}</p>
+                    </div>
+                    <div>
+                        <label>Cobrador Responsável</label>
+                        <p>${collector ? collector.name : (client.collectorId || 'N/A')}</p>
+                    </div>
+                </div>
+            </div>
+
+            <h3 class="section-title" style="border: none; margin-bottom: 10px;">Verificação de Identidade</h3>
+            <div class="photo-comparison-container">
+                <div class="photo-comparison-item">
+                    <label>Foto Base (Cadastro)</label>
+                    <img src="${client.fotoBaseUrl || placeholderBase}" alt="Foto Base">
+                </div>
+                <div class="photo-comparison-item">
+                    <label>Foto Desafio (Solicitação)</label>
+                    <img src="${request.challengePhotoUrl || placeholderDesafio}" alt="Foto Desafio">
+                </div>
+            </div>
+        </div>
+        <div class="action-buttons">
+            <button id="reject-refinance-btn" class="btn-danger"><i data-lucide="x-circle"></i> Rejeitar</button>
+            <button id="approve-refinance-btn" class="btn-primary"><i data-lucide="check-circle"></i> Aprovar e Enviar ao Cobrador</button>
+        </div>
+    `;
+
+    history.pushState({ modal: 'refinanceVerificationModal' }, 'Verificar Refinanciamento', '#verify-refinance');
+    modal.classList.add('active');
+    lucide.createIcons({ nodes: modal.querySelectorAll('[data-lucide]') });
+
+    // --- Listeners de Ação ---
+    modal.querySelector('#closeRefinanceModal').addEventListener('click', () => window.history.back());
+
+    const clientRef = doc(db, 'companies', currentCompanyId, 'clients', clientId);
+
+    // Botón RECHAZAR
+    modal.querySelector('#reject-refinance-btn').addEventListener('click', async (e) => {
+        const confirmed = await showConfirmationModal(
+            'Rejeitar Solicitação',
+            'Tem certeza que deseja rejeitar esta solicitação de refinanciamento?',
+            'Sim, Rejeitar', 'btn-danger'
+        );
+        if (!confirmed) return;
+
+        const rejectBtn = e.currentTarget;
+        rejectBtn.disabled = true;
+        rejectBtn.innerHTML = `<i data-lucide="loader-circle" style="animation: spin 1s linear infinite;"></i> Rejeitando...`;
+        lucide.createIcons({ nodes: [rejectBtn.querySelector('i')] });
+
+        try {
+            await updateDoc(clientRef, {
+                'refinanceRequest.status': 'rejected_admin',
+                'refinanceRequest.adminId': auth.currentUser.uid
+            });
+            showToast('Solicitação rejeitada.');
+            
+            // Notifica o CLIENTE
+            sendNotificationToClient(clientId, 
+                'Solicitação Rejeitada', 
+                'Sua solicitação de refinanciamento foi rejeitada pelo administrador.', 
+                'refinance_rejected', 'x-circle');
+            
+            window.history.back();
+        } catch (error) {
+            console.error("Erro ao rejeitar refinanciamento:", error);
+            showToast('Erro ao rejeitar.', true);
+            rejectBtn.disabled = false;
+            rejectBtn.innerHTML = `<i data-lucide="x-circle"></i> Rejeitar`;
+            lucide.createIcons({ nodes: [rejectBtn.querySelector('i')] });
+        }
+    });
+
+    // Botón APROBAR (Enviar al Cobrador)
+    modal.querySelector('#approve-refinance-btn').addEventListener('click', async (e) => {
+        const confirmed = await showConfirmationModal(
+            'Aprovar Verificação',
+            'Isto confirma a identidade do cliente e envia a solicitação ao cobrador para aprovação final. Deseja continuar?',
+            'Sim, Aprovar e Enviar', 'btn-primary'
+        );
+        if (!confirmed) return;
+
+        const approveBtn = e.currentTarget;
+        approveBtn.disabled = true;
+        approveBtn.innerHTML = `<i data-lucide="loader-circle" style="animation: spin 1s linear infinite;"></i> Enviando...`;
+        lucide.createIcons({ nodes: [approveBtn.querySelector('i')] });
+
+        try {
+            await updateDoc(clientRef, {
+                'refinanceRequest.status': 'pending_collector', // <-- ¡NUEVO ESTADO!
+                'refinanceRequest.adminId': auth.currentUser.uid
+            });
+            showToast('Identidade verificada! Enviando ao cobrador...');
+            
+            // Notifica o COBRADOR
+            if (client.collectorId) {
+                sendNotificationToCollector(client.collectorId,
+                    'Refinanciamento Pré-Aprovado',
+                    `O admin verificou a identidade de ${client.name} para uma solicitação de ${money(request.amount)}. Aprove o novo empréstimo.`,
+                    'refinance_admin_approved', 'user-check', client.id);
+            }
+            
+            window.history.back();
+        } catch (error) {
+            console.error("Erro ao aprovar refinanciamento:", error);
+            showToast('Erro ao aprovar.', true);
+            approveBtn.disabled = false;
+            approveBtn.innerHTML = `<i data-lucide="check-circle"></i> Aprovar e Enviar ao Cobrador`;
+            lucide.createIcons({ nodes: [approveBtn.querySelector('i')] });
+        }
+    });
+}
+/* === FIN: CÓDIGO AÑADIDO (FASE 3 - BLOQUE 6/6) === */
+
+
+
+
 
         function loadGlobalSettings(settings) {
             const companyName = settings.companyName || 'LUMIX Finanças';
@@ -5752,4 +5997,5 @@ function showClientDetails(clientId, loanIndex = 0) { // <-- Acepta un loanIndex
     </script>
 </body>
 </html>
+
 
