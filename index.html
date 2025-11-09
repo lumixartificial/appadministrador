@@ -1381,7 +1381,112 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
         // --- FUNCIÓN MAESTRA 2: MÉTRICAS DE COBRADOR (CAPITAL EN MANOS) ---
         
 
-        
+        function calculateCollectorMetrics(collectorId, collector, allClients, allExpenses, allSettlements, allCapitalInjections) {
+            
+            const collectorClients = allClients.filter(c => c.collectorId === collectorId);
+            const collectorExpenses = allExpenses.filter(e => e.collectorId === collectorId);
+            // --- [INICIO CORRECCIÓN] ---
+            // 1. Filtra 'allSettlements' (no 'allExpenses')
+            // 2. Filtra solo por status 'approved'
+            const collectorSettlements = allSettlements.filter(s => s.collectorId === collectorId && s.status === 'approved');
+            // --- [FIN CORRECCIÓN] ---
+            const collectorInjections = allCapitalInjections.filter(i => i.collectorId === collectorId && i.status === 'approved');
+
+            let totalPaid = 0;
+            let totalPrincipal = 0;
+            let totalLateFees = 0; // Calculamos la mora solo para el *estado*, no para el capital
+            let dailyCollected = 0, weeklyCollected = 0, monthlyCollected = 0;
+            
+            const now = new Date();
+            const todayStart = new Date(new Date().setHours(0, 0, 0, 0));
+            const weekStart = new Date(todayStart);
+            weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+            const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+            collectorClients.forEach(c => { 
+                (c.loans || []).forEach(loan => {
+                    
+                    // --- [INICIO DE LA CORRECCIÓN (ADMIN)] ---
+                    // ¡AQUÍ ESTÁ LA LÓGICA CLAVE!
+                    // Solo suma al "total prestado" si NO es un préstamo migrado
+                    if (!loan.migrationDate) {
+                        // --- Principal ---
+                        if (loan.principalAmount) {
+                            totalPrincipal += loan.principalAmount;
+                        } else if (loan.totalLoan && c.interestRate) {
+                            totalPrincipal += (loan.totalLoan / (1 + (c.interestRate / 100)));
+                        }
+                    }
+                    // --- [FIN DE LA CORRECCIÓN (ADMIN)] ---
+                    
+                    // --- Mora (para estado) ---
+                    totalLateFees += (loan.lateFeesAccumulated || 0);
+                    
+                    // --- Pagos (Filtrados) ---
+                    (loan.history || []).forEach(h => {
+                        // --- [INICIO DE LA CORRECCIÓN (ADMIN)] ---
+                        // AHORA IGNORAMOS PAGOS DE MIGRACIÓN
+                        if (h.date?.seconds && h.status !== 'pending_verification' && h.status !== 'rejected' && h.status !== 'postponed' && h.method !== 'migration') {
+                        // --- [FIN DE LA CORRECCIÓN (ADMIN)] ---
+                        
+                            const paymentAmount = h.amount || 0;
+                            totalPaid += paymentAmount; 
+                            
+                            const paymentDate = new Date(h.date.seconds * 1000);
+                            if (paymentDate >= todayStart) dailyCollected += paymentAmount;
+                            if (paymentDate >= weekStart) weeklyCollected += paymentAmount;
+                            if (paymentDate >= monthStart) monthlyCollected += paymentAmount;
+                        }
+                    });
+                });
+            });
+
+            const totalExpenses = collectorExpenses.reduce((sum, e) => sum + (e.value || 0), 0);
+            const totalSettled = collectorSettlements.reduce((sum, s) => sum + (s.amount || 0), 0);
+            const totalInjected = collectorInjections.reduce((sum, i) => sum + (i.amount || 0), 0);
+
+            // --- ¡LA CORRECCIÓN CLAVE! ---
+            // Fórmula de Capital en Manos (idéntica a la App Cobrador)
+            // NO INCLUYE 'totalLateFees'.
+            const capitalOnHand = (collector.startingCapital || 0) + totalInjected + totalPaid - totalPrincipal - totalExpenses - totalSettled;
+
+            // --- Conteo de Clientes ---
+            const activeClientsCount = collectorClients.filter(c => (c.loans || []).some(l => l.status !== 'finished')).length;
+            const lateClientsCount = collectorClients.filter(c => (c.loans || []).some(l => l.status === 'late')).length;
+            
+            // --- Estado (Reputación) ---
+            let statusKey = 'inOrder';
+            let statusColor = 'var(--accent-green)';
+            let statusIcon = 'check-circle';
+            if (activeClientsCount > 0) {
+                const latePercentage = (lateClientsCount / activeClientsCount) * 100;
+                if (latePercentage > 20) {
+                    statusKey = 'attention'; statusColor = 'var(--danger-color)'; statusIcon = 'alert-octagon';
+                } else if (latePercentage > 0) {
+                     statusKey = 'attention'; statusColor = 'var(--warning-color)'; statusIcon = 'alert-triangle';
+                }
+            }
+
+            return {
+                capitalOnHand, // <-- El valor correcto
+                activeClientsCount,
+                lateClientsCount,
+                dailyCollected,
+                weeklyCollected,
+                monthlyCollected,
+                totalPaid,
+                totalPrincipal,
+                totalLateFees, // <-- Lo devolvemos, pero NO se usa en capitalOnHand
+                totalExpenses,
+                totalSettled,
+                totalInjected,
+                status: {
+                    textKey: statusKey,
+                    color: statusColor,
+                    icon: statusIcon
+                }
+            };
+        }
 
 
 
