@@ -1241,6 +1241,7 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
         }
     };
 
+            
             function checkAndRunGlobalUpdate() {
             // Esta función se asegura de que TODAS las colecciones de
             // datos (cobradores, clientes, gastos, etc.) se hayan
@@ -1252,6 +1253,13 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                 // --- ¡AQUÍ ESTÁ LA MAGIA! ---
                 // 1. Calculamos las métricas para CADA cobrador
                 calculatedCollectorMetrics.clear(); // Limpiamos los cálculos antiguos
+                
+                // --- [INICIO MODIFICACIÓN: SUMAS GLOBALES (CORREGIDO)] ---
+                let sumGlobalDistributed = 0;
+                let sumGlobalPatrimonio = 0;
+                let sumGlobalCapitalOnHand = 0; // <-- AÑADIDO: Capital en Cajas
+                // --- [FIN MODIFICACIÓN: SUMAS GLOBALES (CORREGIDO)] ---
+
                 allCollectors.forEach(collector => {
                     const metrics = calculateCollectorMetrics(
                         collector.id,
@@ -1262,6 +1270,13 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                         allCapitalInjections
                     );
                     calculatedCollectorMetrics.set(collector.id, metrics);
+
+                    // --- [INICIO MODIFICACIÓN: SUMAS GLOBALES (CORREGIDO)] ---
+                    // Sumamos los valores de cada cobrador
+                    sumGlobalDistributed += (metrics.totalDistributedCapital || 0);
+                    sumGlobalPatrimonio += (metrics.totalPatrimonio || 0);
+                    sumGlobalCapitalOnHand += (metrics.capitalOnHand || 0); // <-- AÑADIDO
+                    // --- [FIN MODIFICACIÓN: SUMAS GLOBALES (CORREGIDO)] ---
                 });
 
                 // 2. Calculamos las métricas GLOBALES
@@ -1272,6 +1287,13 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                     allSettlements,
                     allCapitalInjections
                 );
+                
+                // --- [INICIO MODIFICACIÓN: SUMAS GLOBALES (CORREGIDO)] ---
+                // Añadimos las nuevas sumas al objeto de métricas globales
+                calculatedGlobalMetrics.sumGlobalDistributed = sumGlobalDistributed;
+                calculatedGlobalMetrics.sumGlobalPatrimonio = sumGlobalPatrimonio;
+                calculatedGlobalMetrics.sumGlobalCapitalOnHand = sumGlobalCapitalOnHand; // <-- AÑADIDO
+                // --- [FIN MODIFICACIÓN: SUMAS GLOBALES (CORREGIDO)] ---
                 
                 // 3. Ahora (y solo ahora) es seguro actualizar la UI
                 // Las funciones de UI ya no calcularán nada, solo "leerán" los resultados.
@@ -1293,6 +1315,8 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
 
             } 
         }
+
+
 
             function calculateGlobalMetrics(collectors, clients, expenses, settlements, capitalInjections) {
             let totalStartingCapital = 0;
@@ -1914,20 +1938,47 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
                 </header>
                 <main>
                     <div id="dashboard-view" class="view active container">
-                        <section class="kpi-grid">
-                            <div class="kpi-card">
-                                <h3 class="kpi-title" data-lang-key="totalCapital"><i data-lucide="gem"></i></h3>
-                                <p class="kpi-value" id="kpi-total-capital"></p>
+                        
+                        <!-- --- [INICIO MODIFICACIÓN: REORDENAR KPIs GLOBALES] --- -->
+                        <section class="kpi-grid" style="grid-template-columns: 1fr 1fr; gap: 15px;">
+                            
+                            <!-- KPI 1 (NUEVO ORDEN) - Total Patrimônio Neto (Soma dos Cobradores) -->
+                            <div class="kpi-card" style="grid-column: 1 / -1; border-color: var(--accent-purple); border-width: 2px;">
+                                <h3 class="kpi-title" style="color: var(--accent-purple);">
+                                    <i data-lucide="gem"></i> Total Patrimônio Neto (Soma dos Cobradores)
+                                </h3>
+                                <p class="kpi-value" id="kpi-global-patrimonio" style="color: var(--accent-purple);"></p>
                             </div>
+
+                            <!-- KPI 2 (NUEVO ORDEN) - Capital Distribuído (Total) -->
+                            <div class="kpi-card" style="border-color: var(--warning-color);">
+                                <h3 class="kpi-title" style="color: var(--warning-color);">
+                                    <i data-lucide="briefcase"></i> Capital Distribuído (Total)
+                                </h3>
+                                <p class="kpi-value" id="kpi-global-distributed" style="color: var(--warning-color);"></p>
+                            </div>
+                            
+                            <!-- KPI 3 (NUEVO) - Capital Destinado a Caixas (Total) -->
+                            <div class="kpi-card" style="border-color: var(--accent-green);">
+                                <h3 class="kpi-title" style="color: var(--accent-green);">
+                                    <i data-lucide="banknote"></i> Capital em Caixas (Total)
+                                </h3>
+                                <p class="kpi-value" id="kpi-global-capital-on-hand" style="color: var(--accent-green);"></p>
+                            </div>
+
+                            <!-- KPI 4 (Antiguo KPI 1) - Cobradores Activos -->
                             <div class="kpi-card">
                                 <h3 class="kpi-title" data-lang-key="activeCollectors"><i data-lucide="users"></i></h3>
                                 <p class="kpi-value" id="kpi-active-collectors"></p>
                             </div>
+                            <!-- KPI 5 (Antiguo KPI 2) - Clientes Activos -->
                                 <div class="kpi-card">
                                 <h3 class="kpi-title" data-lang-key="activeClients"><i data-lucide="user-check"></i></h3>
                                 <p class="kpi-value" id="kpi-active-clients"></p>
                             </div>
                         </section>
+                        <!-- --- [FIN MODIFICACIÓN: REORDENAR KPIs GLOBALES] --- -->
+
                         <section>
                             <h2 class="section-title" data-lang-key="collectionTeam"></h2>
                             <div class="search-bar-wrapper">
@@ -2002,44 +2053,40 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
                             <p style="margin: 5px 0 0; color: var(--text-secondary);">Painel de Controle</p>
                         </div>
 
+                        <!-- --- [INICIO MODIFICACIÓN: ARREGLAR "PLANO ATUAL"] --- -->
                         <div class="settings-section">
-                        <h2 class="section-title" style="border: none; margin-bottom: 15px;">
-                            <i data-lucide="award" style="width: 18px; height: 18px; margin-right: 8px;"></i>
-                            Plano Atual
-                        </h2>
-                        <div class="info-grid" style="grid-template-columns: 1fr; gap: 10px; background: none; padding: 0; border: none;">
-                            <div>
-                                <label>Tipo de Plano</label>
-                                <p id="plan-info-type">--</p>
-                            </div>
-                            <div>
-                                <label>Cobradores Utilizados</label>
-                                <p id="plan-info-collectors">-- / --</p>
+                            <h2 class="section-title" style="border: none; margin-bottom: 15px;">
+                                <i data-lucide="award" style="width: 18px; height: 18px; margin-right: 8px;"></i>
+                                Plano Atual
+                            </h2>
+                            <!-- (Cambiado a grid-template-columns: 1fr 1fr) -->
+                            <div class="info-grid" style="grid-template-columns: 1fr 1fr; gap: 15px; background: none; padding: 0; border: none;">
+                                <div>
+                                    <label>Tipo de Plano</label>
+                                    <p id="plan-info-type">--</p>
+                                </div>
+                                <div>
+                                    <label>Cobradores Utilizados</label>
+                                    <p id="plan-info-collectors">-- / --</p>
+                                </div>
+                                <!-- (NUEVO) Fecha de Inicio -->
+                                <div>
+                                    <label>Data de Início</label>
+                                    <p id="plan-info-start-date">--</p>
+                                </div>
+                                <!-- (NUEVO) Fecha de Vencimiento -->
+                                <div>
+                                    <label>Data de Vencimento</label>
+                                    <p id="plan-info-end-date">--</p>
+                                </div>
                             </div>
                         </div>
-                    </div>
+                        <!-- --- [FIN MODIFICACIÓN: ARREGLAR "PLANO ATUAL"] --- -->
 
-                        <section>
-                             <h2 class="section-title" data-lang-key="globalFinances"></h2>
-                             <div class="kpi-grid">
-                                 <div class="kpi-card">
-                                     <h3 class="kpi-title" data-lang-key="distributedCapital"><i data-lucide="landmark"></i></h3>
-                                     <p class="kpi-value" id="kpi-distributed-capital"></p>
-                                 </div>
-                                 <div class="kpi-card">
-                                     <h3 class="kpi-title" data-lang-key="expectedToday"><i data-lucide="trending-up"></i></h3>
-                                     <p class="kpi-value" id="kpi-expected-today"></p>
-                                 </div>
-                                 <div class="kpi-card">
-                                     <h3 class="kpi-title" data-lang-key="fieldValue"><i data-lucide="circle-dollar-sign"></i></h3>
-                                     <p class="kpi-value" id="kpi-field-value"></p>
-                                 </div>
-                                 <div class="kpi-card">
-                                     <h3 class="kpi-title" data-lang-key="grossProfit"><i data-lucide="bar-chart-2"></i></h3>
-                                     <p class="kpi-value" id="kpi-gross-profit"></p>
-                                 </div>
-                             </div>
-                        </section>
+                        <!-- --- [INICIO MODIFICACIÓN: ELIMINAR FINANÇAS GLOBAIS] --- -->
+                        <!-- La sección 'Finanças Globais' que estaba aquí fue eliminada -->
+                        <!-- --- [FIN MODIFICACIÓN: ELIMINAR FINANÇAS GLOBAIS] --- -->
+                        
                         <h1 class="section-title" data-lang-key="settings"></h1>
                         
                         <div class="settings-section">
@@ -2111,6 +2158,10 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
                 <button class="fab" id="addCollectorBtn" title="Adicionar Cobrador"><i data-lucide="plus"></i></button>
             `;
         }
+        
+
+
+
         
         function formatTimestamp(timestamp) {
             if (!timestamp || !timestamp.seconds) return '';
@@ -2250,26 +2301,44 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
             return metrics.status; 
         }
 
-        function updateDashboard() {
-            if(!document.getElementById('kpi-total-capital')) return;
+        
+    function updateDashboard() {
+            // --- [INICIO MODIFICACIÓN: LEER NUEVOS KPIs] ---
             
-            // --- 1. LEER Métricas Globales (pre-calculadas) ---
-            // Usa los datos de 'calculatedGlobalMetrics' o valores por defecto (0)
+            // Leemos los elementos que AHORA existen en el Dashboard
+            const kpiActiveCollectors = document.getElementById('kpi-active-collectors');
+            const kpiActiveClients = document.getElementById('kpi-active-clients');
+            const kpiGlobalPatrimonio = document.getElementById('kpi-global-patrimonio');
+            const kpiGlobalDistributed = document.getElementById('kpi-global-distributed');
+            const kpiGlobalCapitalOnHand = document.getElementById('kpi-global-capital-on-hand');
+
+            // Verificación para asegurar que la vista está activa
+            if(!kpiActiveCollectors) return; 
+            
+            // 1. LEER Métricas Globales (incluyendo las nuevas sumas)
             const {
-                totalCapital = 0, // <-- Este es el Net Worth de la EMPRESA (con mora)
                 activeCollectorsCount = 0,
-                activeClientsCount = 0
+                activeClientsCount = 0,
+                sumGlobalDistributed = 0,
+                sumGlobalPatrimonio = 0,
+                sumGlobalCapitalOnHand = 0 // <-- NUEVO
             } = calculatedGlobalMetrics;
 
-            // --- 2. Actualizar KPIs Globales ---
-            document.getElementById('kpi-total-capital').textContent = money(totalCapital);
-            document.getElementById('kpi-active-collectors').textContent = activeCollectorsCount;
-            document.getElementById('kpi-active-clients').textContent = activeClientsCount;
+            // 2. Actualizar KPIs Globales (en el nuevo orden)
+            // (Eliminamos la referencia al kpi-total-capital que ya no existe)
+            if (kpiGlobalPatrimonio) kpiGlobalPatrimonio.textContent = money(sumGlobalPatrimonio);
+            if (kpiGlobalDistributed) kpiGlobalDistributed.textContent = money(sumGlobalDistributed);
+            if (kpiGlobalCapitalOnHand) kpiGlobalCapitalOnHand.textContent = money(sumGlobalCapitalOnHand); // <-- NUEVO
+            
+            kpiActiveCollectors.textContent = activeCollectorsCount;
+            kpiActiveClients.textContent = activeClientsCount;
+            // --- [FIN MODIFICACIÓN: LEER NUEVOS KPIs] ---
+
 
             const listContainer = document.getElementById('collectors-list');
             if(!listContainer) return;
 
-            // --- 3. Filtros y Ordenación (Sin cambios) ---
+            // 3. Filtros y Ordenación (Sin cambios)
             const searchInput = document.getElementById('collector-search-input');
             const searchTerm = searchInput ? searchInput.value.toLowerCase() : '';
             const activeStatusFilter = document.querySelector('#dashboard-view .filter-btn[data-filter].active');
@@ -2281,33 +2350,30 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
                 collector.name.toLowerCase().includes(searchTerm)
             );
             
-            // --- 4. Aplicar Filtros (Ahora usa datos pre-calculados) ---
+            // 4. Aplicar Filtros (Sin cambios)
             if (statusFilter !== 'all') {
                 if (statusFilter === 'trackingUnavailable') {
                     filteredCollectors = filteredCollectors.filter(collector => !collector.isRealtimeTrackingActive);
                 } else {
                     filteredCollectors = filteredCollectors.filter(collector => {
-                        // ¡Usa la función de estado refactorizada!
                         const status = calculateCollectorStatus(collector.id); 
                         return status.textKey === statusFilter;
                     });
                 }
             }
             
-            // --- 5. Mapear datos para la UI (LEE las métricas pre-calculadas) ---
+            // 5. Mapear datos para la UI (Sin cambios)
             let collectorsWithData = filteredCollectors.map(collector => {
-                
-                // ¡OBTIENE las métricas pre-calculadas del mapa!
                 const metrics = calculatedCollectorMetrics.get(collector.id) || { capitalOnHand: 0, activeClientsCount: 0 };
                 
                 return { 
                     ...collector, 
-                    capitalOnHand: metrics.capitalOnHand, // <-- Dato pre-calculado (CORRECTO, SIN MORA)
-                    clientCount: metrics.activeClientsCount // <- Dato pre-calculado
+                    capitalOnHand: metrics.capitalOnHand, 
+                    clientCount: metrics.activeClientsCount
                 };
             });
             
-            // --- 6. Ordenar (Sin cambios) ---
+            // 6. Ordenar (Sin cambios)
             if (sortBy === 'capital') {
                 collectorsWithData.sort((a, b) => b.capitalOnHand - a.capitalOnHand);
             }
@@ -2317,10 +2383,9 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
                 return;
             }
 
-            // --- 7. RENDERIZADO (Sin cambios, pero ahora usa datos 100% consistentes) ---
+            // 7. RENDERIZADO (Sin cambios)
             listContainer.innerHTML = collectorsWithData.map(collector => {
-                const placeholderUrl = `https://placehold.co/96x96/0f172a/FFFFFF?text=${(collector.name || 'C').charAt(0)}`;
-                // ¡Usa la función de estado refactorizada!
+                const placeholderUrl = `https:/*placehold.co/96x96/0f172a/FFFFFF?text=${(collector.name || 'C').charAt(0)}`;
                 const status = calculateCollectorStatus(collector.id); 
                 const isTrackingActive = collector.isRealtimeTrackingActive;
 
@@ -2357,6 +2422,9 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
 
             applyLanguage(currentLang);
         }
+
+
+
 
         function renderCommunityView() {
     const container = document.getElementById('community-posts-list');
@@ -3782,46 +3850,81 @@ async function submitCollectorReport(collectorId) {
 
 
 
+        // --- [INICIO MODIFICACIÓN: FUNCIÓN DE AYUDA PARA FECHAS] ---
+        /**
+         * Formatea un timestamp de Firebase (u otros formatos) a una fecha simple (DD/MM/YYYY)
+         */
+        function formatSimpleDate(timestamp) {
+            let date;
+
+            // 1. Manejar nulo o indefinido
+            if (!timestamp) return '--';
+
+            // 2. Manejar formato Timestamp de Firebase (ej: { seconds: ..., nanoseconds: ... })
+            if (timestamp.seconds && typeof timestamp.toDate === 'function') {
+                date = timestamp.toDate();
+            
+            // 3. Manejar si ya es un objeto Date de JavaScript
+            } else if (timestamp instanceof Date) {
+                date = timestamp;
+            
+            // 4. Manejar si es un string (ej: "2025-11-01T10:00:00Z")
+            } else if (typeof timestamp === 'string') {
+                date = new Date(timestamp);
+            
+            // 5. Si no es ninguno de los anteriores, no sabemos qué es
+            } else {
+                console.warn("Formato de data desconhecido:", timestamp);
+                return '--';
+            }
+
+            // 6. Validar que la fecha resultante sea válida
+            if (isNaN(date.getTime())) {
+                console.error("Data inválida após conversão:", timestamp);
+                return 'Data Inválida';
+            }
+            
+            // 7. Formatear la fecha válida
+            try {
+                return date.toLocaleDateString('pt-BR', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric'
+                });
+            } catch (e) {
+                console.error("Error al formatear data:", e);
+                return 'Erro Formato';
+            }
+        }
+        // --- [FIN MODIFICACIÓN: FUNCIÓN DE AYUDA PARA FECHAS] ---
+
+
+
         function updateProfileView() {
-            if(!document.getElementById('kpi-distributed-capital')) return;
+            // --- [INICIO MODIFICACIÓN: ARREGLAR "PLANO ATUAL"] ---
             
-            // --- 1. LEER Métricas Globales (pre-calculadas) ---
-            const {
-                
-                // --- [INICIO DE LA CORRECCIÓN] ---
-                // Añadimos la variable 'totalCapital', que es el valor
-                // correcto (los R$ 100.000,00) que se muestra en el Dashboard.
-                totalCapital = 0,
-                // --- [FIN DE LA CORRECCIÓN] ---
-
-                totalStartingCapital = 0, // <- totalStartingCapital es el "distributedCapital"
-                expectedToday = 0,
-                fieldValue = 0,
-                grossProfit = 0
-            } = calculatedGlobalMetrics;
-            // --- FIN NUEVO CÁLCULO ---
-
-            // --- 2. Actualizar KPIs ---
-            
-            // --- [INICIO DE LA CORRECCIÓN] ---
-            // Usamos 'totalCapital' en lugar de 'totalStartingCapital'
-            // para que este valor sea IDÉNTICO al del Dashboard.
-            document.getElementById('kpi-distributed-capital').textContent = money(totalCapital);
-            // --- [FIN DE LA CORRECCIÓN] ---
-            
-            document.getElementById('kpi-expected-today').textContent = money(expectedToday);
-            document.getElementById('kpi-field-value').textContent = money(fieldValue);
-            document.getElementById('kpi-gross-profit').textContent = money(grossProfit); 
-
-            // --- 3. Lógica del Plan (Sin cambios, ya era correcta) ---
+            // 1. Seleccionamos los elementos del "Plano Atual"
             const planTypeElement = document.getElementById('plan-info-type');
             const planCollectorsElement = document.getElementById('plan-info-collectors');
-            if (planTypeElement && planCollectorsElement && currentCompanyData && currentCompanyData.plan) {
+            const planStartDateElement = document.getElementById('plan-info-start-date'); // <-- NUEVO
+            const planEndDateElement = document.getElementById('plan-info-end-date'); // <-- NUEVO
+
+            // Verificamos que los elementos existan
+            if (!planTypeElement || !planCollectorsElement || !planStartDateElement || !planEndDateElement) {
+                 console.log("Vista de Perfil no activa o elementos del plan no encontrados. Saltando actualización de Perfil.");
+                 return;
+            }
+
+            // 2. Eliminamos toda la lógica de "Finanças Globais" (kpi-distributed-capital, etc.)
+            //    ya que esa sección fue eliminada del HTML del perfil en renderMainLayout.
+
+            // 3. Lógica del Plan (Ahora con fechas)
+            if (currentCompanyData && currentCompanyData.plan) {
                 const plan = currentCompanyData.plan; 
                 const planTypeText = plan.type === 'pro' ? `PRO (${plan.plan || 'N/A'})` : 'DEMO';
                 planTypeElement.textContent = planTypeText; 
-                const currentCollectorCount = allCollectors.length; 
                 
+                const currentCollectorCount = allCollectors.length; 
                 let collectorLimit = 'Ilimitado';
                 
                 if (plan.type === 'demo') {
@@ -3839,11 +3942,22 @@ async function submitCollectorReport(collectorId) {
                     planCollectorsElement.style.color = ''; 
                     planCollectorsElement.style.fontWeight = '';
                 }
+                
+                // --- [INICIO DE LA CORRECCIÓN (Data de Início)] ---
+                // Leemos 'currentCompanyData.createdAt' (fecha de creación de la empresa)
+                // en lugar de 'plan.startDate' (que no existe).
+                planStartDateElement.textContent = formatSimpleDate(currentCompanyData.createdAt);
+                // 'plan.endDate' está correcto, lo dejamos como está.
+                planEndDateElement.textContent = formatSimpleDate(plan.endDate);
+                // --- [FIN DE LA CORRECCIÓN] ---
 
-            } else if (planTypeElement) {
+            } else {
                 planTypeElement.textContent = 'Não definido';
                 planCollectorsElement.textContent = `${allCollectors.length} / ?`;
+                planStartDateElement.textContent = '--';
+                planEndDateElement.textContent = '--';
             }
+            // --- [FIN MODIFICACIÓN: ARREGLAR "PLANO ATUAL"] ---
         }
 
 
