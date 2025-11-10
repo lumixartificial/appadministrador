@@ -1385,16 +1385,16 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             
             const collectorClients = allClients.filter(c => c.collectorId === collectorId);
             const collectorExpenses = allExpenses.filter(e => e.collectorId === collectorId);
-            // --- [INICIO CORRECCIÓN] ---
-            // 1. Filtra 'allSettlements' (no 'allExpenses')
-            // 2. Filtra solo por status 'approved'
             const collectorSettlements = allSettlements.filter(s => s.collectorId === collectorId && s.status === 'approved');
-            // --- [FIN CORRECCIÓN] ---
             const collectorInjections = allCapitalInjections.filter(i => i.collectorId === collectorId && i.status === 'approved');
 
-            let totalPaid = 0;
-            let totalPrincipal = 0;
-            let totalLateFees = 0; // Calculamos la mora solo para el *estado*, no para el capital
+            // --- [INICIO FASE 3 (ADMIN): NUEVOS VALORES] ---
+            let totalPaid = 0; // Pagos NO-MIGRADOS (para Capital em Mãos)
+            let totalPrincipal = 0; // Principal de préstamos NO-MIGRADOS (para Capital em Mãos)
+            let totalDistributedCapital = 0; // Valor TOTAL (c/ juros) de préstamos ACTIVOS (para KPI 2)
+            // --- [FIN FASE 3] ---
+            
+            let totalLateFees = 0;
             let dailyCollected = 0, weeklyCollected = 0, monthlyCollected = 0;
             
             const now = new Date();
@@ -1406,38 +1406,39 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             collectorClients.forEach(c => { 
                 (c.loans || []).forEach(loan => {
                     
-                    // --- [INICIO DE LA CORRECCIÓN (ADMIN)] ---
-                    // ¡AQUÍ ESTÁ LA LÓGICA CLAVE!
-                    // Solo suma al "total prestado" si NO es un préstamo migrado
+                    // --- Lógica para 'Capital em Mãos' ---
                     if (!loan.migrationDate) {
-                        // --- Principal ---
+                        // Principal de préstamos NUEVOS (NO migrados)
                         if (loan.principalAmount) {
                             totalPrincipal += loan.principalAmount;
                         } else if (loan.totalLoan && c.interestRate) {
                             totalPrincipal += (loan.totalLoan / (1 + (c.interestRate / 100)));
                         }
                     }
-                    // --- [FIN DE LA CORRECCIÓN (ADMIN)] ---
-                    
-                    // --- Mora (para estado) ---
-                    totalLateFees += (loan.lateFeesAccumulated || 0);
-                    
-                    // --- Pagos (Filtrados) ---
                     (loan.history || []).forEach(h => {
-                        // --- [INICIO DE LA CORRECCIÓN (ADMIN)] ---
-                        // AHORA IGNORAMOS PAGOS DE MIGRACIÓN
+                        // Pagos (NO migrados)
                         if (h.date?.seconds && h.status !== 'pending_verification' && h.status !== 'rejected' && h.status !== 'postponed' && h.method !== 'migration') {
-                        // --- [FIN DE LA CORRECCIÓN (ADMIN)] ---
-                        
                             const paymentAmount = h.amount || 0;
                             totalPaid += paymentAmount; 
                             
+                            // Cálculo de KPIs de período (solo pagos no-migrados)
                             const paymentDate = new Date(h.date.seconds * 1000);
                             if (paymentDate >= todayStart) dailyCollected += paymentAmount;
                             if (paymentDate >= weekStart) weeklyCollected += paymentAmount;
                             if (paymentDate >= monthStart) monthlyCollected += paymentAmount;
                         }
                     });
+                    
+                    // --- [INICIO FASE 3 (ADMIN): CÁLCULO DISTRIBUIDO] ---
+                    // Suma el VALOR TOTAL (con intereses) de todos los préstamos que no estén finalizados.
+                    // (Exactamente como en la App del Cobrador)
+                    if (loan.status !== 'finished') {
+                        totalDistributedCapital += (loan.totalLoan || 0);
+                    }
+                    // --- [FIN FASE 3 (ADMIN)] ---
+                    
+                    // --- Mora (para estado) ---
+                    totalLateFees += (loan.lateFeesAccumulated || 0);
                 });
             });
 
@@ -1445,10 +1446,18 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             const totalSettled = collectorSettlements.reduce((sum, s) => sum + (s.amount || 0), 0);
             const totalInjected = collectorInjections.reduce((sum, i) => sum + (i.amount || 0), 0);
 
-            // --- ¡LA CORRECCIÓN CLAVE! ---
-            // Fórmula de Capital en Manos (idéntica a la App Cobrador)
-            // NO INCLUYE 'totalLateFees'.
-            const capitalOnHand = (collector.startingCapital || 0) + totalInjected + totalPaid - totalPrincipal - totalExpenses - totalSettled;
+            // --- [INICIO FASE 3 (ADMIN): LÓGICA DE CAPITAL (RECTIFICACIÓN)] ---
+            // Lógica de Rectificación (Exactamente como en la App del Cobrador)
+            const currentStartingCapital = (collector && collector.startingCapitalOnHand !== undefined) 
+                ? collector.startingCapitalOnHand 
+                : (collector && collector.startingCapital) || 0; // Fallback al campo antiguo
+            
+            // KPI 1: Capital em Mãos (El efectivo en caja)
+            const capitalOnHand = currentStartingCapital + totalInjected + totalPaid - totalPrincipal - totalExpenses - totalSettled;
+            
+            // KPI 3: Capital Total (Patrimônio)
+            const totalPatrimonio = capitalOnHand + totalDistributedCapital;
+            // --- [FIN FASE 3 (ADMIN)] ---
 
             // --- Conteo de Clientes ---
             const activeClientsCount = collectorClients.filter(c => (c.loans || []).some(l => l.status !== 'finished')).length;
@@ -1467,8 +1476,11 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                 }
             }
 
+            // --- [INICIO FASE 3 (ADMIN): DEVOLVER NUEVOS VALORES] ---
             return {
-                capitalOnHand, // <-- El valor correcto
+                capitalOnHand, // KPI 1
+                totalDistributedCapital, // KPI 2
+                totalPatrimonio, // KPI 3
                 activeClientsCount,
                 lateClientsCount,
                 dailyCollected,
@@ -1476,7 +1488,7 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                 monthlyCollected,
                 totalPaid,
                 totalPrincipal,
-                totalLateFees, // <-- Lo devolvemos, pero NO se usa en capitalOnHand
+                totalLateFees,
                 totalExpenses,
                 totalSettled,
                 totalInjected,
@@ -1486,6 +1498,7 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                     icon: statusIcon
                 }
             };
+            // --- [FIN FASE 3 (ADMIN)] ---
         }
 
 
@@ -3836,7 +3849,7 @@ async function submitCollectorReport(collectorId) {
 
 
         
-        function showCollectorDetails(collectorId) {
+    function showCollectorDetails(collectorId) {
             const detailView = document.getElementById('collectorDetailView');
             const collector = allCollectors.find(c => c.id === collectorId);
             const clients = allClients.filter(c => c.collectorId === collectorId); // <-- Todos los clientes (para contabilidad)
@@ -3856,27 +3869,26 @@ async function submitCollectorReport(collectorId) {
             const isTrackingActive = collector.isRealtimeTrackingActive;
             const lastSeenTime = formatTimestamp(collector.lastLocationUpdate);
 
-            // --- [INICIO: LECTURA DE MÉTRICAS PRE-CALCULADAS] ---
-            // ¡Simplemente LEE las métricas del mapa!
+            // --- [INICIO FASE 3 (ADMIN): LECTURA DE MÉTRICAS] ---
             const metrics = calculatedCollectorMetrics.get(collectorId);
             
             if (!metrics) {
-                // Esto solo debería pasar si los datos aún no están listos
                 console.warn(`Métricas para ${collectorId} aún no calculadas. Mostrando modal con datos incompletos.`);
                 detailView.innerHTML = `<header class="modal-header">...</header><div class="modal-content-wrapper container"><p>Calculando dados...</p></div>`;
-                // No abortamos, dejamos que muestre 0s por ahora
             }
             
             const {
-                capitalOnHand = 0, // <-- El valor CORRECTO (sin mora)
+                capitalOnHand = 0, // KPI 1
+                totalDistributedCapital = 0, // KPI 2
+                totalPatrimonio = 0, // KPI 3
                 status = { textKey: 'inOrder', color: 'var(--accent-green)', icon: 'check-circle' },
                 activeClientsCount = 0,
                 lateClientsCount = 0,
                 dailyCollected = 0,
                 weeklyCollected = 0,
                 monthlyCollected = 0
-            } = metrics || {}; // Usamos un objeto vacío como fallback si las métricas no están
-            // --- [FIN: LECTURA DE MÉTRICAS PRE-CALCULADAS] ---
+            } = metrics || {}; 
+            // --- [FIN FASE 3 (ADMIN): LECTURA DE MÉTRICAS] ---
 
 
             // --- [INICIO: Lógica de Lista de Clientes (Sin cambios)] ---
@@ -3975,22 +3987,38 @@ async function submitCollectorReport(collectorId) {
                         </div>
                     </div>
 
-                    <section class="kpi-grid" style="grid-template-columns: 1fr; gap: 15px; margin-bottom: 20px;">
-                        <div class="kpi-card">
-                            <h3 class="kpi-title" data-lang-key="capitalOnHand"><i data-lucide="wallet"></i></h3>
-                            <p class="kpi-value">${money(capitalOnHand)}</p> <!-- <- USA DATO REFACTORIZADO (SIN MORA) -->
-                        </div>
+                    <!-- --- [INICIO FASE 3 (ADMIN): NOVOS KPIs] --- -->
+                    <!-- KPI 3: Capital Total (Patrimônio) -->
+                    <div class="kpi-card" style="margin-bottom: 20px; text-align: center; border-color: var(--accent-purple); border-width: 2px;">
+                        <h3 class="kpi-title" style="justify-content: center; color: var(--accent-purple);"><i data-lucide="gem"></i> Capital Total (Patrimônio)</h3>
+                        <p class="kpi-value" id="kpi-total-patrimonio" style="color: var(--accent-purple); font-size: 1.8em;">${money(totalPatrimonio)}</p>
+                    </div>
+                    
+                    <!-- KPI 1: Capital em Mãos (Efectivo) -->
+                    <div class="kpi-card" style="margin-bottom: 20px; text-align: center; border-color: var(--accent-green); border-width: 2px;">
+                        <h3 class="kpi-title" style="justify-content: center; color: var(--accent-green);" data-lang-key="capitalOnHand"><i data-lucide="banknote"></i></h3>
+                        <p class="kpi-value" id="kpi-capital-total" style="color: var(--accent-green);">${money(capitalOnHand)}</p>
+                    </div>
+
+                    <!-- KPI 2: Capital Distribuido (en la Calle) -->
+                    <div class="kpi-card" style="margin-bottom: 20px; text-align: center; border-color: var(--warning-color); border-width: 2px;">
+                        <h3 class="kpi-title" style="justify-content: center; color: var(--warning-color);"><i data-lucide="briefcase"></i> Capital Distribuído</h3>
+                        <p class="kpi-value" id="kpi-distributed-capital" style="color: var(--warning-color);">${money(totalDistributedCapital)}</p>
+                    </div>
+                    <!-- --- [FIN FASE 3 (ADMIN)] --- -->
+
+                    <section class="kpi-grid" style="grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
                         <div class="kpi-card">
                             <h3 class="kpi-title" data-lang-key="status"><i data-lucide="${status.icon}"></i></h3>
-                            <p class="kpi-value" style="color: ${status.color}; font-size: 1.2em;">${translations[currentLang][status.textKey]}</p> <!-- <- USA DATO REFACTORIZADO -->
+                            <p class="kpi-value" style="color: ${status.color}; font-size: 1.2em;">${translations[currentLang][status.textKey]}</p>
                         </div>
                         <div class="kpi-card">
                             <h3 class="kpi-title" data-lang-key="activeClients"><i data-lucide="user-check"></i></h3>
-                            <p class="kpi-value">${activeClientsCount}</p> <!-- <- USA DATO REFACTORIZADO -->
+                            <p class="kpi-value">${activeClientsCount}</p>
                         </div>
                         <div class="kpi-card">
                             <h3 class="kpi-title" data-lang-key="lateClients"><i data-lucide="user-x"></i></h3>
-                            <p class="kpi-value" style="color: var(--danger-color);">${lateClientsCount}</p> <!-- <- USA DATO REFACTORIZADO -->
+                            <p class="kpi-value" style="color: var(--danger-color);">${lateClientsCount}</p>
                         </div>
                     </section>
 
@@ -4657,8 +4685,6 @@ function updateAdminNotificationsView() {
 
         function showCollectorFormModal(collectorId = null) {
             let isUsernameGloballyAvailable = false;
-            // [CAMBIO] La validación de email ya no es necesaria en el formulario
-            // let isEmailFormatValid = false; 
             const isEditMode = collectorId !== null;
             const collector = isEditMode ? allCollectors.find(c => c.id === collectorId) : {};
 
@@ -4666,6 +4692,9 @@ function updateAdminNotificationsView() {
             const saveButtonKey = isEditMode ? 'saveChanges' : 'saveCollector';
             
             const formModal = document.getElementById('collectorFormModal');
+            
+            // --- [INICIO FASE 1: NOVA LÓGICA DE CAPITAL (HTML)] ---
+            // Modificamos el HTML que se va a inyectar
             formModal.innerHTML = `
                 <header class="modal-header">
                     <button id="closeCollectorForm"><i data-lucide="arrow-left"></i></button>
@@ -4705,9 +4734,7 @@ function updateAdminNotificationsView() {
                             </div>
                         </div>
 
-                        <!-- Contenedor para los resultados de la verificación -->
                         <div id="collector-verification-results" style="margin-top: 20px; margin-bottom: 20px; display: none;"> 
-                        <!-- Los resultados se mostrarán aquí -->
                         </div>
 
                         <h3 class="section-title" style="margin-top: 30px; border-bottom: none; font-size: 1.1em;">
@@ -4716,17 +4743,13 @@ function updateAdminNotificationsView() {
                         </h3>
                         <hr style="border: 1px solid var(--border-color); margin-top: 10px; margin-bottom: 25px;">
 
-                        <!-- [CAMBIO] Solo hay UN campo de usuario. El campo 'Email' fue removido. -->
                         <div class="form-group">
                             <label for="collector-username">Usuário (para acessar o app)</label>
                             <input type="text" id="collector-username" required value="${collector.id || ''}" ${isEditMode ? 'readonly' : ''} autocomplete="off" autocapitalize="none">
                             <div id="username-validation-msg" class="validation-message">
-                                <!-- El contenido se añadirá por JS -->
                             </div>
                         </div>
                         
-                        <!-- [CAMBIO] El campo 'Email' (collector-email) fue ELIMINADO de aquí -->
-
                         <div class="form-group">
                             <label for="collector-password" data-lang-key="password"></label>
                             <input type="password" id="collector-password" ${!isEditMode ? 'required' : ''} placeholder="${isEditMode ? 'Deixe em branco para não alterar' : ''}" autocomplete="new-password">
@@ -4742,53 +4765,50 @@ function updateAdminNotificationsView() {
                         <div class="form-group">
                         <label for="collector-currency">Moeda de Operação</label>
                         <select id="collector-currency">
-                        <!-- As opções de moeda serão adicionadas por JavaScript -->
                         </select>
                         </div>
 
-                        <!-- Ahora viene el campo de Capital Inicial -->
+                        <!-- ESTE ES EL CAMPO MODIFICADO (de 'collector-capital' a 'collector-capital-on-hand') -->
                         <div class="form-group">
-                        <label for="collector-capital"><span id="capital-currency-symbol" style="font-weight: bold;">(R$)</span> <span data-lang-key="initialCapital"></span></label>
-                        <input type="number" id="collector-capital" step="0.01" required value="${collector.startingCapital || ''}" placeholder="0.00">
+                            <label for="collector-capital-on-hand"><span id="capital-currency-symbol" style="font-weight: bold;">(R$)</span> Capital em Mãos (em Caixa)</label>
+                            <input type="number" id="collector-capital-on-hand" step="0.01" required value="${collector.startingCapitalOnHand || ''}" placeholder="0.00">
+                            <!-- Texto de ayuda añadido -->
+                            <p style="font-size: 0.85em; color: var(--text-secondary); margin: 8px 0 0;">
+                                Insira o dinheiro em espécie (efetivo) que o cobrador tem AGORA para operar (fazer novos empréstimos, pagar gastos, etc.).
+                            </p>
                         </div>
+                        <!-- --- [FIN FASE 1: HTML] --- -->
 
-                        <!-- --- INICIA NUEVA SECCIÓN: DOCUMENTAÇÃO --- -->
-                    <h3 class="section-title" style="margin-top: 30px; border-bottom: none; font-size: 1.1em;">
+
+                        <h3 class="section-title" style="margin-top: 30px; border-bottom: none; font-size: 1.1em;">
                         <i data-lucide="file-check" style="width: 18px; height: 18px; margin-right: 8px;"></i>
                         DOCUMENTAÇÃO
-                    </h3>
-                    <hr style="border: 1px solid var(--border-color); margin-top: 10px; margin-bottom: 25px;">
+                        </h3>
+                        <hr style="border: 1px solid var(--border-color); margin-top: 10px; margin-bottom: 25px;">
 
-                    <div class="form-group grid-2">
-                        <!-- Campo Foto de Perfil -->
-                        <div>
-                            <label for="collector-profile-pic">Foto de Perfil</label>
-                            <div style="display: flex; align-items: center; gap: 15px; margin-top: 8px;">
-                                <!-- Esta es la imagen de vista previa -->
-                                <img id="profile-preview" src="https://placehold.co/80x80/0f172a/FFFFFF?text=?" alt="Preview" style="width: 80px; height: 80px; border-radius: 50%; object-fit: cover; border: 1px solid var(--border-color);">
-                                <!-- Este es el botón falso que activa el input real -->
-                                <label for="collector-profile-pic" class="btn-secondary" style="cursor:pointer; padding: 8px 12px; font-size: 0.9em;">
-                                    <i data-lucide="upload" style="width: 14px; height: 14px;"></i> Carregar
-                                </label>
-                                <!-- Este es el input real (oculto) -->
-                                <input type="file" id="collector-profile-pic" accept="image/*" style="display: none;">
+                        <div class="form-group grid-2">
+                            <div>
+                                <label for="collector-profile-pic">Foto de Perfil</label>
+                                <div style="display: flex; align-items: center; gap: 15px; margin-top: 8px;">
+                                    <img id="profile-preview" src="https://placehold.co/80x80/0f172a/FFFFFF?text=?" alt="Preview" style="width: 80px; height: 80px; border-radius: 50%; object-fit: cover; border: 1px solid var(--border-color);">
+                                    <label for="collector-profile-pic" class="btn-secondary" style="cursor:pointer; padding: 8px 12px; font-size: 0.9em;">
+                                        <i data-lucide="upload" style="width: 14px; height: 14px;"></i> Carregar
+                                    </label>
+                                    <input type="file" id="collector-profile-pic" accept="image/*" style="display: none;">
+                                </div>
+                            </div>
+
+                            <div>
+                                <label for="collector-document-pic">Foto do Documento</label>
+                                <div style="display: flex; align-items: center; gap: 15px; margin-top: 8px;">
+                                    <img id="document-preview" src="https://placehold.co/120x80/0f172a/FFFFFF?text=DOC" alt="Preview" style="width: 120px; height: 80px; border-radius: 8px; object-fit: cover; border: 1px solid var(--border-color);">
+                                    <label for="collector-document-pic" class="btn-secondary" style="cursor:pointer; padding: 8px 12px; font-size: 0.9em;">
+                                        <i data-lucide="upload" style="width: 14px; height: 14px;"></i> Carregar
+                                    </label>
+                                    <input type="file" id="collector-document-pic" accept="image/*" style="display: none;">
+                                </div>
                             </div>
                         </div>
-
-                        <!-- Campo Foto del Documento -->
-                        <div>
-                            <label for="collector-document-pic">Foto do Documento</label>
-                            <div style="display: flex; align-items: center; gap: 15px; margin-top: 8px;">
-                                <!-- Vista previa del documento -->
-                                <img id="document-preview" src="https://placehold.co/120x80/0f172a/FFFFFF?text=DOC" alt="Preview" style="width: 120px; height: 80px; border-radius: 8px; object-fit: cover; border: 1px solid var(--border-color);">
-                                <label for="collector-document-pic" class="btn-secondary" style="cursor:pointer; padding: 8px 12px; font-size: 0.9em;">
-                                    <i data-lucide="upload" style="width: 14px; height: 14px;"></i> Carregar
-                                </label>
-                                <!-- Input real del documento (oculto) -->
-                                <input type="file" id="collector-document-pic" accept="image/*" style="display: none;">
-                            </div>
-                        </div>
-                    </div>
 
                     </form>
                 
@@ -4801,6 +4821,8 @@ function updateAdminNotificationsView() {
             `;
             formModal.classList.add('active');
 
+            // (El resto de la función - vistas previas de imagen, lógica de moneda, verificación de sistema - no cambia)
+            
             // --- INICIA NUEVO CÓDIGO PARA VISTA PREVIA DE IMAGEN ---
             const profileInput = formModal.querySelector('#collector-profile-pic');
             const profilePreview = formModal.querySelector('#profile-preview');
@@ -4942,8 +4964,7 @@ function updateAdminNotificationsView() {
             formModal.querySelector('#closeCollectorForm').addEventListener('click', () => formModal.classList.remove('active'));
             
             
-            
-            // --- [CAMBIO] Lógica de Guardado ---
+            // --- [INICIO FASE 1: NOVA LÓGICA DE CAPITAL (SAVE)] ---
             formModal.querySelector('#saveCollectorBtn').addEventListener('click', async (e) => {
                 const saveBtn = e.currentTarget;
                 const originalBtnHTML = saveBtn.innerHTML;
@@ -4951,38 +4972,28 @@ function updateAdminNotificationsView() {
                 saveBtn.innerHTML = `<i data-lucide="loader-circle" style="animation: spin 1s linear infinite;"></i> <span>Salvando...</span>`;
                 lucide.createIcons({ nodes: [saveBtn.querySelector('i')] });
 
-                // 2. Obtener todos los valores del formulario
                 const profileFile = document.getElementById('collector-profile-pic')?.files[0];
                 const documentFile = document.getElementById('collector-document-pic')?.files[0];
-                const username = document.getElementById('collector-username').value.trim(); // Este es el ID del documento Y la base del email
+                const username = document.getElementById('collector-username').value.trim(); 
                 const name = document.getElementById('collector-name').value.trim();
-                
-                // [CAMBIO] El email se construye a partir del 'username' con el sufijo @gmail.com
                 const email = `${username}@gmail.com`; 
-                
                 const password = document.getElementById('collector-password').value.trim();
-                const capital = parseFloat(document.getElementById('collector-capital').value);
-
+                
+                // (1) Leemos del nuevo campo
+                const capitalOnHand = parseFloat(document.getElementById('collector-capital-on-hand').value);
 
                 if (!isEditMode && !isUsernameGloballyAvailable) {
                     showToast('Esse nome de usuário já está em uso ou não foi verificado.', true);
                     saveBtn.disabled = false;
                     saveBtn.innerHTML = originalBtnHTML;
                     lucide.createIcons({ nodes: [saveBtn.querySelector('i')] });
-                    return; // Detiene el guardado
+                    return; 
                 }
                 
-                // [CAMBIO] Ya no validamos isEmailFormatValid
-
-                // 3. Validación
-                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/; // Mantenemos el regex para chequear el *resultado*
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/; 
                 
-                // [CAMBIO] Verificamos el 'username' y 'password' (el email ya no viene del form)
-                if (!username || !name || isNaN(capital) ||
-                    (!isEditMode && !password)
-                    // [CAMBIO] Las fotos ya no son obligatorias
-                    // (!isEditMode && (!profileFile || !documentFile)) 
-                ) {
+                // (2) Actualizamos la validación
+                if (!username || !name || isNaN(capitalOnHand) || (!isEditMode && !password)) {
                     showToast(translations[currentLang].fillFields, true);
                     saveBtn.disabled = false;
                     saveBtn.innerHTML = originalBtnHTML;
@@ -4990,7 +5001,6 @@ function updateAdminNotificationsView() {
                     return;
                 }
 
-                // [CAMBIO] Verificamos el 'email' construido
                  if (!emailRegex.test(email)) {
                     showToast("O nome de usuário não pode ser usado para criar um email válido (evite caracteres especiais ou espaços).", true);
                     saveBtn.disabled = false;
@@ -4999,11 +5009,9 @@ function updateAdminNotificationsView() {
                     return;
                 }
                 
-                // 4. Iniciar el bloque try...catch principal
                 try {
-                    // 5. Subir fotos y obtener URLs
-                    let profilePicUrl = collector.profilePictureUrl || ''; // Mantiene la foto antigua si estamos editando
-                    let documentPicUrl = collector.documentPictureUrl || ''; // Mantiene el doc antiguo si estamos editando
+                    let profilePicUrl = collector.profilePictureUrl || ''; 
+                    let documentPicUrl = collector.documentPictureUrl || ''; 
 
                     if (profileFile) {
                         showToast("Subindo foto de perfil...", false);
@@ -5019,46 +5027,53 @@ function updateAdminNotificationsView() {
                         documentPicUrl = await getDownloadURL(documentStorageRef);
                     }
 
-                    // 6. Definir el objeto de datos del cobrador UNA SOLA VEZ
+                    // (3) Definimos los NUEVOS campos en collectorData
                     const collectorData = {
                         companyId: currentCompanyId, 
-                        username: username, // Este será el ID del documento
+                        username: username,
                         name,
-                        email: email, // [CAMBIO] Guardamos el email construido en Firestore
+                        email: email,
                         documentNumber: document.getElementById('collector-document').value.trim(),
                         address: document.getElementById('collector-address').value,
                         phone: document.getElementById('collector-phone').value,
                         whatsapp: document.getElementById('collector-whatsapp').value,
                         operatingCurrency: document.getElementById('collector-currency').value, 
-                        startingCapital: capital,
+                        
+                        // --- ESTA ES LA LÓGICA NUEVA ---
+                        startingCapitalOnHand: capitalOnHand,    // El nuevo campo para el efectivo
+                        startingDistributedCapital: 0,         // El capital distribuido empieza en CERO
+                        startingCapital: 0,                    // El campo antiguo se pone a 0 para consistencia
+                        // --- FIN LÓGICA NUEVA ---
+                        
                         profilePictureUrl: profilePicUrl,
                         documentPictureUrl: documentPicUrl
                     };
-
-                    // 7. Lógica de Edición o Creación
+                    
+                    // (4) La lógica de 'isEditMode' y 'else' (Creación)
+                    //     automáticamente usará este nuevo 'collectorData'
                     if (isEditMode) {
-                        // --- MODO EDICIÓN ---
-                        const { username: id, email: emailToUpdate, ...dataToUpdate } = collectorData; // Quitamos 'username' y 'email' de los datos a actualizar
+                        const { username: id, email: emailToUpdate, ...dataToUpdate } = collectorData; 
 
                         if (password) {
                             console.warn("A atualização de senha no modo 'Editar' precisa de uma Cloud Function dedicada. A senha NÃO foi alterada.");
                             showToast("A senha não pode ser alterada no modo de edição.", true);
                         }
                         
+                        // (Nota: Si es un cobrador antiguo, esto establecerá los nuevos campos
+                        // y pondrá startingCapital = 0, completando la "Rectificación" manual)
                         await updateDoc(doc(db, "collectors", collectorId), dataToUpdate);
                         showToast(translations[currentLang].collectorUpdated);
                         formModal.classList.remove('active');
 
                     } else {
                         // --- MODO CREACIÓN ---
-                        
                         if (!auth.currentUser) throw new Error("Admin não está autenticado.");
                         const idToken = await auth.currentUser.getIdToken(true);
 
                         const dataToSend = {
-                            collectorEmail: email, // [CAMBIO] Usa el email construido
+                            collectorEmail: email,
                             collectorPassword: password,
-                            collectorData: collectorData
+                            collectorData: collectorData // 'collectorData' ya tiene los nuevos campos
                         };
 
                         const functionUrl = "https://us-central1-lumix-financas-app.cloudfunctions.net/createCollector";
@@ -5119,7 +5134,7 @@ function updateAdminNotificationsView() {
                     lucide.createIcons({ nodes: [saveBtn.querySelector('i')] });
                 }
             });
-
+            // --- [FIN FASE 1: LÓGICA DE CAPITAL (SAVE)] ---
         }
         
         
@@ -6050,9 +6065,3 @@ async function showRefinanceVerificationModal(clientId) {
     </script>
 </body>
 </html>
-
-
-
-
-
-
