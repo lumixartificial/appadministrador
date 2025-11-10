@@ -2406,25 +2406,28 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
                 }
             }
             
+            // === [INICIO DE LA CORRECCIÓN 1/3] ===
             // 5. Mapear datos para la UI (MODIFICADO)
             let collectorsWithData = filteredCollectors.map(collector => {
-                // Pedimos 'totalClientsCount' y 'activeClientsCount' del map
-                const metrics = calculatedCollectorMetrics.get(collector.id) || { capitalOnHand: 0, totalClientsCount: 0, activeClientsCount: 0 };
+                // Pedimos 'totalPatrimonio' además de los otros datos
+                const metrics = calculatedCollectorMetrics.get(collector.id) || { capitalOnHand: 0, totalClientsCount: 0, activeClientsCount: 0, totalPatrimonio: 0 };
                 
                 return { 
                     ...collector, 
-                    capitalOnHand: metrics.capitalOnHand, 
-                    // === [INICIO DE LA CORRECCIÓN] ===
-                    // AHORA: Priorizamos 'activeClientsCount'
+                    capitalOnHand: metrics.capitalOnHand,
+                    totalPatrimonio: metrics.totalPatrimonio, // <-- AÑADIDO
                     clientCount: metrics.activeClientsCount !== undefined ? metrics.activeClientsCount : metrics.totalClientsCount
-                    // === [FIN DE LA CORRECCIÓN] ===
                 };
             });
+            // === [FIN DE LA CORRECCIÓN 1/3] ===
             
-            // 6. Ordenar (Sin cambios)
+            // === [INICIO DE LA CORRECCIÓN 2/3] ===
+            // 6. Ordenar (MODIFICADO)
             if (sortBy === 'capital') {
-                collectorsWithData.sort((a, b) => b.capitalOnHand - a.capitalOnHand);
+                // Ahora ordena por 'totalPatrimonio' ya que es el valor visible
+                collectorsWithData.sort((a, b) => b.totalPatrimonio - a.totalPatrimonio);
             }
+            // === [FIN DE LA CORRECCIÓN 2/3] ===
 
             if (collectorsWithData.length === 0) {
                 listContainer.innerHTML = `<p>Nenhum cobrador encontrado.</p>`;
@@ -2446,14 +2449,17 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
                             <div class="collector-card-top">
                                 <div class="item-info">
                                     <h4 class="item-name">${collector.name}</h4>
-                                    <!-- === [INICIO DE LA CORRECCIÓN] === -->
-                                    <!-- AHORA: Usamos la clave "activeClients" para la etiqueta -->
                                     <p class="item-subtext">${collector.clientCount} <span data-lang-key="activeClients"></span></p>
-                                    <!-- === [FIN DE LA CORRECCIÓN] === -->
                                 </div>
-                                <div class="item-details">
-                                    <span class="item-detail-value">${money(collector.capitalOnHand)}</span>
+                                
+                                <!-- === [INICIO DE LA CORRECCIÓN 3/3] === -->
+                                <!-- Cambiado 'capitalOnHand' por 'totalPatrimonio' y añadido icono y color -->
+                                <div class="item-details" style="display: flex; align-items: center; gap: 6px; color: var(--accent-purple);">
+                                    <i data-lucide="gem" style="width: 16px; height: 16px;"></i>
+                                    <span class="item-detail-value" style="color: var(--accent-purple);">${money(collector.totalPatrimonio)}</span>
                                 </div>
+                                <!-- === [FIN DE LA CORRECCIÓN 3/3] === -->
+
                             </div>
                             <div class="item-tags">
                                 <div class="item-status-tag" style="background-color: ${status.color}20; color: ${status.color};">
@@ -6246,5 +6252,6 @@ async function showRefinanceVerificationModal(clientId) {
     </script>
 </body>
 </html>
+
 
 
