@@ -1407,6 +1407,8 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
         // --- FUNCIÓN MAESTRA 2: MÉTRICAS DE COBRADOR (CAPITAL EN MANOS) ---
         
 
+        
+
         function calculateCollectorMetrics(collectorId, collector, allClients, allExpenses, allSettlements, allCapitalInjections) {
             
             const collectorClients = allClients.filter(c => c.collectorId === collectorId);
@@ -1417,8 +1419,11 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             // --- [INICIO FASE 3 (ADMIN): NUEVOS VALORES] ---
             let totalPaid = 0; // Pagos NO-MIGRADOS (para Capital em Mãos)
             let totalPrincipal = 0; // Principal de préstamos NO-MIGRADOS (para Capital em Mãos)
-            let totalDistributedCapital = 0; // Valor TOTAL (c/ juros) de préstamos ACTIVOS (para KPI 2)
-            // --- [FIN FASE 3] ---
+            
+            // --- [INICIO DE LA CORRECCIÓN CONTABLE (ADMIN)] ---
+            // Renombramos la variable para mayor claridad (igual que en app cobrador)
+            let totalDistributedCapital_Outstanding = 0; 
+            // --- [FIN DE LA CORRECCIÓN CONTABLE (ADMIN)] ---
             
             let totalLateFees = 0;
             let dailyCollected = 0, weeklyCollected = 0, monthlyCollected = 0;
@@ -1429,12 +1434,21 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             weekStart.setDate(weekStart.getDate() - weekStart.getDay());
             const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
+            let activeClientsCount = 0;
+            const lateClientIds = new Set(); 
+
             collectorClients.forEach(c => { 
+                
+                let isClientActive = false; 
+
                 (c.loans || []).forEach(loan => {
                     
-                    // --- Lógica para 'Capital em Mãos' ---
+                    const loanDetails = calculateLoanDetails(loan);
+                    const currentStatus = loanDetails.status;
+
+                    // --- Lógica para 'Capital em Mãos' (SIN CAMBIOS) ---
+                    // Esta lógica calcula el flujo de caja y está correcta.
                     if (!loan.migrationDate) {
-                        // Principal de préstamos NUEVOS (NO migrados)
                         if (loan.principalAmount) {
                             totalPrincipal += loan.principalAmount;
                         } else if (loan.totalLoan && c.interestRate) {
@@ -1442,30 +1456,50 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                         }
                     }
                     (loan.history || []).forEach(h => {
-                        // Pagos (NO migrados)
                         if (h.date?.seconds && h.status !== 'pending_verification' && h.status !== 'rejected' && h.status !== 'postponed' && h.method !== 'migration') {
                             const paymentAmount = h.amount || 0;
                             totalPaid += paymentAmount; 
-                            
-                            // Cálculo de KPIs de período (solo pagos no-migrados)
                             const paymentDate = new Date(h.date.seconds * 1000);
                             if (paymentDate >= todayStart) dailyCollected += paymentAmount;
                             if (paymentDate >= weekStart) weeklyCollected += paymentAmount;
                             if (paymentDate >= monthStart) monthlyCollected += paymentAmount;
                         }
                     });
+                    // --- FIN Lógica 'Capital em Mãos' ---
                     
-                    // --- [INICIO FASE 3 (ADMIN): CÁLCULO DISTRIBUIDO] ---
-                    // Suma el VALOR TOTAL (con intereses) de todos los préstamos que no estén finalizados.
-                    // (Exactamente como en la App del Cobrador)
-                    if (loan.status !== 'finished') {
-                        totalDistributedCapital += (loan.totalLoan || 0);
+                    
+                    // --- [INICIO DE LA CORRECCIÓN CONTABLE (ADMIN)] ---
+                    // Esta es la nueva lógica para 'Capital Distribuido' (Saldo Pendiente)
+                    
+                    // 4. Usamos el 'currentStatus' recalculado
+                    if (currentStatus !== 'finished') {
+                        
+                        // 5. Calcular el Total Pagado para ESTE préstamo (incluye migración y pagos normales)
+                        //    (Esto es idéntico a la app del cobrador)
+                        const totalPaidForThisLoan = (loan.history || [])
+                            .filter(h => h.status !== 'pending_verification' && h.status !== 'rejected' && h.status !== 'postponed')
+                            .reduce((sum, h) => sum + (h.amount || 0), 0);
+                        
+                        // 6. Calcular el Saldo Pendiente (Total del Préstamo - Total Pagado)
+                        const outstandingBalance = (loan.totalLoan || 0) - totalPaidForThisLoan;
+                        
+                        // 7. Sumar solo el saldo pendiente al total distribuido
+                        totalDistributedCapital_Outstanding += outstandingBalance;
+                        
+                        isClientActive = true; // Si CUALQUIER préstamo está activo, el cliente está activo
                     }
-                    // --- [FIN FASE 3 (ADMIN)] ---
+                    // === [FIN DE LA CORRECCIÓN CONTABLE (ADMIN)] ---
                     
                     // --- Mora (para estado) ---
-                    totalLateFees += (loan.lateFeesAccumulated || 0);
+                    totalLateFees += (loanDetails.lateFeesAccumulated || 0);
+                    if (currentStatus === 'late') {
+                        lateClientIds.add(c.id); 
+                    }
                 });
+
+                if (isClientActive) {
+                    activeClientsCount++;
+                }
             });
 
             const totalExpenses = collectorExpenses.reduce((sum, e) => sum + (e.value || 0), 0);
@@ -1473,28 +1507,31 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             const totalInjected = collectorInjections.reduce((sum, i) => sum + (i.amount || 0), 0);
 
             // --- [INICIO FASE 3 (ADMIN): LÓGICA DE CAPITAL (RECTIFICACIÓN)] ---
-            // Lógica de Rectificación (Exactamente como en la App del Cobrador)
             const currentStartingCapital = (collector && collector.startingCapitalOnHand !== undefined) 
                 ? collector.startingCapitalOnHand 
-                : (collector && collector.startingCapital) || 0; // Fallback al campo antiguo
+                : (collector && collector.startingCapital) || 0; 
             
-            // KPI 1: Capital em Mãos (El efectivo en caja)
+            // KPI 1: Capital em Mãos (El efectivo en caja) - (SIN CAMBIOS, ya era correcto)
             const capitalOnHand = currentStartingCapital + totalInjected + totalPaid - totalPrincipal - totalExpenses - totalSettled;
             
+            // --- [INICIO DE LA CORRECCIÓN CONTABLE (ADMIN)] ---
             // KPI 3: Capital Total (Patrimônio)
-            const totalPatrimonio = capitalOnHand + totalDistributedCapital;
+            // (Patrimônio = Lo que tengo en efectivo + Lo que me deben en la calle)
+            const totalPatrimonio = capitalOnHand + totalDistributedCapital_Outstanding;
+            // --- [FIN DE LA CORRECCIÓN CONTABLE (ADMIN)] ---
             // --- [FIN FASE 3 (ADMIN)] ---
 
-            // --- Conteo de Clientes ---
-            const activeClientsCount = collectorClients.filter(c => (c.loans || []).some(l => l.status !== 'finished')).length;
-            const lateClientsCount = collectorClients.filter(c => (c.loans || []).some(l => l.status === 'late')).length;
+            // --- Conteo de Clientes (SIN CAMBIOS) ---
+            const totalClientsCount = collectorClients.length;
+            const lateClientsCount = lateClientIds.size;
             
-            // --- Estado (Reputación) ---
+            // --- Estado (Reputación) (SIN CAMBIOS) ---
             let statusKey = 'inOrder';
             let statusColor = 'var(--accent-green)';
             let statusIcon = 'check-circle';
-            if (activeClientsCount > 0) {
-                const latePercentage = (lateClientsCount / activeClientsCount) * 100;
+            const countForReputation = activeClientsCount > 0 ? activeClientsCount : 0;
+            if (countForReputation > 0) {
+                const latePercentage = (lateClientsCount / countForReputation) * 100;
                 if (latePercentage > 20) {
                     statusKey = 'attention'; statusColor = 'var(--danger-color)'; statusIcon = 'alert-octagon';
                 } else if (latePercentage > 0) {
@@ -1504,11 +1541,16 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
 
             // --- [INICIO FASE 3 (ADMIN): DEVOLVER NUEVOS VALORES] ---
             return {
-                capitalOnHand, // KPI 1
-                totalDistributedCapital, // KPI 2
-                totalPatrimonio, // KPI 3
-                activeClientsCount,
-                lateClientsCount,
+                capitalOnHand, // KPI 1 (Correcto)
+                
+                // --- [INICIO DE LA CORRECCIÓN CONTABLE (ADMIN)] ---
+                totalDistributedCapital: totalDistributedCapital_Outstanding, // KPI 2 (Corregido)
+                totalPatrimonio, // KPI 3 (Corregido)
+                // --- [FIN DE LA CORRECCIÓN CONTABLE (ADMIN)] ---
+                
+                totalClientsCount, 
+                activeClientsCount, 
+                lateClientsCount, 
                 dailyCollected,
                 weeklyCollected,
                 monthlyCollected,
@@ -2364,16 +2406,21 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
                 }
             }
             
-            // 5. Mapear datos para la UI (Sin cambios)
+            // === [INICIO DE LA CORRECCIÓN] ===
+            // 5. Mapear datos para la UI (MODIFICADO)
             let collectorsWithData = filteredCollectors.map(collector => {
-                const metrics = calculatedCollectorMetrics.get(collector.id) || { capitalOnHand: 0, activeClientsCount: 0 };
+                // Pedimos 'totalClientsCount' del map
+                const metrics = calculatedCollectorMetrics.get(collector.id) || { capitalOnHand: 0, totalClientsCount: 0, activeClientsCount: 0 };
                 
                 return { 
                     ...collector, 
                     capitalOnHand: metrics.capitalOnHand, 
-                    clientCount: metrics.activeClientsCount
+                    // 3. AÑADIDO: Usamos totalClientsCount (Ej: 35).
+                    //    Si 'totalClientsCount' no existe (p.ej. datos antiguos), usamos 'activeClientsCount' (Ej: 30) como fallback.
+                    clientCount: metrics.totalClientsCount !== undefined ? metrics.totalClientsCount : metrics.activeClientsCount
                 };
             });
+            // === [FIN DE LA CORRECCIÓN] ===
             
             // 6. Ordenar (Sin cambios)
             if (sortBy === 'capital') {
@@ -2386,6 +2433,7 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
             }
 
             // 7. RENDERIZADO (Sin cambios)
+            //    (Ahora ${collector.clientCount} usará el valor total de 35)
             listContainer.innerHTML = collectorsWithData.map(collector => {
                 const placeholderUrl = `https:/*placehold.co/96x96/0f172a/FFFFFF?text=${(collector.name || 'C').charAt(0)}`;
                 const status = calculateCollectorStatus(collector.id); 
@@ -3993,17 +4041,20 @@ async function submitCollectorReport(collectorId) {
                 detailView.innerHTML = `<header class="modal-header">...</header><div class="modal-content-wrapper container"><p>Calculando dados...</p></div>`;
             }
             
+            // === [INICIO DE LA CORRECCIÓN] ===
             const {
                 capitalOnHand = 0, // KPI 1
                 totalDistributedCapital = 0, // KPI 2
                 totalPatrimonio = 0, // KPI 3
                 status = { textKey: 'inOrder', color: 'var(--accent-green)', icon: 'check-circle' },
-                activeClientsCount = 0,
+                totalClientsCount, // <-- 1. Leemos el CONTEO TOTAL (35)
+                activeClientsCount = 0, // (30)
                 lateClientsCount = 0,
                 dailyCollected = 0,
                 weeklyCollected = 0,
                 monthlyCollected = 0
             } = metrics || {}; 
+            // === [FIN DE LA CORRECCIÓN] ===
             // --- [FIN FASE 3 (ADMIN): LECTURA DE MÉTRICAS] ---
 
 
@@ -4128,10 +4179,16 @@ async function submitCollectorReport(collectorId) {
                             <h3 class="kpi-title" data-lang-key="status"><i data-lucide="${status.icon}"></i></h3>
                             <p class="kpi-value" style="color: ${status.color}; font-size: 1.2em;">${translations[currentLang][status.textKey]}</p>
                         </div>
+                        
+                        <!-- === [INICIO DE LA CORRECCIÓN] === -->
                         <div class="kpi-card">
-                            <h3 class="kpi-title" data-lang-key="activeClients"><i data-lucide="user-check"></i></h3>
-                            <p class="kpi-value">${activeClientsCount}</p>
+                            <!-- 2. Cambiado key 'activeClients' por 'clients'. Cambiado icono 'user-check' por 'users' -->
+                            <h3 class="kpi-title" data-lang-key="clients"><i data-lucide="users"></i></h3>
+                            <!-- 3. Usamos totalClientsCount (35), con fallback a activeClientsCount (30) -->
+                            <p class="kpi-value">${totalClientsCount !== undefined ? totalClientsCount : activeClientsCount}</p>
                         </div>
+                        <!-- === [FIN DE LA CORRECCIÓN] === -->
+                        
                         <div class="kpi-card">
                             <h3 class="kpi-title" data-lang-key="lateClients"><i data-lucide="user-x"></i></h3>
                             <p class="kpi-value" style="color: var(--danger-color);">${lateClientsCount}</p>
@@ -6181,3 +6238,4 @@ async function showRefinanceVerificationModal(clientId) {
     </script>
 </body>
 </html>
+
