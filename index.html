@@ -4870,6 +4870,10 @@ function updateAdminNotificationsView() {
         }
 
 
+        /**
+         * INSTRUCCIÓN 1: Reemplaza tu función 'showCollectorFormModal' existente
+         * con este bloque de código completo.
+         */
         function showCollectorFormModal(collectorId = null) {
             let isUsernameGloballyAvailable = false;
             const isEditMode = collectorId !== null;
@@ -4999,12 +5003,21 @@ function updateAdminNotificationsView() {
 
                     </form>
                 
+                <!-- ***** INICIO DE LA MODIFICACIÓN (BOTONES) ***** -->
                 <div class="action-buttons">
-                ${isEditMode ? `
-                <button id="reportCollectorBtn" class="btn-danger" style="background-color: transparent; border-color: var(--danger-color); color: var(--danger-color);"><i data-lucide="alert-octagon"></i> Reportar Cobrador</button>
-                ` : ''}
-                <button id="saveCollectorBtn" class="btn-primary"><i data-lucide="save"></i> <span data-lang-key="${saveButtonKey}"></span></button>
-            </div>
+                    ${isEditMode ? `
+                    <button id="deleteCollectorBtn" class="btn-danger" style="background-color: var(--danger-color); border-color: var(--danger-color); color: white; flex-grow: 1;">
+                        <i data-lucide="trash-2"></i> Eliminar Cobrador
+                    </button>
+                    <button id="reportCollectorBtn" class="btn-danger" style="background-color: transparent; border-color: var(--danger-color); color: var(--danger-color); flex-grow: 1;">
+                        <i data-lucide="alert-octagon"></i> Reportar
+                    </button>
+                    ` : ''}
+                    <button id="saveCollectorBtn" class="btn-primary" style="flex-grow: 2;">
+                        <i data-lucide="save"></i> <span data-lang-key="${saveButtonKey}"></span>
+                    </button>
+                </div>
+                <!-- ***** FIN DE LA MODIFICACIÓN (BOTONES) ***** -->
             `;
             formModal.classList.add('active');
 
@@ -5150,6 +5163,15 @@ function updateAdminNotificationsView() {
             
             formModal.querySelector('#closeCollectorForm').addEventListener('click', () => formModal.classList.remove('active'));
             
+            // ***** INICIO DE LA MODIFICACIÓN (LISTENER ELIMINAR) *****
+            // Añadimos este bloque 'if' para el nuevo botón
+            if (isEditMode) {
+                formModal.querySelector('#deleteCollectorBtn').addEventListener('click', () => {
+                    // Llama a la nueva función que crearás en el Paso 2
+                    handleDeleteCollector(collector.id, collector.name);
+                });
+            }
+            // ***** FIN DE LA MODIFICACIÓN (LISTENER ELIMINAR) *****
             
             // --- [INICIO FASE 1: NOVA LÓGICA DE CAPITAL (SAVE)] ---
             formModal.querySelector('#saveCollectorBtn').addEventListener('click', async (e) => {
@@ -5322,6 +5344,90 @@ function updateAdminNotificationsView() {
                 }
             });
             // --- [FIN FASE 1: LÓGICA DE CAPITAL (SAVE)] ---
+        }
+
+
+        /**
+         * INSTRUCCIÓN 2: Copia esta función COMPLETAMENTE NUEVA y pégala
+         * en tu <script type="module"> (por ejemplo, después de la
+         * función 'showCollectorFormModal' que acabas de reemplazar).
+         */
+        async function handleDeleteCollector(collectorId, collectorName) {
+            const modal = document.getElementById('collectorFormModal');
+            const detailView = document.getElementById('collectorDetailView');
+            
+            // 1. Mostrar confirmación
+            const confirmed = await showConfirmationModal(
+                'Eliminar Cobrador?',
+                `¡ATENCIÓN! Estás a punto de eliminar permanentemente a ${collectorName} (${collectorId}). ESTA ACCIÓN TAMBIÉN ELIMINARÁ A TODOS LOS CLIENTES Y DATOS asociados a este cobrador. Esta acción no se puede deshacer.`,
+                'Sim, Eliminar Permanentemente',
+                'btn-danger'
+            );
+
+            if (!confirmed) {
+                console.log("Eliminación cancelada por el usuario.");
+                return;
+            }
+
+            // 2. Mostrar estado de carga (reutilizando el modal de overlay)
+            const overlay = document.getElementById('reportOptionsModal');
+            overlay.innerHTML = `
+                <div class="modal-content" style="max-width: 350px; text-align: center;">
+                    <i data-lucide="loader-circle" style="width: 48px; height: 48px; animation: spin 1s linear infinite; margin-bottom: 15px; color: var(--danger-color);"></i>
+                    <h3 style="font-size: 1.25em; font-weight: 600;">Eliminando Cobrador...</h3>
+                    <p style="color: var(--text-secondary); margin-bottom: 0;">Por favor espere, esto puede tardar un momento...</p>
+                </div>
+            `;
+            lucide.createIcons({ nodes: overlay.querySelectorAll('[data-lucide]') });
+            overlay.classList.add('active');
+
+            try {
+                // 3. Eliminar todos los clientes de este cobrador
+                console.log(`Buscando clientes para eliminar del cobrador: ${collectorId}`);
+                const clientsQuery = query(
+                    collection(db, 'companies', currentCompanyId, 'clients'),
+                    where('collectorId', '==', collectorId)
+                );
+                
+                const clientsSnapshot = await getDocs(clientsQuery);
+                const deleteClientPromises = [];
+                
+                clientsSnapshot.forEach(clientDoc => {
+                    console.log(`Añadiendo cliente a la cola de eliminación: ${clientDoc.id}`);
+                    deleteClientPromises.push(deleteDoc(doc(db, 'companies', currentCompanyId, 'clients', clientDoc.id)));
+                });
+
+                if (deleteClientPromises.length > 0) {
+                    await Promise.all(deleteClientPromises);
+                    console.log(`${deleteClientPromises.length} clientes eliminados.`);
+                } else {
+                    console.log("No se encontraron clientes para este cobrador.");
+                }
+
+                // 4. Eliminar el documento principal del cobrador
+                console.log(`Eliminando documento principal del cobrador: ${collectorId}`);
+                const collectorRef = doc(db, 'collectors', collectorId);
+                await deleteDoc(collectorRef);
+                
+                // NOTA: La cuenta de autenticación (Auth) de Firebase no se elimina
+                // desde el cliente. Esto requiere una Cloud Function.
+                // El 'auth user' quedará huérfano.
+
+                console.log("¡Eliminación completada!");
+                showToast('Cobrador e todos os seus clientes foram eliminados com sucesso.');
+
+                // 5. Cerrar todos los modales
+                overlay.classList.remove('active');
+                if (modal) modal.classList.remove('active');
+                if (detailView) detailView.classList.remove('active');
+                
+                // El onSnapshot de 'allCollectors' se actualizará automáticamente.
+
+            } catch (error) {
+                console.error("Erro catastrófico ao eliminar cobrador:", error);
+                showToast('Erro ao eliminar o cobrador. Verifique o console.', true);
+                overlay.classList.remove('active');
+            }
         }
         
         
@@ -6252,6 +6358,4 @@ async function showRefinanceVerificationModal(clientId) {
     </script>
 </body>
 </html>
-
-
 
