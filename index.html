@@ -4871,8 +4871,8 @@ function updateAdminNotificationsView() {
 
 
         /**
-         * INSTRUCCIÓN 1: Reemplaza tu función 'showCollectorFormModal' existente
-         * con este bloque de código completo.
+         * INSTRUCCIÓN: Reemplaza tu función 'showCollectorFormModal' existente
+         * (aprox. línea 5087) con este bloque de código completo.
          */
         function showCollectorFormModal(collectorId = null) {
             let isUsernameGloballyAvailable = false;
@@ -4884,8 +4884,7 @@ function updateAdminNotificationsView() {
             
             const formModal = document.getElementById('collectorFormModal');
             
-            // --- [INICIO FASE 1: NOVA LÓGICA DE CAPITAL (HTML)] ---
-            // Modificamos el HTML que se va a inyectar
+            // --- (Lógica de capital, sin cambios) ---
             formModal.innerHTML = `
                 <header class="modal-header">
                     <button id="closeCollectorForm"><i data-lucide="arrow-left"></i></button>
@@ -4941,10 +4940,13 @@ function updateAdminNotificationsView() {
                             </div>
                         </div>
                         
+                        <!-- ***** INICIO DE LA MODIFICACIÓN 1 (Senha Visível) ***** -->
                         <div class="form-group">
                             <label for="collector-password" data-lang-key="password"></label>
-                            <input type="password" id="collector-password" ${!isEditMode ? 'required' : ''} placeholder="${isEditMode ? 'Deixe em branco para não alterar' : ''}" autocomplete="new-password">
+                            <!-- MODIFICADO: type="password" alterado para type="text" -->
+                            <input type="text" id="collector-password" ${!isEditMode ? 'required' : ''} placeholder="${isEditMode ? 'Deixe em branco para não alterar' : ''}" autocomplete="new-password">
                         </div>
+                        <!-- ***** FIN DE LA MODIFICACIÓN 1 ***** -->
 
 
                         <h3 class="section-title" style="margin-top: 30px; border-bottom: none; font-size: 1.1em;">
@@ -4959,16 +4961,15 @@ function updateAdminNotificationsView() {
                         </select>
                         </div>
 
-                        <!-- ESTE ES EL CAMPO MODIFICADO (de 'collector-capital' a 'collector-capital-on-hand') -->
+                        <!-- (Campo de capital, sin cambios) -->
                         <div class="form-group">
                             <label for="collector-capital-on-hand"><span id="capital-currency-symbol" style="font-weight: bold;">(R$)</span> Capital em Mãos (em Caixa)</label>
                             <input type="number" id="collector-capital-on-hand" step="0.01" required value="${collector.startingCapitalOnHand || ''}" placeholder="0.00">
-                            <!-- Texto de ayuda añadido -->
                             <p style="font-size: 0.85em; color: var(--text-secondary); margin: 8px 0 0;">
                                 Insira o dinheiro em espécie (efetivo) que o cobrador tem AGORA para operar (fazer novos empréstimos, pagar gastos, etc.).
                             </p>
                         </div>
-                        <!-- --- [FIN FASE 1: HTML] --- -->
+                        <!-- --- [FIN LÓGICA CAPITAL] --- -->
 
 
                         <h3 class="section-title" style="margin-top: 30px; border-bottom: none; font-size: 1.1em;">
@@ -5003,7 +5004,7 @@ function updateAdminNotificationsView() {
 
                     </form>
                 
-                <!-- ***** INICIO DE LA MODIFICACIÓN (BOTONES) ***** -->
+                <!-- (Botones, sin cambios) -->
                 <div class="action-buttons">
                     ${isEditMode ? `
                     <button id="deleteCollectorBtn" class="btn-danger" style="background-color: var(--danger-color); border-color: var(--danger-color); color: white; flex-grow: 1;">
@@ -5017,11 +5018,10 @@ function updateAdminNotificationsView() {
                         <i data-lucide="save"></i> <span data-lang-key="${saveButtonKey}"></span>
                     </button>
                 </div>
-                <!-- ***** FIN DE LA MODIFICACIÓN (BOTONES) ***** -->
             `;
             formModal.classList.add('active');
 
-            // (El resto de la función - vistas previas de imagen, lógica de moneda, verificación de sistema - no cambia)
+            // --- (El resto de la función - vistas previas, lógica de moneda, verificación - no cambia) ---
             
             // --- INICIA NUEVO CÓDIGO PARA VISTA PREVIA DE IMAGEN ---
             const profileInput = formModal.querySelector('#collector-profile-pic');
@@ -5163,17 +5163,14 @@ function updateAdminNotificationsView() {
             
             formModal.querySelector('#closeCollectorForm').addEventListener('click', () => formModal.classList.remove('active'));
             
-            // ***** INICIO DE LA MODIFICACIÓN (LISTENER ELIMINAR) *****
-            // Añadimos este bloque 'if' para el nuevo botón
+            // (Listener de Eliminar, sin cambios)
             if (isEditMode) {
                 formModal.querySelector('#deleteCollectorBtn').addEventListener('click', () => {
-                    // Llama a la nueva función que crearás en el Paso 2
                     handleDeleteCollector(collector.id, collector.name);
                 });
             }
-            // ***** FIN DE LA MODIFICACIÓN (LISTENER ELIMINAR) *****
             
-            // --- [INICIO FASE 1: NOVA LÓGICA DE CAPITAL (SAVE)] ---
+            // --- (Listener de 'saveCollectorBtn', CON MODIFICACIONES) ---
             formModal.querySelector('#saveCollectorBtn').addEventListener('click', async (e) => {
                 const saveBtn = e.currentTarget;
                 const originalBtnHTML = saveBtn.innerHTML;
@@ -5188,7 +5185,6 @@ function updateAdminNotificationsView() {
                 const email = `${username}@gmail.com`; 
                 const password = document.getElementById('collector-password').value.trim();
                 
-                // (1) Leemos del nuevo campo
                 const capitalOnHand = parseFloat(document.getElementById('collector-capital-on-hand').value);
 
                 if (!isEditMode && !isUsernameGloballyAvailable) {
@@ -5201,7 +5197,6 @@ function updateAdminNotificationsView() {
                 
                 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/; 
                 
-                // (2) Actualizamos la validación
                 if (!username || !name || isNaN(capitalOnHand) || (!isEditMode && !password)) {
                     showToast(translations[currentLang].fillFields, true);
                     saveBtn.disabled = false;
@@ -5236,7 +5231,7 @@ function updateAdminNotificationsView() {
                         documentPicUrl = await getDownloadURL(documentStorageRef);
                     }
 
-                    // (3) Definimos los NUEVOS campos en collectorData
+                    // (Datos del cobrador para Firestore, sin cambios)
                     const collectorData = {
                         companyId: currentCompanyId, 
                         username: username,
@@ -5248,41 +5243,71 @@ function updateAdminNotificationsView() {
                         whatsapp: document.getElementById('collector-whatsapp').value,
                         operatingCurrency: document.getElementById('collector-currency').value, 
                         
-                        // --- ESTA ES LA LÓGICA NUEVA ---
-                        startingCapitalOnHand: capitalOnHand,    // El nuevo campo para el efectivo
-                        startingDistributedCapital: 0,         // El capital distribuido empieza en CERO
-                        startingCapital: 0,                    // El campo antiguo se pone a 0 para consistencia
-                        // --- FIN LÓGICA NUEVA ---
+                        startingCapitalOnHand: capitalOnHand,
+                        startingDistributedCapital: 0,
+                        startingCapital: 0,
                         
                         profilePictureUrl: profilePicUrl,
                         documentPictureUrl: documentPicUrl
                     };
                     
-                    // (4) La lógica de 'isEditMode' y 'else' (Creación)
-                    //     automáticamente usará este nuevo 'collectorData'
                     if (isEditMode) {
                         const { username: id, email: emailToUpdate, ...dataToUpdate } = collectorData; 
 
+                        // ***** INICIO DE LA MODIFICACIÓN 2 (Alterar Senha) *****
+                        // Se o campo 'password' foi preenchido, chamamos a Cloud Function
                         if (password) {
-                            console.warn("A atualização de senha no modo 'Editar' precisa de uma Cloud Function dedicada. A senha NÃO foi alterada.");
-                            showToast("A senha não pode ser alterada no modo de edição.", true);
+                            console.log(`[ADMIN] Solicitando alteração de senha para o cobrador: ${collectorId}...`);
+                            showToast("Atualizando senha...", false);
+                            
+                            if (!auth.currentUser) throw new Error("Admin não está autenticado.");
+                            const idToken = await auth.currentUser.getIdToken(true);
+
+                            // OJO: Esta Cloud Function 'updateCollectorAuth' debe ser creada en Firebase
+                            const functionUrl = "https://us-central1-lumix-financas-app.cloudfunctions.net/updateCollectorAuth";
+                            const response = await fetch(functionUrl, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'Authorization': `Bearer ${idToken}`
+                                },
+                                body: JSON.stringify({ 
+                                    data: {
+                                        collectorUsername: collectorId, // O collectorId é o username
+                                        newPassword: password
+                                    }
+                                })
+                            });
+
+                            if (!response.ok) {
+                                const errorData = await response.json().catch(() => ({}));
+                                // Si la función aún no existe, fallará aquí.
+                                if (response.status === 404) {
+                                    throw new Error("Função 'updateCollectorAuth' não encontrada. (HTTP 404)");
+                                }
+                                throw new Error(errorData.error?.message || `Error HTTP ${response.status} ao alterar senha.`);
+                            }
+                            
+                            console.log("[ADMIN] Senha alterada com sucesso via Cloud Function.");
+                            showToast("Senha alterada com sucesso!");
+                            // Nota: A senha NÃO é salva no documento do Firestore, apenas no Auth.
                         }
+                        // ***** FIN DE LA MODIFICACIÓN 2 (Alterar Senha) *****
                         
-                        // (Nota: Si es un cobrador antiguo, esto establecerá los nuevos campos
-                        // y pondrá startingCapital = 0, completando la "Rectificación" manual)
+                        // El resto (updateDoc) es igual
                         await updateDoc(doc(db, "collectors", collectorId), dataToUpdate);
                         showToast(translations[currentLang].collectorUpdated);
                         formModal.classList.remove('active');
 
                     } else {
-                        // --- MODO CREACIÓN ---
+                        // --- MODO CREACIÓN (Sin cambios) ---
                         if (!auth.currentUser) throw new Error("Admin não está autenticado.");
                         const idToken = await auth.currentUser.getIdToken(true);
 
                         const dataToSend = {
                             collectorEmail: email,
                             collectorPassword: password,
-                            collectorData: collectorData // 'collectorData' ya tiene los nuevos campos
+                            collectorData: collectorData
                         };
 
                         const functionUrl = "https://us-central1-lumix-financas-app.cloudfunctions.net/createCollector";
@@ -5323,6 +5348,7 @@ function updateAdminNotificationsView() {
                     console.error("ERRO DETALHADO AO SALVAR COBRADOR: ", error);
                     let userMessage = error.message || translations[currentLang].errorSaving;
 
+                    // (Manejo de errores, sin cambios)
                     if (error.code) { 
                         switch (error.code) {
                             case 'storage/unauthorized':
@@ -5343,7 +5369,6 @@ function updateAdminNotificationsView() {
                     lucide.createIcons({ nodes: [saveBtn.querySelector('i')] });
                 }
             });
-            // --- [FIN FASE 1: LÓGICA DE CAPITAL (SAVE)] ---
         }
 
 
@@ -6358,4 +6383,5 @@ async function showRefinanceVerificationModal(clientId) {
     </script>
 </body>
 </html>
+
 
