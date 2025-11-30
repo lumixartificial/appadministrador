@@ -1,3 +1,7 @@
+
+
+
+
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -3409,7 +3413,8 @@ async function submitCollectorReport(collectorId) {
              });
         }
         
-        async function generatePDFReport(collectorId, period) {
+
+    async function generatePDFReport(collectorId, period) {
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF();
             const lang = currentLang;
@@ -3422,7 +3427,7 @@ async function submitCollectorReport(collectorId) {
                 return;
             }
 
-            // --- 1. CÁLCULO DEL PERÍODO (Sin cambios) ---
+            // --- 1. CÁLCULO DEL PERÍODO ---
             let startDate;
             let periodLabel = 'Período Completo';
             if (period === '24h') {
@@ -3435,19 +3440,15 @@ async function submitCollectorReport(collectorId) {
                 startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
                 periodLabel = 'Última Semana';
             } else if (period === 'month') {
-                startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000); // 30 días atrás
+                startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
                 periodLabel = 'Últimos 30 Dias';
             }
 
-            // --- 2. OBTENER CAPITAL TOTAL EM MÃOS (Refactorizado) ---
-            // ¡Simplemente LEE el valor pre-calculado!
+            // --- 2. OBTENER CAPITAL TOTAL EM MÃOS ---
             const collectorMetrics = calculatedCollectorMetrics.get(collectorId) || { capitalOnHand: 0 };
-            const capitalOnHand = collectorMetrics.capitalOnHand; // <-- Valor CORRECTO (sin mora)
+            const capitalOnHand = collectorMetrics.capitalOnHand; 
 
-
-            // --- 3. RECOPILAR DATOS DEL PERÍODO SELECCIONADO (Sin cambios) ---
-            // (Esta lógica es específica del reporte y debe filtrar por fecha,
-            // por lo que no puede usar los datos pre-calculados globales)
+            // --- 3. RECOPILAR DATOS DEL PERÍODO SELECCIONADO ---
             
             // A. Pagos en el período
             const collectorClients = allClients.filter(c => c.collectorId === collectorId);
@@ -3459,7 +3460,7 @@ async function submitCollectorReport(collectorId) {
                     (loan.history || []).forEach(h => {
                         if (h.date?.seconds && h.status !== 'pending_verification' && h.status !== 'rejected' && h.status !== 'postponed') {
                             const paymentDate = new Date(h.date.seconds * 1000);
-                            if (!startDate || paymentDate >= startDate) { // Filtra por fecha
+                            if (!startDate || paymentDate >= startDate) { 
                                 const amount = h.amount || 0;
                                 periodPaymentsList.push({
                                     clientName: client.name, amount,
@@ -3492,24 +3493,53 @@ async function submitCollectorReport(collectorId) {
             const totalInjections = periodInjections.reduce((sum, i) => sum + i.amount, 0);
             periodInjections.sort((a, b) => (a.date.seconds || 0) - (b.date.seconds || 0));
 
-            // E. Cálculo Final del Período (Sin cambios)
-            const netBalance = periodTotalCollected + totalInjections - totalExpenses - totalSettlements;
+            // E. Nuevos Préstamos / Renovaciones (Salida de Dinero)
+            const periodLoansList = [];
+            let totalLoansDeployed = 0;
 
-            if (periodTotalCollected === 0 && totalExpenses === 0 && totalSettlements === 0 && totalInjections === 0) {
+            collectorClients.forEach(client => {
+                (client.loans || []).forEach((loan, loanIndex) => {
+                    if (loan.startDate?.seconds) {
+                        const loanDate = new Date(loan.startDate.seconds * 1000);
+                        if (!startDate || loanDate >= startDate) {
+                            let principal = 0;
+                            if (loan.principalAmount) {
+                                principal = loan.principalAmount;
+                            } else if (loan.totalLoan && client.interestRate) {
+                                principal = (loan.totalLoan / (1 + (client.interestRate / 100)));
+                            } else {
+                                principal = (loan.totalLoan || 0) / 1.2; 
+                            }
+                            totalLoansDeployed += principal;
+                            periodLoansList.push({
+                                clientName: client.name,
+                                principal: principal,
+                                totalLoan: loan.totalLoan,
+                                time: loanDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+                                date: loanDate.toLocaleDateString('pt-BR'),
+                                loanIndex: loanIndex + 1
+                            });
+                        }
+                    }
+                });
+            });
+            periodLoansList.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime() || a.time.localeCompare(b.time));
+
+            // F. Cálculo Final del Período
+            const netBalance = (periodTotalCollected + totalInjections) - (totalExpenses + totalSettlements + totalLoansDeployed);
+
+            if (periodTotalCollected === 0 && totalExpenses === 0 && totalSettlements === 0 && totalInjections === 0 && totalLoansDeployed === 0) {
                 showToast("Nenhuma atividade registrada para este cobrador no período selecionado.", true);
                 return;
             }
 
-            // --- 4. GENERAR PDF (Sin cambios) ---
-            // (El resto de la función de generación de PDF no necesita cambios,
-            // ya que ahora usa 'capitalOnHand' (que está 100% correcto)
-            // y los datos filtrados por período (que son correctos para el reporte))
+            // --- 4. GENERAR PDF ---
             const pageMargin = 15;
             const pageWidth = doc.internal.pageSize.getWidth();
             const center = pageWidth / 2;
             let y = 0;
 
-            // A. Encabezado (Sin Logo)
+            // A. Encabezado
             y = 25;
             doc.setFontSize(16);
             doc.setFont(undefined, 'bold');
@@ -3557,6 +3587,7 @@ async function submitCollectorReport(collectorId) {
             addSummaryLine(`(+) Aportes de Capital (${periodLabel}):`, totalInjections, '#28a745');
             addSummaryLine(`(-) Gastos Totais (${periodLabel}):`, totalExpenses, '#dc3545');
             addSummaryLine(`(-) Liquidações Enviadas (${periodLabel}):`, totalSettlements, '#dc3545');
+            addSummaryLine(`(-) Novos Empréstimos (${periodLabel}):`, totalLoansDeployed, '#dc3545');
 
             y += 3;
             doc.setLineWidth(0.2);
@@ -3594,21 +3625,29 @@ async function submitCollectorReport(collectorId) {
                  y += 5;
             };
 
-            // D.1. Pagos Recibidos
+            // D.1. Pagos Recibidos (CORREGIDO: Ajuste de espaciado)
             if (periodPaymentsList.length > 0) {
                 addSectionHeader('Detalhe dos Pagamentos Recebidos');
+                // Ajustamos las coordenadas X:
+                // Data: 5 (se queda igual)
+                // Cliente: 45 (antes 30) -> Da más espacio a la fecha
+                // Método: 135 (antes 130)
                 addTableHeaders([
                     { label: 'Data', x: pageMargin + 5 },
-                    { label: 'Cliente (Empréstimo)', x: pageMargin + 30 },
-                    { label: 'Método', x: pageMargin + 130 },
+                    { label: 'Cliente (Empréstimo)', x: pageMargin + 45 }, 
+                    { label: 'Método', x: pageMargin + 135 },
                     { label: 'Valor', x: pageWidth - pageMargin - 5, align: 'right' }
                 ]);
                 periodPaymentsList.forEach(p => {
                     checkPageBreak();
                     doc.setFontSize(10); doc.setTextColor(0);
+                    // Fecha y hora
                     doc.text(`${p.date} ${p.time}`, pageMargin + 5, y);
-                    doc.text(doc.splitTextToSize(`${p.clientName} (E ${p.loanIndex})`, 90), pageMargin + 30, y);
-                    doc.text(p.method, pageMargin + 130, y);
+                    // Nombre del cliente (ancho reducido ligeramente para no chocar con Método)
+                    doc.text(doc.splitTextToSize(`${p.clientName} (E ${p.loanIndex})`, 85), pageMargin + 45, y);
+                    // Método
+                    doc.text(p.method, pageMargin + 135, y);
+                    // Valor
                     doc.setFont(undefined, 'bold'); doc.setTextColor('#28a745');
                     doc.text(money(p.amount), pageWidth - pageMargin - 5, y, { align: 'right' });
                     y += 7;
@@ -3677,6 +3716,28 @@ async function submitCollectorReport(collectorId) {
                     y += 7;
                 });
             }
+
+            // D.5. Detalle de Nuevos Préstamos (CORREGIDO: Ajuste de espaciado)
+            if (periodLoansList.length > 0) {
+                addSectionHeader('Detalhe dos Novos Empréstimos (Saídas)');
+                // Ajustamos las coordenadas X aquí también
+                addTableHeaders([
+                    { label: 'Data', x: pageMargin + 5 },
+                    { label: 'Cliente (Empréstimo)', x: pageMargin + 45 }, // Antes 30
+                    { label: 'Total a Pagar', x: pageMargin + 125 }, // Antes 120
+                    { label: 'Principal (Saída)', x: pageWidth - pageMargin - 5, align: 'right' }
+                ]);
+                periodLoansList.forEach(l => {
+                    checkPageBreak();
+                    doc.setFontSize(10); doc.setTextColor(0);
+                    doc.text(`${l.date} ${l.time}`, pageMargin + 5, y);
+                    doc.text(doc.splitTextToSize(`${l.clientName} (E ${l.loanIndex})`, 75), pageMargin + 45, y); // Ancho reducido para ajustar
+                    doc.text(money(l.totalLoan), pageMargin + 125, y);
+                    doc.setFont(undefined, 'bold'); doc.setTextColor('#dc3545');
+                    doc.text(`-${money(l.principal)}`, pageWidth - pageMargin - 5, y, { align: 'right' });
+                    y += 7;
+                });
+            }
             
             // E. Pie de página
             const pageCount = doc.internal.getNumberOfPages();
@@ -3689,6 +3750,7 @@ async function submitCollectorReport(collectorId) {
             // F. Guardar
             doc.save(`relatorio-${collectorId}-${period}.pdf`);
         }
+        
 
         function showSettlementModal(collectorId, collectorName, currentCapitalOnHand) {
     // Reutilizamos el modal overlay genérico 'reportOptionsModal'
@@ -6383,5 +6445,3 @@ async function showRefinanceVerificationModal(clientId) {
     </script>
 </body>
 </html>
-
-
