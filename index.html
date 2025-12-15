@@ -3157,19 +3157,43 @@ async function submitCollectorReport(collectorId) {
 
         function focusOnCollector(collectorId) {
             const collector = allCollectors.find(c => c.id === collectorId);
-            if (collector && collector.lastLocation && mapInstance) {
-                const { latitude, longitude } = collector.lastLocation;
-                showView('map');
-                setTimeout(() => {
-                    mapInstance.flyTo([latitude, longitude], 16);
-                    const marker = collectorMarkers[collectorId];
-                    if (marker) {
-                        setTimeout(() => marker.openPopup(), 500);
-                    }
-                }, 100);
-            } else {
-                showToast("Localização do cobrador não disponível.", true);
+            
+            // 1. Validamos si el cobrador tiene datos GPS reales
+            if (!collector || !collector.lastLocation || !collector.lastLocation.latitude || !collector.lastLocation.longitude) {
+                showToast("Localização GPS não disponível para este cobrador.", true);
+                return;
             }
+
+            const { latitude, longitude } = collector.lastLocation;
+
+            // 2. Forzamos el cambio a la vista 'Mapa' para asegurar que el contenedor sea visible
+            showView('map');
+
+            // 3. Usamos un pequeño retraso para asegurar que el DOM del mapa esté listo
+            setTimeout(() => {
+                // Si el mapa no existe, lo iniciamos. Si existe, ajustamos su tamaño.
+                if (!mapInstance) {
+                    initMap();
+                } else {
+                    mapInstance.invalidateSize();
+                }
+
+                // 4. Volamos a la ubicación
+                mapInstance.setView([latitude, longitude], 16);
+
+                // 5. Intentamos abrir el popup del marcador
+                const marker = collectorMarkers[collectorId];
+                if (marker) {
+                    marker.openPopup();
+                } else {
+                    // Si el marcador no está dibujado aún, forzamos una actualización
+                    updateCollectorMarkers();
+                    // Re-intentamos abrir el popup brevemente después
+                    setTimeout(() => {
+                        if (collectorMarkers[collectorId]) collectorMarkers[collectorId].openPopup();
+                    }, 200);
+                }
+            }, 300); // Retraso técnico necesario para la transición
         }
 
         
@@ -6064,11 +6088,27 @@ function setupEventListeners() {
                 const langBtn = target.closest('[data-lang]');
                 if(langBtn) {
                     const newLang = langBtn.dataset.lang;
+                    
+                    // 1. Guardar y Aplicar
                     localStorage.setItem('adminLanguage', newLang);
                     applyLanguage(newLang);
-                    updateDashboard();
-                    updateProfileView();
+                    
+                    // 2. Forzar actualización de vistas dinámicas
+                    // Esto asegura que las listas (cobradores, dashboard) se traduzcan al instante
+                    if (document.getElementById('dashboard-view').classList.contains('active')) {
+                        updateDashboard();
+                    }
+                    if (document.getElementById('profile-view').classList.contains('active')) {
+                        updateProfileView();
+                    }
+                    
+                    // 3. Cerrar visualmente el menú dropdown
+                    const langDropdown = document.getElementById('lang-dropdown');
+                    if (langDropdown) langDropdown.style.display = 'none';
+                    
+                    showToast(`Idioma alterado para: ${langBtn.textContent.trim()}`);
                 }
+                
 
                 if (target.closest('#submit-post-btn')) {
                 submitNewPost();
@@ -6690,5 +6730,6 @@ async function showRefinanceVerificationModal(clientId) {
     </script>
 </body>
     </html>
+
 
 
