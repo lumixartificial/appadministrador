@@ -4517,7 +4517,7 @@ async function submitCollectorReport(collectorId) {
 
         
         // REEMPLAZA ESTA FUNCIÓN COMPLETA (BLOQUE 5)
-function showClientDetails(clientId, loanIndex = 0) { 
+        function showClientDetails(clientId, loanIndex = 0) { 
             const client = allClients.find(c => c.id === clientId);
             
             if (!client) {
@@ -4573,25 +4573,25 @@ function showClientDetails(clientId, loanIndex = 0) {
                     `
                 }).join('') : '<p style="color: var(--text-secondary); padding: 10px;">Nenhum histórico de pagamento.</p>';
             
-            // --- NUEVA GALERÍA VISUAL DE DOCUMENTOS (MEJORADA) ---
+            // --- NUEVA GALERÍA VISUAL DE DOCUMENTOS (CON PREVISUALIZACIÓN) ---
             const docsHtml = (client.documents && client.documents.length > 0) ? `
                 <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 12px; margin-top: 10px;">
                     ${client.documents.map(doc => {
-                        // Detectar si es imagen para mostrar preview
                         const isImage = doc.name.toLowerCase().match(/\.(jpeg|jpg|gif|png|webp)$/) || doc.url.includes('alt=media');
+                        // Usamos una clase especial 'doc-preview-trigger' para detectar el clic
                         return `
-                            <a href="${doc.url}" target="_blank" rel="noopener noreferrer" style="text-decoration: none; color: inherit;">
-                                <div class="kpi-card" style="padding: 10px; height: 100%; display: flex; flex-direction: column; align-items: center; text-align: center; border: 1px solid var(--border-color); transition: transform 0.2s;">
-                                    <div style="width: 100%; height: 80px; background-color: var(--bg); border-radius: 6px; margin-bottom: 8px; display: flex; align-items: center; justify-content: center; overflow: hidden;">
-                                        ${isImage 
-                                            ? `<img src="${doc.url}" style="width: 100%; height: 100%; object-fit: cover;">`
-                                            : `<i data-lucide="file-text" style="width: 32px; height: 32px; color: var(--text-secondary);"></i>`
-                                        }
-                                    </div>
-                                    <span style="font-size: 0.75em; font-weight: 600; width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${doc.name}</span>
-                                    <span style="font-size: 0.7em; color: var(--accent-blue); margin-top: 4px; font-weight: 500;">Visualizar</span>
+                            <div class="kpi-card doc-preview-trigger" data-doc-url="${doc.url}" data-doc-name="${doc.name}" style="padding: 10px; height: 100%; display: flex; flex-direction: column; align-items: center; text-align: center; border: 1px solid var(--border-color); transition: transform 0.2s; cursor: pointer;">
+                                <div style="width: 100%; height: 80px; background-color: var(--bg); border-radius: 6px; margin-bottom: 8px; display: flex; align-items: center; justify-content: center; overflow: hidden;">
+                                    ${isImage 
+                                        ? `<img src="${doc.url}" style="width: 100%; height: 100%; object-fit: cover;">`
+                                        : `<i data-lucide="file-text" style="width: 32px; height: 32px; color: var(--text-secondary);"></i>`
+                                    }
                                 </div>
-                            </a>
+                                <span style="font-size: 0.75em; font-weight: 600; width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${doc.name}</span>
+                                <span style="font-size: 0.7em; color: var(--accent-blue); margin-top: 4px; font-weight: 500;">
+                                    ${isImage ? 'Visualizar' : 'Baixar/Abrir'}
+                                </span>
+                            </div>
                         `;
                     }).join('')}
                 </div>
@@ -4651,6 +4651,66 @@ function showClientDetails(clientId, loanIndex = 0) {
             history.pushState({ modal: 'clientDetailView', clientId: clientId, loanIndex: currentLoanIndex }, `Details for ${client.name}`, `#client/${clientId}/${currentLoanIndex}`);
             detailModal.classList.add('active');
             lucide.createIcons({ nodes: detailModal.querySelectorAll('[data-lucide]') });
+
+            // --- LISTENERS ---
+
+            // *** MAGIA AQUÍ: LÓGICA DEL VISOR DE IMÁGENES INTEGRADA ***
+            // Esto detecta el clic en la foto y abre la pantalla negra ajustada al celular
+            detailModal.querySelectorAll('.doc-preview-trigger').forEach(trigger => {
+                trigger.addEventListener('click', () => {
+                    const url = trigger.dataset.docUrl;
+                    const name = trigger.dataset.docName;
+                    const isImage = name.toLowerCase().match(/\.(jpeg|jpg|gif|png|webp)$/) || url.includes('alt=media');
+
+                    if (isImage) {
+                        // 1. Verificamos si el visor ya existe en el HTML
+                        let viewer = document.getElementById('image-viewer-overlay');
+                        
+                        // 2. Si no existe, lo creamos ahora mismo
+                        if (!viewer) {
+                            viewer = document.createElement('div');
+                            viewer.id = 'image-viewer-overlay';
+                            viewer.style.cssText = `
+                                position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+                                background-color: rgba(0,0,0,0.95); z-index: 10000;
+                                display: flex; flex-direction: column; justify-content: center; align-items: center;
+                                opacity: 0; transition: opacity 0.3s;
+                            `;
+                            viewer.innerHTML = `
+                                <button id="close-viewer-btn" style="position: absolute; top: 20px; right: 20px; background: rgba(255,255,255,0.2); border: none; color: white; border-radius: 50%; width: 44px; height: 44px; cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 10001;">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                                </button>
+                                <img id="viewer-img" src="" style="max-width: 100%; max-height: 90vh; object-fit: contain; box-shadow: 0 4px 20px rgba(0,0,0,0.5);">
+                                <p id="viewer-caption" style="color: #ccc; margin-top: 15px; font-family: sans-serif; font-size: 0.9em; text-align: center; padding: 0 10px;"></p>
+                            `;
+                            document.body.appendChild(viewer);
+                            
+                            // Lógica para cerrar
+                            const closeAction = () => {
+                                viewer.style.opacity = '0';
+                                setTimeout(() => viewer.style.display = 'none', 300);
+                            };
+                            viewer.querySelector('#close-viewer-btn').addEventListener('click', closeAction);
+                            viewer.addEventListener('click', (e) => {
+                                if(e.target === viewer || e.target.tagName === 'IMG') closeAction();
+                            });
+                        }
+
+                        // 3. Abrimos el visor con la foto seleccionada
+                        const img = viewer.querySelector('#viewer-img');
+                        const caption = viewer.querySelector('#viewer-caption');
+                        img.src = url;
+                        caption.textContent = name || 'Visualização';
+                        
+                        viewer.style.display = 'flex';
+                        setTimeout(() => { viewer.style.opacity = '1'; }, 10);
+
+                    } else {
+                        // Si es PDF u otro archivo, abrir en pestaña nueva
+                        window.open(url, '_blank');
+                    }
+                });
+            });
 
             detailModal.querySelector('#closeClientDetail').addEventListener('click', () => window.history.back());
             
@@ -5076,12 +5136,16 @@ function updateAdminNotificationsView() {
             const isEditMode = collectorId !== null;
             const collector = isEditMode ? allCollectors.find(c => c.id === collectorId) : {};
 
+            // Variables de control para saber si el usuario pidió borrar las fotos
+            let markProfileForRemoval = false;
+            let markDocumentForRemoval = false;
+
             const modalTitleKey = isEditMode ? 'editCollector' : 'addNewCollector';
             const saveButtonKey = isEditMode ? 'saveChanges' : 'saveCollector';
             
             const formModal = document.getElementById('collectorFormModal');
             
-            // --- (Lógica de capital, sin cambios) ---
+            // --- TEMPLATE HTML MEJORADO ---
             formModal.innerHTML = `
                 <header class="modal-header">
                     <button id="closeCollectorForm"><i data-lucide="arrow-left"></i></button>
@@ -5137,13 +5201,10 @@ function updateAdminNotificationsView() {
                             </div>
                         </div>
                         
-                        <!-- ***** INICIO DE LA MODIFICACIÓN 1 (Senha Visível) ***** -->
                         <div class="form-group">
                             <label for="collector-password" data-lang-key="password"></label>
-                            <!-- MODIFICADO: type="password" alterado para type="text" -->
                             <input type="text" id="collector-password" ${!isEditMode ? 'required' : ''} placeholder="${isEditMode ? 'Deixe em branco para não alterar' : ''}" autocomplete="new-password">
                         </div>
-                        <!-- ***** FIN DE LA MODIFICACIÓN 1 ***** -->
 
 
                         <h3 class="section-title" style="margin-top: 30px; border-bottom: none; font-size: 1.1em;">
@@ -5158,7 +5219,6 @@ function updateAdminNotificationsView() {
                         </select>
                         </div>
 
-                        <!-- (Campo de capital, sin cambios) -->
                         <div class="form-group">
                             <label for="collector-capital-on-hand"><span id="capital-currency-symbol" style="font-weight: bold;">(R$)</span> Capital em Mãos (em Caixa)</label>
                             <input type="number" id="collector-capital-on-hand" step="0.01" required value="${collector.startingCapitalOnHand || ''}" placeholder="0.00">
@@ -5166,34 +5226,66 @@ function updateAdminNotificationsView() {
                                 Insira o dinheiro em espécie (efetivo) que o cobrador tem AGORA para operar (fazer novos empréstimos, pagar gastos, etc.).
                             </p>
                         </div>
-                        <!-- --- [FIN LÓGICA CAPITAL] --- -->
 
 
                         <h3 class="section-title" style="margin-top: 30px; border-bottom: none; font-size: 1.1em;">
                         <i data-lucide="file-check" style="width: 18px; height: 18px; margin-right: 8px;"></i>
-                        DOCUMENTAÇÃO
+                        DOCUMENTAÇÃO E FOTOS
                         </h3>
                         <hr style="border: 1px solid var(--border-color); margin-top: 10px; margin-bottom: 25px;">
 
+                        <!-- SECCIÓN DE FOTOS MEJORADA -->
                         <div class="form-group grid-2">
+                            <!-- FOTO DE PERFIL -->
                             <div>
                                 <label for="collector-profile-pic">Foto de Perfil</label>
-                                <div style="display: flex; align-items: center; gap: 15px; margin-top: 8px;">
-                                    <img id="profile-preview" src="https://placehold.co/80x80/0f172a/FFFFFF?text=?" alt="Preview" style="width: 80px; height: 80px; border-radius: 50%; object-fit: cover; border: 1px solid var(--border-color);">
-                                    <label for="collector-profile-pic" class="btn-secondary" style="cursor:pointer; padding: 8px 12px; font-size: 0.9em;">
-                                        <i data-lucide="upload" style="width: 14px; height: 14px;"></i> Carregar
-                                    </label>
+                                <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 8px;">
+                                    <div style="position: relative; width: 80px; height: 80px;">
+                                        <img id="profile-preview" src="https://placehold.co/80x80/0f172a/FFFFFF?text=?" alt="Preview" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover; border: 1px solid var(--border-color);">
+                                    </div>
+                                    
+                                    <div style="display: flex; flex-wrap: wrap; gap: 5px;">
+                                        <label for="collector-profile-pic" class="btn-secondary" style="cursor:pointer; padding: 6px 10px; font-size: 0.8em; flex-grow: 1; text-align: center;">
+                                            <i data-lucide="upload" style="width: 14px; height: 14px;"></i> Carregar
+                                        </label>
+                                        
+                                        <!-- Botón Ver (Oculto si no hay foto) -->
+                                        <button type="button" id="btn-view-profile" class="btn-secondary" style="padding: 6px 10px; font-size: 0.8em; display: none;" title="Ver / Baixar">
+                                            <i data-lucide="eye" style="width: 14px; height: 14px;"></i>
+                                        </button>
+                                        
+                                        <!-- Botón Remover (Oculto si no hay foto) -->
+                                        <button type="button" id="btn-remove-profile" class="btn-danger" style="padding: 6px 10px; font-size: 0.8em; display: none; background-color: transparent; border-color: var(--danger-color); color: var(--danger-color);" title="Remover Foto">
+                                            <i data-lucide="trash-2" style="width: 14px; height: 14px;"></i>
+                                        </button>
+                                    </div>
                                     <input type="file" id="collector-profile-pic" accept="image/*" style="display: none;">
                                 </div>
                             </div>
 
+                            <!-- FOTO DE DOCUMENTO -->
                             <div>
                                 <label for="collector-document-pic">Foto do Documento</label>
-                                <div style="display: flex; align-items: center; gap: 15px; margin-top: 8px;">
-                                    <img id="document-preview" src="https://placehold.co/120x80/0f172a/FFFFFF?text=DOC" alt="Preview" style="width: 120px; height: 80px; border-radius: 8px; object-fit: cover; border: 1px solid var(--border-color);">
-                                    <label for="collector-document-pic" class="btn-secondary" style="cursor:pointer; padding: 8px 12px; font-size: 0.9em;">
-                                        <i data-lucide="upload" style="width: 14px; height: 14px;"></i> Carregar
-                                    </label>
+                                <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 8px;">
+                                    <div style="position: relative; width: 120px; height: 80px;">
+                                        <img id="document-preview" src="https://placehold.co/120x80/0f172a/FFFFFF?text=DOC" alt="Preview" style="width: 100%; height: 100%; border-radius: 8px; object-fit: cover; border: 1px solid var(--border-color);">
+                                    </div>
+
+                                    <div style="display: flex; flex-wrap: wrap; gap: 5px;">
+                                        <label for="collector-document-pic" class="btn-secondary" style="cursor:pointer; padding: 6px 10px; font-size: 0.8em; flex-grow: 1; text-align: center;">
+                                            <i data-lucide="upload" style="width: 14px; height: 14px;"></i> Carregar
+                                        </label>
+                                        
+                                        <!-- Botón Ver -->
+                                        <button type="button" id="btn-view-doc" class="btn-secondary" style="padding: 6px 10px; font-size: 0.8em; display: none;" title="Ver / Baixar">
+                                            <i data-lucide="eye" style="width: 14px; height: 14px;"></i>
+                                        </button>
+
+                                        <!-- Botón Remover -->
+                                        <button type="button" id="btn-remove-doc" class="btn-danger" style="padding: 6px 10px; font-size: 0.8em; display: none; background-color: transparent; border-color: var(--danger-color); color: var(--danger-color);" title="Remover Foto">
+                                            <i data-lucide="trash-2" style="width: 14px; height: 14px;"></i>
+                                        </button>
+                                    </div>
                                     <input type="file" id="collector-document-pic" accept="image/*" style="display: none;">
                                 </div>
                             </div>
@@ -5201,7 +5293,6 @@ function updateAdminNotificationsView() {
 
                     </form>
                 
-                <!-- (Botones, sin cambios) -->
                 <div class="action-buttons">
                     ${isEditMode ? `
                     <button id="deleteCollectorBtn" class="btn-danger" style="background-color: var(--danger-color); border-color: var(--danger-color); color: white; flex-grow: 1;">
@@ -5218,41 +5309,99 @@ function updateAdminNotificationsView() {
             `;
             formModal.classList.add('active');
 
-            // --- (El resto de la función - vistas previas, lógica de moneda, verificación - no cambia) ---
-            
-            // --- INICIA NUEVO CÓDIGO PARA VISTA PREVIA DE IMAGEN ---
+            // --- VARIABLES DE ELEMENTOS ---
             const profileInput = formModal.querySelector('#collector-profile-pic');
             const profilePreview = formModal.querySelector('#profile-preview');
+            const btnViewProfile = formModal.querySelector('#btn-view-profile');
+            const btnRemoveProfile = formModal.querySelector('#btn-remove-profile');
+
             const documentInput = formModal.querySelector('#collector-document-pic');
             const documentPreview = formModal.querySelector('#document-preview');
+            const btnViewDoc = formModal.querySelector('#btn-view-doc');
+            const btnRemoveDoc = formModal.querySelector('#btn-remove-doc');
 
+            // --- LÓGICA DE FOTOS: MOSTRAR/OCULTAR BOTONES ---
+            const updatePhotoUI = () => {
+                // Perfil
+                const hasProfile = (isEditMode && collector.profilePictureUrl && !markProfileForRemoval) || (profileInput.files && profileInput.files[0]);
+                if (hasProfile) {
+                    btnViewProfile.style.display = 'inline-flex';
+                    btnRemoveProfile.style.display = 'inline-flex';
+                    // Si es un archivo nuevo, el botón ver no funciona (a menos que usemos blob), lo ocultamos por simplicidad o lo dejamos
+                    if (profileInput.files && profileInput.files[0]) btnViewProfile.style.display = 'none'; 
+                } else {
+                    btnViewProfile.style.display = 'none';
+                    btnRemoveProfile.style.display = 'none';
+                    profilePreview.src = `https://placehold.co/80x80/0f172a/FFFFFF?text=${(document.getElementById('collector-name').value.charAt(0) || '?')}`;
+                }
+
+                // Documento
+                const hasDoc = (isEditMode && collector.documentPictureUrl && !markDocumentForRemoval) || (documentInput.files && documentInput.files[0]);
+                if (hasDoc) {
+                    btnViewDoc.style.display = 'inline-flex';
+                    btnRemoveDoc.style.display = 'inline-flex';
+                    if (documentInput.files && documentInput.files[0]) btnViewDoc.style.display = 'none';
+                } else {
+                    btnViewDoc.style.display = 'none';
+                    btnRemoveDoc.style.display = 'none';
+                    documentPreview.src = `https://placehold.co/120x80/0f172a/FFFFFF?text=DOC`;
+                }
+            };
+
+            // --- LISTENERS FOTOS ---
+            
+            // 1. Inputs Change (Cargar nueva foto)
             if (profileInput) {
                 profileInput.addEventListener('change', (e) => {
                     const file = e.target.files[0];
                     if (file) {
                         profilePreview.src = URL.createObjectURL(file);
+                        markProfileForRemoval = false; // Ya no está marcado para borrar, porque subimos una nueva
+                        updatePhotoUI();
                     }
                 });
             }
-
             if (documentInput) {
                 documentInput.addEventListener('change', (e) => {
                     const file = e.target.files[0];
                     if (file) {
                         documentPreview.src = URL.createObjectURL(file);
+                        markDocumentForRemoval = false;
+                        updatePhotoUI();
                     }
                 });
             }
 
-            // Si estamos en modo EDICIÓN, muestra las fotos que ya están guardadas
-            if (isEditMode && collector.profilePictureUrl) {
-                profilePreview.src = collector.profilePictureUrl;
-            }
-            if (isEditMode && collector.documentPictureUrl) {
-                documentPreview.src = collector.documentPictureUrl;
-            }
-            // --- FIN NUEVO CÓDIGO PARA VISTA PREVIA DE IMAGEN ---
+            // 2. Botones Remover
+            btnRemoveProfile.addEventListener('click', () => {
+                markProfileForRemoval = true;
+                profileInput.value = ''; // Limpiar input file
+                updatePhotoUI();
+            });
+            btnRemoveDoc.addEventListener('click', () => {
+                markDocumentForRemoval = true;
+                documentInput.value = ''; // Limpiar input file
+                updatePhotoUI();
+            });
 
+            // 3. Botones Ver (Abrir en nueva pestaña)
+            btnViewProfile.addEventListener('click', () => {
+                if (collector.profilePictureUrl && !markProfileForRemoval) {
+                    window.open(collector.profilePictureUrl, '_blank');
+                }
+            });
+            btnViewDoc.addEventListener('click', () => {
+                if (collector.documentPictureUrl && !markDocumentForRemoval) {
+                    window.open(collector.documentPictureUrl, '_blank');
+                }
+            });
+
+            // Inicializar UI de fotos
+            if (isEditMode) {
+                if (collector.profilePictureUrl) profilePreview.src = collector.profilePictureUrl;
+                if (collector.documentPictureUrl) documentPreview.src = collector.documentPictureUrl;
+            }
+            updatePhotoUI();
 
 
             // --- Lógica de Moeda ---
@@ -5273,9 +5422,8 @@ function updateAdminNotificationsView() {
 
             updateCurrencySymbol(); 
             currencySelect.addEventListener('change', updateCurrencySymbol);
-            // --- Fin Lógica de Moeda ---
-
-            // --- Lógica de Verificación ---
+            
+            // --- Verificación ---
             const fieldsToVerify = ['collector-name', 'collector-document', 'collector-phone', 'collector-whatsapp'];
             fieldsToVerify.forEach(fieldId => {
                 const input = formModal.querySelector(`#${fieldId}`);
@@ -5288,23 +5436,17 @@ function updateAdminNotificationsView() {
                 verifyCollectorInSystem(collectorId);
             }
 
-            // --- [CAMBIO] Lógica de validación de Username y Email ---
+            // --- Validación Username ---
             const usernameInput = formModal.querySelector('#collector-username');
-            const emailInput = formModal.querySelector('#collector-email'); // <-- Esta variable ahora es null, la eliminamos
             const usernameMsg = formModal.querySelector('#username-validation-msg');
-            const emailMsg = formModal.querySelector('#email-validation-msg'); // <-- Este elemento ya no existe
 
-            // Si estamos en modo edición, marcamos como "válidos" por defecto
             if (isEditMode) {
                 isUsernameGloballyAvailable = true;
-                // isEmailFormatValid = true; // <-- Ya no es necesaria
                 usernameMsg.style.display = 'none';
-                // if(emailMsg) emailMsg.style.display = 'none'; // <-- Ya no es necesario
             }
 
-            // 1. Listener para el Nombre de Usuario (Username)
             usernameInput.addEventListener('blur', async () => {
-                if (isEditMode) return; // No verificar si estamos editando
+                if (isEditMode) return; 
                 
                 const username = usernameInput.value.trim();
                 if (username.length < 4) {
@@ -5314,7 +5456,6 @@ function updateAdminNotificationsView() {
                     lucide.createIcons({nodes: [usernameMsg.querySelector('i')]});
                     return;
                 }
-                // [CAMBIO] Verificamos que no contenga @
                 if (username.includes('@')) {
                     usernameMsg.className = 'validation-message invalid';
                     usernameMsg.innerHTML = `<i data-lucide="x-circle"></i> Não pode conter '@'.`;
@@ -5323,13 +5464,11 @@ function updateAdminNotificationsView() {
                     return;
                 }
 
-
                 usernameMsg.className = 'validation-message checking';
                 usernameMsg.innerHTML = `<i data-lucide="loader-circle" style="animation: spin 1s linear infinite; width: 14px; height: 14px;"></i> Verificando disponibilidade...`;
                 lucide.createIcons({nodes: [usernameMsg.querySelector('i')]});
 
                 try {
-                    // Consulta GLOBAL (requiere reglas de seguridad abiertas para 'read' en 'collectors')
                     const collectorRef = doc(db, 'collectors', username);
                     const docSnap = await getDoc(collectorRef);
                     
@@ -5346,28 +5485,23 @@ function updateAdminNotificationsView() {
                     console.error("Erro ao verificar username:", error);
                     usernameMsg.className = 'validation-message invalid';
                     usernameMsg.innerHTML = `<i data-lucide="alert-triangle"></i> Erro ao verificar.`;
-                    isUsernameGloballyAvailable = false; // No permitir si hay error
+                    isUsernameGloballyAvailable = false;
                 }
                 lucide.createIcons({nodes: [usernameMsg.querySelector('i')]});
             });
-
-            // 2. [CAMBIO] El listener para el Email fue ELIMINADO
-            
-            // --- Fin Lógica de Verificación ---
 
             lucide.createIcons({nodes: formModal.querySelectorAll('[data-lucide]')});
             applyLanguage(currentLang);
             
             formModal.querySelector('#closeCollectorForm').addEventListener('click', () => formModal.classList.remove('active'));
             
-            // (Listener de Eliminar, sin cambios)
             if (isEditMode) {
                 formModal.querySelector('#deleteCollectorBtn').addEventListener('click', () => {
                     handleDeleteCollector(collector.id, collector.name);
                 });
             }
             
-            // --- (Listener de 'saveCollectorBtn', CON MODIFICACIONES) ---
+            // --- GUARDAR COBRADOR (Actualizado con lógica de borrado de fotos) ---
             formModal.querySelector('#saveCollectorBtn').addEventListener('click', async (e) => {
                 const saveBtn = e.currentTarget;
                 const originalBtnHTML = saveBtn.innerHTML;
@@ -5411,9 +5545,15 @@ function updateAdminNotificationsView() {
                 }
                 
                 try {
+                    // LÓGICA DE FOTOS: Mantiene la actual, la borra o sube nueva
                     let profilePicUrl = collector.profilePictureUrl || ''; 
                     let documentPicUrl = collector.documentPictureUrl || ''; 
 
+                    // 1. Borrado explícito
+                    if (markProfileForRemoval) profilePicUrl = '';
+                    if (markDocumentForRemoval) documentPicUrl = '';
+
+                    // 2. Subida de nuevos archivos (Sobrescribe lo anterior)
                     if (profileFile) {
                         showToast("Subindo foto de perfil...", false);
                         const profileStorageRef = ref(storage, `companies/${currentCompanyId}/collectors/${username}/profile.jpg`);
@@ -5428,7 +5568,6 @@ function updateAdminNotificationsView() {
                         documentPicUrl = await getDownloadURL(documentStorageRef);
                     }
 
-                    // (Datos del cobrador para Firestore, sin cambios)
                     const collectorData = {
                         companyId: currentCompanyId, 
                         username: username,
@@ -5451,8 +5590,6 @@ function updateAdminNotificationsView() {
                     if (isEditMode) {
                         const { username: id, email: emailToUpdate, ...dataToUpdate } = collectorData; 
 
-                        // ***** INICIO DE LA MODIFICACIÓN 2 (Alterar Senha) *****
-                        // Se o campo 'password' foi preenchido, chamamos a Cloud Function
                         if (password) {
                             console.log(`[ADMIN] Solicitando alteração de senha para o cobrador: ${collectorId}...`);
                             showToast("Atualizando senha...", false);
@@ -5460,7 +5597,6 @@ function updateAdminNotificationsView() {
                             if (!auth.currentUser) throw new Error("Admin não está autenticado.");
                             const idToken = await auth.currentUser.getIdToken(true);
 
-                            // OJO: Esta Cloud Function 'updateCollectorAuth' debe ser creada en Firebase
                             const functionUrl = "https://us-central1-lumix-financas-app.cloudfunctions.net/updateCollectorAuth";
                             const response = await fetch(functionUrl, {
                                 method: 'POST',
@@ -5470,7 +5606,7 @@ function updateAdminNotificationsView() {
                                 },
                                 body: JSON.stringify({ 
                                     data: {
-                                        collectorUsername: collectorId, // O collectorId é o username
+                                        collectorUsername: collectorId,
                                         newPassword: password
                                     }
                                 })
@@ -5478,26 +5614,20 @@ function updateAdminNotificationsView() {
 
                             if (!response.ok) {
                                 const errorData = await response.json().catch(() => ({}));
-                                // Si la función aún no existe, fallará aquí.
                                 if (response.status === 404) {
-                                    throw new Error("Função 'updateCollectorAuth' não encontrada. (HTTP 404)");
+                                    throw new Error("Função 'updateCollectorAuth' não encontrada.");
                                 }
                                 throw new Error(errorData.error?.message || `Error HTTP ${response.status} ao alterar senha.`);
                             }
                             
-                            console.log("[ADMIN] Senha alterada com sucesso via Cloud Function.");
                             showToast("Senha alterada com sucesso!");
-                            // Nota: A senha NÃO é salva no documento do Firestore, apenas no Auth.
                         }
-                        // ***** FIN DE LA MODIFICACIÓN 2 (Alterar Senha) *****
                         
-                        // El resto (updateDoc) es igual
                         await updateDoc(doc(db, "collectors", collectorId), dataToUpdate);
                         showToast(translations[currentLang].collectorUpdated);
                         formModal.classList.remove('active');
 
                     } else {
-                        // --- MODO CREACIÓN (Sin cambios) ---
                         if (!auth.currentUser) throw new Error("Admin não está autenticado.");
                         const idToken = await auth.currentUser.getIdToken(true);
 
@@ -5508,8 +5638,6 @@ function updateAdminNotificationsView() {
                         };
 
                         const functionUrl = "https://us-central1-lumix-financas-app.cloudfunctions.net/createCollector";
-
-                        console.log("Chamando Cloud Function 'createCollector'...");
                         const response = await fetch(functionUrl, {
                             method: 'POST',
                             headers: {
@@ -5525,7 +5653,7 @@ function updateAdminNotificationsView() {
                             const errorMessage = errorData.error?.message || `Error HTTP ${response.status}`;
                             
                             if (response.status === 409 && errorCode === 'auth/email-already-in-use') {
-                                 throw new Error(`Erro: O email '${email}' (criado a partir do usuário) já está em uso.`);
+                                 throw new Error(`Erro: O email '${email}' já está em uso.`);
                             } else if (response.status === 409 && errorCode === 'firestore/already-exists') {
                                  throw new Error(`Erro: O nome de usuário '${username}' já existe.`);
                             }
@@ -5534,31 +5662,13 @@ function updateAdminNotificationsView() {
                             }
                         }
 
-                        const result = await response.json();
-                        console.log("Cloud Function 'createCollector' bem-sucedida:", result);
-
                         showToast(translations[currentLang].collectorAdded);
                         formModal.classList.remove('active');
                     }
 
                 } catch (error) {
                     console.error("ERRO DETALHADO AO SALVAR COBRADOR: ", error);
-                    let userMessage = error.message || translations[currentLang].errorSaving;
-
-                    // (Manejo de errores, sin cambios)
-                    if (error.code) { 
-                        switch (error.code) {
-                            case 'storage/unauthorized':
-                                userMessage = "Erro de Permissão: Verifique suas Regras do Storage.";
-                                break;
-                            case 'storage/retry-limit-exceeded':
-                                 userMessage = "Erro de Conexão com Storage (Tente novamente)";
-                                 break;
-                            default:
-                                userMessage = `Erro: ${error.message}`;
-                        }
-                    }
-                    showToast(userMessage, true);
+                    showToast(error.message || translations[currentLang].errorSaving, true);
 
                 } finally {
                     saveBtn.disabled = false;
@@ -6580,4 +6690,5 @@ async function showRefinanceVerificationModal(clientId) {
     </script>
 </body>
     </html>
+
 
