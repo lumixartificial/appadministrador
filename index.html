@@ -4517,166 +4517,169 @@ async function submitCollectorReport(collectorId) {
 
         
         // REEMPLAZA ESTA FUNCIÓN COMPLETA (BLOQUE 5)
-function showClientDetails(clientId, loanIndex = 0) { // <-- Acepta un loanIndex
-    const client = allClients.find(c => c.id === clientId);
-    
-    if (!client) {
-        showToast('Erro: Cliente não encontrado.', true);
-        return;
-    }
-
-    const detailModal = document.getElementById('clientDetailModal');
-    
-    // --- LÓGICA DE SELECCIÓN DE PRÉSTAMO ---
-    // (Esta lógica es para las pestañas, similar a la app del cobrador)
-    const displayableLoans = (client.loans || []).filter(l => l.status !== 'finished');
-    const activeOrLastFinishedLoans = displayableLoans.length > 0 ? displayableLoans : (client.loans && client.loans.length > 0 ? [client.loans[client.loans.length - 1]] : []);
-    
-    const currentLoanIndex = (loanIndex >= 0 && client.loans && loanIndex < client.loans.length && (client.loans[loanIndex].status !== 'finished' || activeOrLastFinishedLoans.some(l => client.loans[loanIndex] === l)))
-                   ? loanIndex
-                   : (activeOrLastFinishedLoans.length > 0 ? client.loans.findIndex(l => l === activeOrLastFinishedLoans[0]) : 0);
-
-    if (!client.loans || !client.loans[currentLoanIndex]) {
-        console.error(`Cliente o préstamo con índice ${currentLoanIndex} no encontrado para ${clientId}`);
-        showToast("Erro ao carregar detalhes do empréstimo.", true);
-        return;
-    }
-    
-    const loan = client.loans[currentLoanIndex];
-    const hasMultipleDisplayable = activeOrLastFinishedLoans.length > 1;
-    // --- FIN LÓGICA DE SELECCIÓN ---
-    
-    const paidAmount = (loan.history || [])
-        .filter(h => h.status === 'approved' || (!h.status && h.date))
-        .reduce((sum, h) => sum + (h.amount || 0), 0) + (loan.initialMigratedAmount || 0);
-
-    const totalAmount = loan.totalLoan || 0;
-    const remainingAmount = Math.max(0, totalAmount - paidAmount) + (loan.lateFeesAccumulated || 0);
-
-    const loanDetails = calculateLoanDetails(loan);
-    const currentStatus = loanDetails.status;
-    const statusClass = `status-${currentStatus}`;
-    const statusText = (translations[currentLang] && translations[currentLang][currentStatus]) || currentStatus;
-
-    // --- [INICIO DE LA MODIFICACIÓN (BLOQUE 5.1)] ---
-    const historyHtml = (loan.history && loan.history.length > 0) ? 
-        [...loan.history].sort((a,b) => (b.date?.seconds || 0) - (a.date?.seconds || 0)).map((p) => {
-            // 1. Obtenemos el índice original del array SIN ORDENAR
-            const originalIndex = loan.history.indexOf(p);
+function showClientDetails(clientId, loanIndex = 0) { 
+            const client = allClients.find(c => c.id === clientId);
             
-            let dateStr = 'N/A';
-            if (p.date?.seconds) {
-                dateStr = new Date(p.date.seconds * 1000).toLocaleDateString();
+            if (!client) {
+                showToast('Erro: Cliente não encontrado.', true);
+                return;
             }
 
-            // 2. Añadimos el data-history-index al div y la clase clicable
-            return `
-            <div class="payment-history-item" data-history-index="${originalIndex}">
-                <span>${dateStr}</span>
-                <strong>${money(p.amount)}</strong>
-            </div>
-            `
-        }).join('') : '<p>Nenhum histórico de pagamento.</p>';
-    // --- [FIN DE LA MODIFICACIÓN (BLOQUE 5.1)] ---
-    
-    const docsHtml = (client.documents && client.documents.length > 0) ?
-        client.documents.map(doc => `
-            <div class="document-list-item">
-                <i data-lucide="file-text"></i>
-                <a href="${doc.url}" target="_blank" rel="noopener noreferrer">${doc.name}</a>
-            </div>
-        `).join('') : '<p>Nenhum documento anexado.</p>';
-    
-    detailModal.innerHTML = `
-        <header class="modal-header">
-            <button id="closeClientDetail"><i data-lucide="arrow-left"></i></button>
-            <span class="modal-title">${client.name}</span>
-            <button id="editClientBtn" data-client-id="${client.id}" data-loan-index="${currentLoanIndex}"><i data-lucide="edit"></i></button>
-        </header>
-        
-        ${hasMultipleDisplayable ? `
-        <div class="loan-tabs-wrapper"> 
-            <div class="loan-tabs-container" id="loan-tabs-container">
-                ${client.loans.map((l, index) => {
-                    const isRelevant = activeOrLastFinishedLoans.some(relevantLoan => client.loans[index] === relevantLoan);
-                    if (isRelevant || index === currentLoanIndex) {
-                        return `<button class="loan-tab ${index === currentLoanIndex ? 'active' : ''}" data-loan-index="${index}">
-                                    Préstamo ${index + 1} ${l.status === 'finished' ? '(Finalizado)' : ''}
-                                </button>`;
+            const detailModal = document.getElementById('clientDetailModal');
+            
+            // --- LÓGICA DE SELECCIÓN DE PRÉSTAMO ---
+            const displayableLoans = (client.loans || []).filter(l => l.status !== 'finished');
+            const activeOrLastFinishedLoans = displayableLoans.length > 0 ? displayableLoans : (client.loans && client.loans.length > 0 ? [client.loans[client.loans.length - 1]] : []);
+            
+            const currentLoanIndex = (loanIndex >= 0 && client.loans && loanIndex < client.loans.length && (client.loans[loanIndex].status !== 'finished' || activeOrLastFinishedLoans.some(l => client.loans[loanIndex] === l)))
+                           ? loanIndex
+                           : (activeOrLastFinishedLoans.length > 0 ? client.loans.findIndex(l => l === activeOrLastFinishedLoans[0]) : 0);
+
+            if (!client.loans || !client.loans[currentLoanIndex]) {
+                console.error(`Cliente o préstamo con índice ${currentLoanIndex} no encontrado para ${clientId}`);
+                showToast("Erro ao carregar detalhes do empréstimo.", true);
+                return;
+            }
+            
+            const loan = client.loans[currentLoanIndex];
+            const hasMultipleDisplayable = activeOrLastFinishedLoans.length > 1;
+            // --- FIN LÓGICA DE SELECCIÓN ---
+            
+            const paidAmount = (loan.history || [])
+                .filter(h => h.status === 'approved' || (!h.status && h.date))
+                .reduce((sum, h) => sum + (h.amount || 0), 0) + (loan.initialMigratedAmount || 0);
+
+            const totalAmount = loan.totalLoan || 0;
+            const remainingAmount = Math.max(0, totalAmount - paidAmount) + (loan.lateFeesAccumulated || 0);
+
+            const loanDetails = calculateLoanDetails(loan);
+            const currentStatus = loanDetails.status;
+            const statusClass = `status-${currentStatus}`;
+            const statusText = (translations[currentLang] && translations[currentLang][currentStatus]) || currentStatus;
+
+            // --- HISTORIAL DE PAGOS ---
+            const historyHtml = (loan.history && loan.history.length > 0) ? 
+                [...loan.history].sort((a,b) => (b.date?.seconds || 0) - (a.date?.seconds || 0)).map((p) => {
+                    const originalIndex = loan.history.indexOf(p);
+                    let dateStr = 'N/A';
+                    if (p.date?.seconds) {
+                        dateStr = new Date(p.date.seconds * 1000).toLocaleDateString();
                     }
-                    return '';
-                }).join('')}
-            </div>
-        </div>` : ''}
-
-        <div class="modal-content-wrapper container">
-            <div class="kpi-card" style="text-align: center; margin-bottom: 20px;">
-                <h3 class="kpi-title" style="justify-content: center;">Estado do Préstamo ${currentLoanIndex + 1}</h3>
-                <span class="payment-status ${statusClass}" style="font-size: 1.2em; font-weight: 600; padding: 8px 20px;">
-                    ${statusText}
-                </span>
-            </div>
+                    return `
+                    <div class="payment-history-item" data-history-index="${originalIndex}">
+                        <span>${dateStr}</span>
+                        <strong>${money(p.amount)}</strong>
+                    </div>
+                    `
+                }).join('') : '<p style="color: var(--text-secondary); padding: 10px;">Nenhum histórico de pagamento.</p>';
             
-            <section class="loan-summary">
-                <div class="kpi-card"><h3 class="kpi-title">Total</h3><p class="kpi-value">${money(totalAmount)}</p></div>
-                <div class="kpi-card"><h3 class="kpi-title">Pago</h3><p class="kpi-value green">${money(paidAmount)}</p></div>
-                <div class="kpi-card"><h3 class="kpi-title">Restante</h3><p class="kpi-value" style="color: var(--danger-color);">${money(remainingAmount)}</p></div>
-                <div class="kpi-card"><h3 class="kpi-title">Parcela</h3><p class="kpi-value purple">${money(loan.originalInstallmentAmount)}</p></div>
-            </section>
+            // --- NUEVA GALERÍA VISUAL DE DOCUMENTOS (MEJORADA) ---
+            const docsHtml = (client.documents && client.documents.length > 0) ? `
+                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 12px; margin-top: 10px;">
+                    ${client.documents.map(doc => {
+                        // Detectar si es imagen para mostrar preview
+                        const isImage = doc.name.toLowerCase().match(/\.(jpeg|jpg|gif|png|webp)$/) || doc.url.includes('alt=media');
+                        return `
+                            <a href="${doc.url}" target="_blank" rel="noopener noreferrer" style="text-decoration: none; color: inherit;">
+                                <div class="kpi-card" style="padding: 10px; height: 100%; display: flex; flex-direction: column; align-items: center; text-align: center; border: 1px solid var(--border-color); transition: transform 0.2s;">
+                                    <div style="width: 100%; height: 80px; background-color: var(--bg); border-radius: 6px; margin-bottom: 8px; display: flex; align-items: center; justify-content: center; overflow: hidden;">
+                                        ${isImage 
+                                            ? `<img src="${doc.url}" style="width: 100%; height: 100%; object-fit: cover;">`
+                                            : `<i data-lucide="file-text" style="width: 32px; height: 32px; color: var(--text-secondary);"></i>`
+                                        }
+                                    </div>
+                                    <span style="font-size: 0.75em; font-weight: 600; width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${doc.name}</span>
+                                    <span style="font-size: 0.7em; color: var(--accent-blue); margin-top: 4px; font-weight: 500;">Visualizar</span>
+                                </div>
+                            </a>
+                        `;
+                    }).join('')}
+                </div>
+            ` : '<div style="padding: 20px; text-align: center; border: 1px dashed var(--border-color); border-radius: 8px; color: var(--text-secondary); background-color: var(--bg);"><i data-lucide="folder-open" style="width: 24px; height: 24px; margin-bottom: 5px; opacity: 0.5;"></i><p style="margin: 0;">Nenhum documento anexado.</p></div>';
             
-            <section>
-                <h2 class="section-title">Histórico de Pagamentos (Préstamo ${currentLoanIndex + 1})</h2>
-                <!-- [INICIO DE LA MODIFICACIÓN (BLOQUE 5.2)] --- (Añadimos un ID al contenedor) -->
-                <div class="item-list" id="client-payment-history-list">${historyHtml}</div>
-                <!-- [FIN DE LA MODIFICACIÓN (BLOQUE 5.2)] --- -->
-            </section>
-            <section>
-                <h2 class="section-title">Documentos</h2>
-                <div class="item-list">${docsHtml}</div>
-            </section>
-        </div>
-    `;
+            detailModal.innerHTML = `
+                <header class="modal-header">
+                    <button id="closeClientDetail"><i data-lucide="arrow-left"></i></button>
+                    <span class="modal-title">${client.name}</span>
+                    <button id="editClientBtn" data-client-id="${client.id}" data-loan-index="${currentLoanIndex}"><i data-lucide="edit"></i></button>
+                </header>
+                
+                ${hasMultipleDisplayable ? `
+                <div class="loan-tabs-wrapper"> 
+                    <div class="loan-tabs-container" id="loan-tabs-container">
+                        ${client.loans.map((l, index) => {
+                            const isRelevant = activeOrLastFinishedLoans.some(relevantLoan => client.loans[index] === relevantLoan);
+                            if (isRelevant || index === currentLoanIndex) {
+                                return `<button class="loan-tab ${index === currentLoanIndex ? 'active' : ''}" data-loan-index="${index}">
+                                            Préstamo ${index + 1} ${l.status === 'finished' ? '(Finalizado)' : ''}
+                                        </button>`;
+                            }
+                            return '';
+                        }).join('')}
+                    </div>
+                </div>` : ''}
 
-    history.pushState({ modal: 'clientDetailView', clientId: clientId, loanIndex: currentLoanIndex }, `Details for ${client.name}`, `#client/${clientId}/${currentLoanIndex}`);
-    detailModal.classList.add('active');
-    lucide.createIcons({ nodes: detailModal.querySelectorAll('[data-lucide]') });
+                <div class="modal-content-wrapper container">
+                    <div class="kpi-card" style="text-align: center; margin-bottom: 20px;">
+                        <h3 class="kpi-title" style="justify-content: center;">Estado do Préstamo ${currentLoanIndex + 1}</h3>
+                        <span class="payment-status ${statusClass}" style="font-size: 1.2em; font-weight: 600; padding: 8px 20px;">
+                            ${statusText}
+                        </span>
+                    </div>
+                    
+                    <section class="loan-summary">
+                        <div class="kpi-card"><h3 class="kpi-title">Total</h3><p class="kpi-value">${money(totalAmount)}</p></div>
+                        <div class="kpi-card"><h3 class="kpi-title">Pago</h3><p class="kpi-value green">${money(paidAmount)}</p></div>
+                        <div class="kpi-card"><h3 class="kpi-title">Restante</h3><p class="kpi-value" style="color: var(--danger-color);">${money(remainingAmount)}</p></div>
+                        <div class="kpi-card"><h3 class="kpi-title">Parcela</h3><p class="kpi-value purple">${money(loan.originalInstallmentAmount)}</p></div>
+                    </section>
+                    
+                    <section style="margin-top: 20px;">
+                        <h2 class="section-title" style="display: flex; align-items: center; gap: 8px;">
+                            <i data-lucide="folder"></i> Documentos e Evidências
+                        </h2>
+                        ${docsHtml}
+                    </section>
 
-    detailModal.querySelector('#closeClientDetail').addEventListener('click', () => window.history.back());
-    
-    // --- [INICIO DE LA MODIFICACIÓN (BLOQUE 5.3)] ---
-    // (Pasa el loanIndex al modal de edición)
-    detailModal.querySelector('#editClientBtn').addEventListener('click', (e) => {
-        showClientFormModal(e.currentTarget.dataset.clientId, false, parseInt(e.currentTarget.dataset.loanIndex, 10));
-    });
+                    <section style="margin-top: 20px;">
+                        <h2 class="section-title">Histórico de Pagamentos (Préstamo ${currentLoanIndex + 1})</h2>
+                        <div class="item-list" id="client-payment-history-list">${historyHtml}</div>
+                    </section>
+                </div>
+            `;
 
-    // --- INICIO DEL CÓDIGO A AÑADIR (BLOQUE 5.4) ---
-    // Listener para el clic en los items del historial
-    const historyList = detailModal.querySelector('#client-payment-history-list');
-    if (historyList) {
-        historyList.addEventListener('click', (e) => {
-            const item = e.target.closest('.payment-history-item[data-history-index]');
-            if (item) {
-                const hIndex = parseInt(item.dataset.historyIndex, 10);
-                if (!isNaN(hIndex)) {
-                    // Llama al nuevo modal de detalles del pago
-                    showPaymentDetailModal(clientId, currentLoanIndex, hIndex);
-                }
-            }
-        });
-    }
-    // --- FIN DEL CÓDIGO A AÑADIR (BLOQUE 5.4) ---
+            history.pushState({ modal: 'clientDetailView', clientId: clientId, loanIndex: currentLoanIndex }, `Details for ${client.name}`, `#client/${clientId}/${currentLoanIndex}`);
+            detailModal.classList.add('active');
+            lucide.createIcons({ nodes: detailModal.querySelectorAll('[data-lucide]') });
 
-    // --- INICIO CÓDIGO AÑADIDO (PESTAÑAS) ---
-    if (hasMultipleDisplayable) {
-        detailModal.querySelectorAll('.loan-tab').forEach(tab => {
-            tab.addEventListener('click', (e) => {
-                const newLoanIndex = parseInt(e.currentTarget.dataset.loanIndex, 10);
-                showClientDetails(clientId, newLoanIndex);
+            detailModal.querySelector('#closeClientDetail').addEventListener('click', () => window.history.back());
+            
+            detailModal.querySelector('#editClientBtn').addEventListener('click', (e) => {
+                showClientFormModal(e.currentTarget.dataset.clientId, false, parseInt(e.currentTarget.dataset.loanIndex, 10));
             });
-        });
-    }
-    // --- FIN CÓDIGO AÑADIDO (PESTAÑAS) ---
-}
+
+            const historyList = detailModal.querySelector('#client-payment-history-list');
+            if (historyList) {
+                historyList.addEventListener('click', (e) => {
+                    const item = e.target.closest('.payment-history-item[data-history-index]');
+                    if (item) {
+                        const hIndex = parseInt(item.dataset.historyIndex, 10);
+                        if (!isNaN(hIndex)) {
+                            showPaymentDetailModal(clientId, currentLoanIndex, hIndex);
+                        }
+                    }
+                });
+            }
+
+            if (hasMultipleDisplayable) {
+                detailModal.querySelectorAll('.loan-tab').forEach(tab => {
+                    tab.addEventListener('click', (e) => {
+                        const newLoanIndex = parseInt(e.currentTarget.dataset.loanIndex, 10);
+                        showClientDetails(clientId, newLoanIndex);
+                    });
+                });
+            }
+        }
 
 
         /* === INICIO DEL CÓDIGO A AÑADIR (BLOQUE 4) === */
@@ -6576,4 +6579,5 @@ async function showRefinanceVerificationModal(clientId) {
         init();
     </script>
 </body>
-</html>
+    </html>
+
