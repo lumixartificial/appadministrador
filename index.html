@@ -4462,7 +4462,10 @@ async function submitCollectorReport(collectorId) {
                     <button id="add-capital-injection-btn" data-collector-id="${collectorId}" class="btn-primary" style="flex-grow: 1; background-color: var(--accent-green); border-color: var(--accent-green);">
                         <i data-lucide="arrow-up-circle"></i> <span data-lang-key="aportarCapital"></span>
                     </button>
-                </div>
+                <!-- Botón Desbloquear App -->
+                    <button id="unlock-app-btn" data-collector-id="${collectorId}" class="btn-primary" style="flex-grow: 1; background-color: var(--warning-color); border-color: var(--warning-color); color: white;">
+                        <i data-lucide="lock-open"></i> Desbloquear (30m)
+                    </button></div>
             `;
 
             // --- Lógica de renderizado de liquidaciones (Sin cambios) ---
@@ -4532,7 +4535,35 @@ async function submitCollectorReport(collectorId) {
                     // Llama a la nueva función que crearemos
                     showCapitalInjectionModal(collectorId, collector.name);
                 });
+            }// --- [INICIO NUEVO: DESBLOQUEO DE EMERGENCIA] ---
+            const unlockBtn = detailView.querySelector('#unlock-app-btn');
+            if (unlockBtn) {
+                unlockBtn.addEventListener('click', async (e) => {
+                    const cId = e.currentTarget.dataset.collectorId;
+                    
+                    const confirmed = await showConfirmationModal(
+                        'Desbloquear App',
+                        'Isso permitirá que o cobrador acesse o aplicativo por 30 minutos, ignorando horários ou bloqueios. Continuar?',
+                        'Sim, Desbloquear', 'btn-primary'
+                    );
+                    
+                    if (!confirmed) return;
+
+                    try {
+                        const unlockUntil = new Date();
+                        unlockUntil.setMinutes(unlockUntil.getMinutes() + 30); // Sumar 30 min
+
+                        await updateDoc(doc(db, 'collectors', cId), {
+                            tempUnlockUntil: Timestamp.fromDate(unlockUntil)
+                        });
+                        showToast("App liberada por 30 minutos!", false);
+                    } catch (error) {
+                        console.error("Erro ao desbloquear:", error);
+                        showToast("Erro ao desbloquear app.", true);
+                    }
+                });
             }
+            // --- [FIN NUEVO] ---
             // --- [FIN NUEVO LISTENER] ---
 
 
@@ -6730,6 +6761,7 @@ async function showRefinanceVerificationModal(clientId) {
     </script>
 </body>
     </html>
+
 
 
 
