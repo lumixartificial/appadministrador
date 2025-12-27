@@ -1177,7 +1177,6 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             kpiGlobalPatrimony: 'Total Patrimônio Neto',
             kpiGlobalDistributed: 'Capital Distribuído (Total)',
             kpiGlobalCash: 'Capital em Caixas (Total)',
-            // --- NUEVOS TÉRMINOS CORREGIDOS ---
             settlements: 'RETIRADAS',
             outflowSettlementsLabel: 'Saídas (Retiradas)',
             settlementVerification: 'Verificação de Retirada',
@@ -1185,7 +1184,9 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             settlementHistory: 'Histórico de Retiradas',
             registerSettlement: 'Registrar Retirada',
             settlementRejected: 'Retirada Rejeitada',
-            settlementApproved: 'Retirada APROVADA com sucesso!'
+            settlementApproved: 'Retirada APROVADA com sucesso!',
+            // --- NUEVA CLAVE ---
+            downloadGraphicPDF: 'Baixar PDF Gráfico'
         },
 
         es: {
@@ -1279,7 +1280,6 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             kpiGlobalPatrimony: 'Patrimonio Neto Total',
             kpiGlobalDistributed: 'Capital Distribuido (Total)',
             kpiGlobalCash: 'Capital en Cajas (Total)',
-            // --- NUEVOS TÉRMINOS CORREGIDOS ---
             settlements: 'RETIRO DE CAJA',
             outflowSettlementsLabel: 'Salidas (Retiros de Caja)',
             settlementVerification: 'Verificación de Retiro',
@@ -1287,7 +1287,9 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             settlementHistory: 'Historial de Retiros',
             registerSettlement: 'Registrar Retiro',
             settlementRejected: 'Retiro Rechazado',
-            settlementApproved: '¡Retiro APROBADO con éxito!'
+            settlementApproved: '¡Retiro APROBADO con éxito!',
+            // --- NUEVA CLAVE ---
+            downloadGraphicPDF: 'Descargar PDF Gráfico'
         },
         en: {
             dashboard: 'Dashboard',
@@ -1380,7 +1382,6 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             kpiGlobalPatrimony: 'Total Net Worth',
             kpiGlobalDistributed: 'Total Distributed Capital',
             kpiGlobalCash: 'Total Cash on Hand',
-            // --- NEW KEYS ---
             settlements: 'CASH WITHDRAWALS',
             outflowSettlementsLabel: 'Outflows (Cash Withdrawals)',
             settlementVerification: 'Withdrawal Verification',
@@ -1388,7 +1389,9 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             settlementHistory: 'Withdrawal History',
             registerSettlement: 'Register Withdrawal',
             settlementRejected: 'Withdrawal Rejected',
-            settlementApproved: 'Withdrawal APPROVED successfully!'
+            settlementApproved: 'Withdrawal APPROVED successfully!',
+            // --- NUEVA CLAVE ---
+            downloadGraphicPDF: 'Download Graphic PDF'
         }
     };
 
@@ -3404,11 +3407,8 @@ async function submitCollectorReport(collectorId) {
                 valExpensesTotal += val;
             });
 
-            // Totales Maestros
-            // Total Disponible = Inicial + Entradas (Cobros + Aportes)
-            const valInflows = valCollected + valInjected; // <--- NUEVO VALOR PARA EL GRÁFICO
+            const valInflows = valCollected + valInjected;
             const totalInflow = valInitial + valInflows;
-            
             const totalOutflow = valExpensesTotal + valDeployed + valSettled;
             const netBalance = totalInflow - totalOutflow;
 
@@ -3418,34 +3418,21 @@ async function submitCollectorReport(collectorId) {
             const chartColors = [];
             
             const neonColors = {
-                'initial': '#94a3b8', // Gris (Base)
-                'inflows': '#00ff9d', // Verde Neón (Entradas + Aportes)
-                'salary': '#facc15', // Amarillo
-                'fuel': '#f97316',   // Naranja
-                'rent': '#ec4899',   // Rosa
-                'mechanics': '#ef4444', // Rojo
-                'food': '#8b5cf6',   // Violeta
-                'other': '#64748b',  // Gris
-                'loans': '#00f2ff',  // Cyan
-                'settlements': '#a855f7', // Púrpura
-                'balance': '#3b82f6'  // Azul Brillante (Saldo)
+                'initial': '#94a3b8', 'inflows': '#00ff9d', 'salary': '#facc15', 'fuel': '#f97316', 'rent': '#ec4899',
+                'mechanics': '#ef4444', 'food': '#8b5cf6', 'other': '#64748b', 'loans': '#00f2ff',
+                'settlements': '#a855f7', 'balance': '#3b82f6'
             };
 
-            // A. Capital Inicial
             if (valInitial > 0) { 
-                chartLabels.push(t.initialCapitalLabel.toUpperCase());
+                chartLabels.push(t.initialCapitalLabel.toUpperCase()); 
                 chartData.push(valInitial); 
                 chartColors.push(neonColors['initial']); 
             }
-
-            // B. Entradas + Aportes (NUEVO SEGMENTO)
             if (valInflows > 0) {
-                chartLabels.push(t.inflowLabel.toUpperCase()); // "ENTRADAS (REC. + APORTES)"
+                chartLabels.push(t.inflowLabel.toUpperCase());
                 chartData.push(valInflows);
                 chartColors.push(neonColors['inflows']);
             }
-            
-            // C. Gastos Desglosados
             Object.keys(expensesByCategory).forEach(cat => {
                 if (expensesByCategory[cat] > 0) {
                     chartLabels.push((t[cat] || cat).toUpperCase());
@@ -3453,33 +3440,12 @@ async function submitCollectorReport(collectorId) {
                     chartColors.push(neonColors[cat] || '#ffffff');
                 }
             });
-            
-            // D. Préstamos
-            if (valDeployed > 0) { 
-                chartLabels.push(t.newLoans.toUpperCase());
-                chartData.push(valDeployed); 
-                chartColors.push(neonColors['loans']); 
-            }
+            if (valDeployed > 0) { chartLabels.push(t.newLoans.toUpperCase()); chartData.push(valDeployed); chartColors.push(neonColors['loans']); }
+            if (valSettled > 0) { chartLabels.push(t.settlements.toUpperCase()); chartData.push(valSettled); chartColors.push(neonColors['settlements']); }
+            if (netBalance > 0) { chartLabels.push(t.cashBalance.toUpperCase()); chartData.push(netBalance); chartColors.push(neonColors['balance']); }
 
-            // E. Liquidaciones
-            if (valSettled > 0) { 
-                chartLabels.push(t.settlements.toUpperCase());
-                chartData.push(valSettled); 
-                chartColors.push(neonColors['settlements']); 
-            }
-            
-            // F. Saldo en Caja
-            if (netBalance > 0) { 
-                chartLabels.push(t.cashBalance.toUpperCase());
-                chartData.push(netBalance); 
-                chartColors.push(neonColors['balance']); 
-            }
-
-            // Fallback
             if (chartData.length === 0) {
-                chartLabels.push(t.noData);
-                chartData.push(1); 
-                chartColors.push('#1e293b');
+                chartLabels.push(t.noData); chartData.push(1); chartColors.push('#1e293b');
             }
 
             // 5. Diagnóstico
@@ -3514,6 +3480,13 @@ async function submitCollectorReport(collectorId) {
 
             // 6. Construcción HTML
             resultsContainer.innerHTML = `
+                <!-- BOTÓN DE DESCARGA PDF -->
+                <div style="display: flex; justify-content: flex-end; margin-bottom: 15px;">
+                    <button id="download-graphic-pdf-btn" class="btn-secondary" style="background-color: var(--surface); color: var(--accent-blue); border-color: var(--accent-blue); padding: 8px 16px; font-size: 0.9em; display: flex; align-items: center; gap: 8px;">
+                        <i data-lucide="file-down"></i> ${t.downloadGraphicPDF}
+                    </button>
+                </div>
+
                 <div style="
                     background: linear-gradient(135deg, #020617 0%, #0f172a 100%); 
                     border: 1px solid #1e293b; 
@@ -3567,7 +3540,7 @@ async function submitCollectorReport(collectorId) {
                         </div>
                         <div style="display: flex; flex-direction: column; gap: 12px; max-height: 350px; overflow-y: auto; padding-right: 10px;">
                             
-                            <!-- ITEM 1: SALDO (Siempre arriba) -->
+                            <!-- ITEM 1: SALDO -->
                             <div style="display: flex; align-items: center; justify-content: space-between; font-size: 0.9em; padding: 8px 12px; background: ${balanceValueColor}10; border-radius: 8px; border: 1px solid ${balanceValueColor}30;">
                                 <div style="display: flex; align-items: center; gap: 12px;">
                                     <div style="width: 12px; height: 12px; background: ${balanceValueColor}; border-radius: 3px; box-shadow: 0 0 8px ${balanceValueColor};"></div>
@@ -3620,6 +3593,7 @@ async function submitCollectorReport(collectorId) {
             const ctx = document.getElementById('ultra-chart').getContext('2d');
             if (reportChartInstance) reportChartInstance.destroy();
 
+            // --- FUNCIÓN DE TOOLTIP EXTERNO (CORREGIDA PARA MÓVILES) ---
             const externalTooltipHandler = (context) => {
                 const {chart, tooltip} = context;
                 let tooltipEl = document.getElementById('chartjs-tooltip');
@@ -3627,7 +3601,7 @@ async function submitCollectorReport(collectorId) {
                 if (!tooltipEl) {
                     tooltipEl = document.createElement('div');
                     tooltipEl.id = 'chartjs-tooltip';
-                    tooltipEl.style.background = 'rgba(2, 6, 23, 0.95)';
+                    tooltipEl.style.background = 'rgba(2, 6, 23, 0.98)';
                     tooltipEl.style.borderRadius = '8px';
                     tooltipEl.style.color = 'white';
                     tooltipEl.style.opacity = 1;
@@ -3689,12 +3663,39 @@ async function submitCollectorReport(collectorId) {
                     tableRoot.appendChild(tableBody);
                 }
 
-                const {offsetLeft: positionX, offsetTop: positionY} = chart.canvas;
+                // --- NUEVA LÓGICA DE POSICIONAMIENTO INTELIGENTE ---
+                const canvasRect = chart.canvas.getBoundingClientRect();
+                const tooltipRect = tooltipEl.getBoundingClientRect();
+                const windowWidth = window.innerWidth;
+                
+                // Coordenadas base (relativas al documento completo)
+                let left = canvasRect.left + window.scrollX + tooltip.caretX;
+                let top = canvasRect.top + window.scrollY + tooltip.caretY;
+
+                // 1. Centrar horizontalmente respecto al punto
+                left -= (tooltipRect.width / 2);
+
+                // 2. Evitar desborde Derecho
+                if (left + tooltipRect.width > windowWidth - 10) {
+                    left = windowWidth - tooltipRect.width - 10;
+                }
+                // 3. Evitar desborde Izquierdo
+                if (left < 10) {
+                    left = 10;
+                }
+
+                // 4. Ajuste Vertical (Evitar "muy arriba")
+                // Intentamos ponerlo ARRIBA del punto
+                top -= (tooltipRect.height + 15);
+
+                // Si se sale por arriba (choca con header o scroll), ponerlo ABAJO
+                if (top < window.scrollY + 60) { // 60px margen de seguridad
+                     top = canvasRect.top + window.scrollY + tooltip.caretY + 30;
+                }
+
                 tooltipEl.style.opacity = 1;
-                let left = positionX + tooltip.caretX;
-                if (left < 100) left += 120; 
                 tooltipEl.style.left = left + 'px';
-                tooltipEl.style.top = positionY + tooltip.caretY + 'px';
+                tooltipEl.style.top = top + 'px';
             };
 
             reportChartInstance = new Chart(ctx, {
@@ -3734,6 +3735,34 @@ async function submitCollectorReport(collectorId) {
                     }
                 }
             });
+
+            // Configurar el botón de descarga del PDF (Listener)
+            const downloadBtn = document.getElementById('download-graphic-pdf-btn');
+            if (downloadBtn) {
+                downloadBtn.addEventListener('click', () => {
+                    const collectorName = selectedCollectorId === 'all' 
+                        ? t.all 
+                        : allCollectors.find(c => c.id === selectedCollectorId)?.name || 'N/A';
+                    
+                    const reportPayload = {
+                        period: { start: startDate, end: endDate },
+                        collector: collectorName,
+                        financials: {
+                            initial: valInitial,
+                            inflow: valInflows,
+                            totalIn: totalInflow,
+                            expenses: valExpensesTotal,
+                            loans: valDeployed,
+                            settlements: valSettled,
+                            totalOut: totalOutflow,
+                            balance: netBalance
+                        },
+                        breakdown: expensesByCategory
+                    };
+                    
+                    exportFinancialAnalysisPDF(reportPayload);
+                });
+            }
 
             generateBtn.disabled = false;
             lucide.createIcons({nodes: resultsContainer.querySelectorAll('[data-lucide]')});
@@ -3780,20 +3809,31 @@ async function submitCollectorReport(collectorId) {
         function showReportOptionsModal(collectorId) {
              const modal = document.getElementById('reportOptionsModal');
              modal.classList.add('active');
+             
+             // Usamos textos básicos si no hay traducción específica para el título
+             const t = translations[currentLang];
+             const title = t.selectPeriod || 'Selecione o Período';
+
              modal.innerHTML = `
                 <div class="modal-content">
                     <button class="close-modal-btn" style="position: absolute; top: 10px; right: 10px; background: none; border: none; font-size: 24px; color: var(--text-secondary);">&times;</button>
-                    <h3>Selecione o Período do Relatório</h3>
+                    <h3>${title}</h3>
                     <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 20px;">
-                        <button class="btn-secondary" data-report-period="24h">Últimas 24h</button>
-                        <button class="btn-secondary" data-report-period="48h">Últimas 48h</button>
-                        <button class="btn-secondary" data-report-period="week">Última Semana</button>
-                        <button class="btn-secondary" data-report-period="month">Último Mês</button>
+                        <button class="btn-secondary" data-report-period="24h">${t.last24h}</button>
+                        <button class="btn-secondary" data-report-period="48h">${t.last48h}</button>
+                        <button class="btn-secondary" data-report-period="week">${t.lastWeek}</button>
+                        <button class="btn-secondary" data-report-period="month">${t.lastMonth}</button>
                     </div>
                 </div>
              `;
+             
+             // Listener para cerrar
+             modal.querySelector('.close-modal-btn').addEventListener('click', () => modal.classList.remove('active'));
+
+             // Listeners para los botones de período
              modal.querySelectorAll('[data-report-period]').forEach(btn => {
                 btn.addEventListener('click', () => {
+                    // Llama a la función de reporte normal (de texto)
                     generatePDFReport(collectorId, btn.dataset.reportPeriod);
                     modal.classList.remove('active');
                 });
@@ -4189,6 +4229,146 @@ async function submitCollectorReport(collectorId) {
             doc.save(`relatorio_${sanitizedName}_${sanitizedPeriod}.pdf`);
         }
 
+    
+    // --- FUNCIÓN FALTANTE PARA EL REPORTE GRÁFICO ---
+        async function exportFinancialAnalysisPDF(reportData) {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            const { period, collector, financials, breakdown } = reportData;
+            const t = translations[currentLang];
+            const primaryColor = '#0f172a'; // Dark Blue
+
+            // 1. TÍTULO Y FECHA
+            let y = 20;
+            doc.setFontSize(18);
+            doc.setFont(undefined, 'bold');
+            doc.setTextColor(primaryColor);
+            doc.text((currentCompanyData?.name || 'Relatório Financeiro').toUpperCase(), 105, y, { align: 'center' });
+            
+            y += 8;
+            doc.setFontSize(12);
+            doc.setFont(undefined, 'normal');
+            doc.setTextColor(100);
+            const dateRange = `${period.start.toLocaleDateString()} - ${period.end.toLocaleDateString()}`;
+            doc.text(`${t.reports} (${dateRange})`, 105, y, { align: 'center' });
+            
+            y += 8;
+            doc.setFontSize(10);
+            doc.text(`Cobrador: ${collector}`, 105, y, { align: 'center' });
+
+            // 2. CAPTURA DEL GRÁFICO (IMAGEN)
+            if (reportChartInstance) {
+                const canvas = document.getElementById('ultra-chart');
+                if (canvas) {
+                    y += 10;
+                    // Creamos un fondo blanco temporal para el gráfico si es transparente
+                    const chartImgData = canvas.toDataURL('image/png', 1.0);
+                    
+                    // Centrar imagen (tamaño 80x80 mm)
+                    doc.addImage(chartImgData, 'PNG', 65, y, 80, 80);
+                    
+                    // Simular el texto central (porque la imagen del canvas no tiene el HTML del centro)
+                    doc.setFillColor(255, 255, 255);
+                    doc.circle(105, y + 40, 15, 'F'); // Círculo blanco para tapar agujero
+                    
+                    doc.setFontSize(8);
+                    doc.setTextColor(100);
+                    doc.text(t.capitalGiro, 105, y + 35, { align: 'center' });
+                    
+                    doc.setFontSize(11);
+                    doc.setTextColor(0);
+                    doc.setFont(undefined, 'bold');
+                    doc.text(money(financials.totalIn), 105, y + 40, { align: 'center' });
+                    
+                    doc.setFontSize(8);
+                    doc.setTextColor(100);
+                    doc.setFont(undefined, 'normal');
+                    doc.text(t.totalOutflow, 105, y + 46, { align: 'center' });
+                    
+                    doc.setFontSize(10);
+                    doc.setTextColor('#ef4444');
+                    doc.setFont(undefined, 'bold');
+                    doc.text(`-${money(financials.totalOut)}`, 105, y + 51, { align: 'center' });
+
+                    y += 85; // Espacio después del gráfico
+                }
+            }
+
+            // 3. TABLA DE RESUMEN (ESTILO MODERNO)
+            doc.setDrawColor(200);
+            doc.setLineWidth(0.1);
+            doc.line(20, y, 190, y);
+            y += 10;
+
+            const addRow = (label, value, color = '#000000', isBold = false) => {
+                doc.setFontSize(11);
+                doc.setFont(undefined, isBold ? 'bold' : 'normal');
+                doc.setTextColor(100); // Label gris
+                doc.text(label, 20, y);
+                
+                doc.setTextColor(color);
+                doc.text(money(value), 190, y, { align: 'right' });
+                y += 8;
+            };
+
+            // Capital Inicial (Si existe)
+            if (financials.initial > 0) {
+                addRow(t.initialCapitalLabel, financials.initial, '#64748b');
+            }
+
+            // Entradas
+            addRow(t.inflowLabel, financials.inflow, '#22c55e', true);
+            
+            // Salidas
+            addRow(t.outflowLoansLabel, financials.loans, '#3b82f6');
+            addRow(t.outflowExpensesLabel, financials.expenses, '#ef4444');
+            addRow(t.outflowSettlementsLabel, financials.settlements, '#a855f7');
+            
+            y += 2;
+            doc.line(20, y, 190, y);
+            y += 10;
+            
+            // Saldo Final
+            const balanceLabel = financials.balance >= 0 ? t.netBalancePos : t.netBalanceNeg;
+            const balanceColor = financials.balance >= 0 ? '#22c55e' : '#ef4444';
+            
+            doc.setFontSize(14);
+            doc.setFont(undefined, 'bold');
+            doc.setTextColor(balanceColor);
+            doc.text(balanceLabel, 20, y);
+            doc.text(money(financials.balance), 190, y, { align: 'right' });
+            
+            y += 15;
+            
+            // 4. DESGLOSE DE GASTOS (SI HAY)
+            const expenseKeys = Object.keys(breakdown).filter(k => breakdown[k] > 0);
+            if (expenseKeys.length > 0) {
+                doc.setFontSize(12);
+                doc.setTextColor(primaryColor);
+                doc.text(t.maxExpenseLabel.replace(':', ''), 20, y); // "Mayor Gasto" como título
+                y += 8;
+
+                expenseKeys.forEach(cat => {
+                    const label = (translations[currentLang][cat] || cat).toUpperCase();
+                    doc.setFontSize(10);
+                    doc.setFont(undefined, 'normal');
+                    doc.setTextColor(100);
+                    doc.text(`• ${label}`, 25, y);
+                    doc.setTextColor('#ef4444');
+                    doc.text(`-${money(breakdown[cat])}`, 190, y, { align: 'right' });
+                    y += 6;
+                });
+            }
+
+            // 5. PIE DE PÁGINA
+            const pageHeight = doc.internal.pageSize.getHeight();
+            doc.setFontSize(9);
+            doc.setTextColor(150);
+            doc.text('Gerado por LUMIX Finanças', 105, pageHeight - 10, { align: 'center' });
+
+            doc.save(`Analise_Financeira_${new Date().toLocaleDateString().replace(/\//g, '-')}.pdf`);
+            showToast('PDF do gráfico baixado!');
+        }
 
 
         function showSettlementModal(collectorId, collectorName, currentCapitalOnHand) {
@@ -7061,6 +7241,7 @@ async function showRefinanceVerificationModal(clientId) {
     </script>
 </body>
     </html>
+
 
 
 
