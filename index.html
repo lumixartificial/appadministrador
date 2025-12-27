@@ -3317,14 +3317,16 @@ async function submitCollectorReport(collectorId) {
 
             if (!collectorFilter || !dateStartInput || !dateEndInput || !resultsContainer || !generateBtn) return;
 
-            // 0. Atajo de traducción
             const t = translations[currentLang];
 
-            // 1. Configuración Inicial
+            // 1. Configurar Filtros
             const currentSelectedCollector = collectorFilter.value;
-            collectorFilter.innerHTML = `<option value="all">${t.all}</option>` + allCollectors.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
-            collectorFilter.value = currentSelectedCollector || 'all';
+            if (collectorFilter.options.length <= 1) {
+                collectorFilter.innerHTML = `<option value="all">${t.all}</option>` + allCollectors.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+                collectorFilter.value = currentSelectedCollector || 'all';
+            }
 
+            // Fechas por defecto
             const today = new Date();
             const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
             if (!dateStartInput.value) dateStartInput.value = firstDayOfMonth.toISOString().split('T')[0];
@@ -3335,74 +3337,116 @@ async function submitCollectorReport(collectorId) {
             generateBtn.disabled = true;
 
             const selectedCollectorId = collectorFilter.value;
-            const startDate = new Date(dateStartInput.value); startDate.setHours(0, 0, 0, 0);
-            const endDate = new Date(dateEndInput.value); endDate.setHours(23, 59, 59, 999);
+            
+            // Corrección de fechas para cubrir todo el día (00:00 a 23:59)
+            // Usamos split para evitar problemas de zona horaria con input date
+            const startParts = dateStartInput.value.split('-');
+            const endParts = dateEndInput.value.split('-');
+            
+            // Mes en JS es 0-indexado (Enero = 0)
+            const startDate = new Date(startParts[0], startParts[1] - 1, startParts[2], 0, 0, 0, 0);
+            const endDate = new Date(endParts[0], endParts[1] - 1, endParts[2], 23, 59, 59, 999);
 
-            // 2. Filtrado de Datos
+            // 2. Filtrado de Datos (Modo "Tiempo Real" Aggresivo)
             const filteredPayments = [];
             const filteredNewLoans = [];
             let valInitial = 0;
 
+            // A. Capital Inicial
             allCollectors.forEach(c => {
                 if (selectedCollectorId === 'all' || c.id === selectedCollectorId) {
-                    const initCap = (c.startingCapitalOnHand !== undefined) ? c.startingCapitalOnHand : (c.startingCapital || 0);
+                    const initCap = (c.startingCapitalOnHand !== undefined) ? Number(c.startingCapitalOnHand) : (Number(c.startingCapital) || 0);
                     valInitial += initCap;
                 }
             });
 
+            // B. Clientes (Pagos y Préstamos)
             allClients.forEach(client => {
                 if (selectedCollectorId === 'all' || client.collectorId === selectedCollectorId) {
-                    (client.loans || []).forEach((loan, idx) => {
+                    (client.loans || []).forEach((loan) => {
+                        // Pagos
                         (loan.history || []).forEach(h => {
-                            if (h.date?.seconds && h.status !== 'pending_verification' && h.status !== 'rejected' && h.status !== 'postponed' && h.method !== 'migration') {
-                                const pd = new Date(h.date.seconds * 1000);
-                                if (pd >= startDate && pd <= endDate) filteredPayments.push({ ...h, clientName: client.name });
+                            if (h.status !== 'pending_verification' && h.status !== 'rejected' && h.status !== 'postponed' && h.method !== 'migration') {
+                                // CORRECCIÓN: Si h.date es null/undefined (latencia), usar HOY
+                                let pd = new Date(); 
+                                if (h.date && h.date.seconds) {
+                                    pd = new Date(h.date.seconds * 1000);
+                                }
+                                if (pd >= startDate && pd <= endDate) {
+                                    filteredPayments.push({ ...h, clientName: client.name });
+                                }
                             }
                         });
-                        if (loan.startDate?.seconds) {
-                            const ld = new Date(loan.startDate.seconds * 1000);
-                            if (ld >= startDate && ld <= endDate && !loan.migrationDate) {
-                                filteredNewLoans.push({ ...loan, clientName: client.name });
-                            }
+                        
+                        // Préstamos Nuevos
+                        let ld = new Date();
+                        const hasValidDate = loan.startDate && loan.startDate.seconds;
+                        if (hasValidDate) {
+                            ld = new Date(loan.startDate.seconds * 1000);
+                        }
+                        
+                        // Incluimos si está en fecha O es nuevo (sin fecha confirmada aún)
+                        if ((hasValidDate || !loan.migrationDate) && ld >= startDate && ld <= endDate && !loan.migrationDate) {
+                            filteredNewLoans.push({ ...loan, clientName: client.name });
                         }
                     });
                 }
             });
 
+            // C. Gastos (LA CORRECCIÓN CRÍTICA ESTÁ AQUÍ)
             const filteredExpenses = allExpenses.filter(e => {
                 if (selectedCollectorId !== 'all' && e.collectorId !== selectedCollectorId) return false;
-                if (!e.date?.seconds) return false;
-                const d = new Date(e.date.seconds * 1000);
+                
+                // Forzamos fecha de hoy si es null/undefined (latencia de Firestore)
+                let d = new Date(); 
+                if (e.date && e.date.seconds) {
+                    d = new Date(e.date.seconds * 1000);
+                }
+                
                 return d >= startDate && d <= endDate;
             });
 
+            // D. Aportes
             const filteredInjections = allCapitalInjections.filter(i => {
                 if (selectedCollectorId !== 'all' && i.collectorId !== selectedCollectorId) return false;
-                if (!i.date?.seconds) return false;
                 if (i.status !== 'approved') return false;
-                const d = new Date(i.date.seconds * 1000);
+                
+                let d = new Date();
+                if (i.date && i.date.seconds) {
+                    d = new Date(i.date.seconds * 1000);
+                }
                 return d >= startDate && d <= endDate;
             });
 
+            // E. Retiros
             const filteredSettlements = allSettlements.filter(s => {
                 if (selectedCollectorId !== 'all' && s.collectorId !== selectedCollectorId) return false;
-                if (!s.date?.seconds) return false;
                 if (s.status === 'rejected') return false;
-                const d = new Date(s.date.seconds * 1000);
+                
+                let d = new Date();
+                if (s.date && s.date.seconds) {
+                    d = new Date(s.date.seconds * 1000);
+                }
                 return d >= startDate && d <= endDate;
             });
 
             // 3. Cálculos
-            const valCollected = filteredPayments.reduce((s, i) => s + (i.amount||0), 0);
-            const valInjected = filteredInjections.reduce((s, i) => s + (i.amount||0), 0);
-            const valDeployed = filteredNewLoans.reduce((s, l) => s + (l.principalAmount || (l.totalLoan / 1.2)), 0);
-            const valSettled = filteredSettlements.reduce((s, i) => s + (i.amount||0), 0);
+            const valCollected = filteredPayments.reduce((s, i) => s + (Number(i.amount)||0), 0);
+            const valInjected = filteredInjections.reduce((s, i) => s + (Number(i.amount)||0), 0);
+            const valDeployed = filteredNewLoans.reduce((s, l) => {
+                let principal = Number(l.principalAmount);
+                if (!principal && l.totalLoan) {
+                     principal = Number(l.totalLoan) / 1.2; 
+                }
+                return s + (principal || 0);
+            }, 0);
+            const valSettled = filteredSettlements.reduce((s, i) => s + (Number(i.amount)||0), 0);
 
             const expensesByCategory = {};
             let valExpensesTotal = 0;
             filteredExpenses.forEach(e => {
                 const cat = e.category || 'other';
-                const val = e.value || 0;
+                const val = Number(e.value) || 0;
                 expensesByCategory[cat] = (expensesByCategory[cat] || 0) + val;
                 valExpensesTotal += val;
             });
@@ -3412,7 +3456,7 @@ async function submitCollectorReport(collectorId) {
             const totalOutflow = valExpensesTotal + valDeployed + valSettled;
             const netBalance = totalInflow - totalOutflow;
 
-            // 4. Datos del Gráfico
+            // 4. Preparar Datos Gráfico
             const chartLabels = [];
             const chartData = [];
             const chartColors = [];
@@ -3423,16 +3467,8 @@ async function submitCollectorReport(collectorId) {
                 'settlements': '#a855f7', 'balance': '#3b82f6'
             };
 
-            if (valInitial > 0) { 
-                chartLabels.push(t.initialCapitalLabel.toUpperCase()); 
-                chartData.push(valInitial); 
-                chartColors.push(neonColors['initial']); 
-            }
-            if (valInflows > 0) {
-                chartLabels.push(t.inflowLabel.toUpperCase());
-                chartData.push(valInflows);
-                chartColors.push(neonColors['inflows']);
-            }
+            if (valInitial > 0) { chartLabels.push(t.initialCapitalLabel.toUpperCase()); chartData.push(valInitial); chartColors.push(neonColors['initial']); }
+            if (valInflows > 0) { chartLabels.push(t.inflowLabel.toUpperCase()); chartData.push(valInflows); chartColors.push(neonColors['inflows']); }
             Object.keys(expensesByCategory).forEach(cat => {
                 if (expensesByCategory[cat] > 0) {
                     chartLabels.push((t[cat] || cat).toUpperCase());
@@ -3444,9 +3480,7 @@ async function submitCollectorReport(collectorId) {
             if (valSettled > 0) { chartLabels.push(t.settlements.toUpperCase()); chartData.push(valSettled); chartColors.push(neonColors['settlements']); }
             if (netBalance > 0) { chartLabels.push(t.cashBalance.toUpperCase()); chartData.push(netBalance); chartColors.push(neonColors['balance']); }
 
-            if (chartData.length === 0) {
-                chartLabels.push(t.noData); chartData.push(1); chartColors.push('#1e293b');
-            }
+            if (chartData.length === 0) { chartLabels.push(t.noData); chartData.push(1); chartColors.push('#1e293b'); }
 
             // 5. Diagnóstico
             let diagColor = netBalance >= 0 ? "#00ff9d" : "#ff0055";
@@ -3583,7 +3617,7 @@ async function submitCollectorReport(collectorId) {
                              ${valInitial > 0 ? `<div class="payment-history-item" style="padding: 10px; background-color: var(--bg); border: 1px dashed var(--text-secondary);"><span style="font-weight: 600;">${t.initialCapitalLabel}</span><span style="font-weight: 700; color: var(--text-primary);">${money(valInitial)}</span></div>` : ''}
                              ${generateDetailListHTML(t.inflowLabel, 'arrow-up-circle', '#00ff9d', [...filteredPayments, ...filteredInjections], (item) => `<span>${item.clientName || 'Aporte'}</span><span style="color:var(--accent-green); font-weight:700;">${money(item.amount)}</span>`)}
                              ${generateDetailListHTML(t.outflowLoansLabel, 'briefcase', '#00f2ff', filteredNewLoans, (l) => `<span>${l.clientName}</span><span style="color:#3b82f6; font-weight:700;">${money(l.principalAmount || l.totalLoan/1.2)}</span>`)}
-                             ${generateDetailListHTML(t.outflowExpensesLabel, 'shopping-cart', '#ff0055', filteredExpenses, (e) => `<span>${t[e.category]||e.category}</span><span style="color:var(--danger-color); font-weight:700;">${money(e.value)}</span>`)}
+                             ${generateDetailListHTML(t.outflowExpensesLabel, 'shopping-cart', '#ff0055', filteredExpenses, (e) => `<span>${t[e.category]||e.category} ${(!e.date || !e.date.seconds) ? '(Pendente)' : ''}</span><span style="color:var(--danger-color); font-weight:700;">${money(e.value)}</span>`)}
                              ${generateDetailListHTML(t.outflowSettlementsLabel, 'archive', '#a855f7', filteredSettlements, (s) => `<span>${t.withdrawal}</span><span style="color:#a855f7; font-weight:700;">${money(s.amount)}</span>`)}
                         </div>
                     </details>
@@ -3591,9 +3625,13 @@ async function submitCollectorReport(collectorId) {
             `;
 
             const ctx = document.getElementById('ultra-chart').getContext('2d');
-            if (reportChartInstance) reportChartInstance.destroy();
+            
+            if (reportChartInstance) {
+                reportChartInstance.destroy();
+                reportChartInstance = null;
+            }
 
-            // --- FUNCIÓN DE TOOLTIP EXTERNO (CORREGIDA PARA MÓVILES) ---
+            // Handler para tooltip
             const externalTooltipHandler = (context) => {
                 const {chart, tooltip} = context;
                 let tooltipEl = document.getElementById('chartjs-tooltip');
@@ -3663,35 +3701,19 @@ async function submitCollectorReport(collectorId) {
                     tableRoot.appendChild(tableBody);
                 }
 
-                // --- NUEVA LÓGICA DE POSICIONAMIENTO INTELIGENTE ---
                 const canvasRect = chart.canvas.getBoundingClientRect();
                 const tooltipRect = tooltipEl.getBoundingClientRect();
                 const windowWidth = window.innerWidth;
                 
-                // Coordenadas base (relativas al documento completo)
                 let left = canvasRect.left + window.scrollX + tooltip.caretX;
                 let top = canvasRect.top + window.scrollY + tooltip.caretY;
 
-                // 1. Centrar horizontalmente respecto al punto
                 left -= (tooltipRect.width / 2);
+                if (left + tooltipRect.width > windowWidth - 10) left = windowWidth - tooltipRect.width - 10;
+                if (left < 10) left = 10;
 
-                // 2. Evitar desborde Derecho
-                if (left + tooltipRect.width > windowWidth - 10) {
-                    left = windowWidth - tooltipRect.width - 10;
-                }
-                // 3. Evitar desborde Izquierdo
-                if (left < 10) {
-                    left = 10;
-                }
-
-                // 4. Ajuste Vertical (Evitar "muy arriba")
-                // Intentamos ponerlo ARRIBA del punto
                 top -= (tooltipRect.height + 15);
-
-                // Si se sale por arriba (choca con header o scroll), ponerlo ABAJO
-                if (top < window.scrollY + 60) { // 60px margen de seguridad
-                     top = canvasRect.top + window.scrollY + tooltip.caretY + 30;
-                }
+                if (top < window.scrollY + 60) top = canvasRect.top + window.scrollY + tooltip.caretY + 30;
 
                 tooltipEl.style.opacity = 1;
                 tooltipEl.style.left = left + 'px';
@@ -3736,10 +3758,13 @@ async function submitCollectorReport(collectorId) {
                 }
             });
 
-            // Configurar el botón de descarga del PDF (Listener)
+            // Configurar botón de descarga
             const downloadBtn = document.getElementById('download-graphic-pdf-btn');
-            if (downloadBtn) {
-                downloadBtn.addEventListener('click', () => {
+            const newDownloadBtn = downloadBtn.cloneNode(true);
+            downloadBtn.parentNode.replaceChild(newDownloadBtn, downloadBtn);
+            
+            if (newDownloadBtn) {
+                newDownloadBtn.addEventListener('click', () => {
                     const collectorName = selectedCollectorId === 'all' 
                         ? t.all 
                         : allCollectors.find(c => c.id === selectedCollectorId)?.name || 'N/A';
@@ -7241,6 +7266,7 @@ async function showRefinanceVerificationModal(clientId) {
     </script>
 </body>
     </html>
+
 
 
 
