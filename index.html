@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -1086,7 +1087,9 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
         // ... código existente ...
     const translations = {
         pt: {
-            dashboard: 'Dashboard', reports: 'Relatórios', settings: 'Ajustes', profile: 'Perfil', map: 'Mapa',
+            dashboard: 'Painel', 
+            reports: 'Relatório Gráfico', // <--- CAMBIO AQUÍ
+            settings: 'Ajustes', profile: 'Perfil', map: 'Mapa',
             totalCapital: 'Capital Total', activeCollectors: 'Cobradores Ativos', activeClients: 'Clientes Ativos',
             collectionTeam: 'Equipe de Cobrança', addCollector: 'Adicionar Cobrador',
             globalFinances: 'Finanças Globais', distributedCapital: 'Capital Distribuído', expectedToday: 'Ganhos Previstos Hoje',
@@ -1128,21 +1131,64 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             installAppMsg: 'Uma experiência mais rápida e completa.',
             installBtn: 'Instalar',
             community: 'Comunidade',
-            installAppTitle: 'Instale nosso aplicativo',
-            installAppMsg: 'Uma experiência mais rápida e completa.',
-            installBtn: 'Instalar',
-            community: 'Comunidade',
             notifications: 'Notificações',
             paymentVerification: 'Verificação de Pagamento',
             settlementVerification: 'Verificação de Liquidação',
             refinanceRequest: 'Solicitação de Refinanciamento',
-            aportarCapital: 'Aportar Capital'
-
-            
+            aportarCapital: 'Aportar Capital',
+            // --- NUEVAS CLAVES REPORTE ---
+            salary: 'Salário',
+            calculatingFlow: 'CALCULANDO FLUXO...',
+            capitalGiro: 'CAPITAL DE GIRO',
+            totalAvailable: 'TOTAL DISPONÍVEL',
+            totalOutflow: 'TOTAL SAÍDAS',
+            netBalancePos: 'LUCRO (GANHO)',
+            netBalanceNeg: 'PREJUÍZO (PERDA)',
+            distributionTitle: 'DISTRIBUIÇÃO DE FLUXO',
+            newLoans: 'NOVOS EMPRÉSTIMOS',
+            settlements: 'LIQUIDAÇÕES',
+            cashBalance: 'SALDO EM CAJA',
+            noData: 'SEM DADOS',
+            diagStableTitle: 'SISTEMA ESTÁVEL',
+            diagStableMsg: 'Fluxo de caixa equilibrado.',
+            diagProfitTitle: 'RESULTADO POSITIVO',
+            diagProfitMsg: 'Acúmulo de capital positivo. Operação rentável.',
+            diagExpansionTitle: 'MODO EXPANSÃO',
+            diagExpansionMsg: 'Déficit estratégico: Investimento em novos empréstimos supera a arrecadação.',
+            diagAlertTitle: 'ALERTA: DRENO DE RECURSOS',
+            diagAlertMsg: 'Crítico: Despesas operacionais excessivas detectadas.',
+            diagDeficitTitle: 'DÉFICIT DE CAJA',
+            diagDeficitMsg: 'Saídas superam entradas. Verifique retiradas.',
+            maxExpenseLabel: 'Maior gasto:',
+            noSignificantExpense: 'Sem gastos significativos.',
+            viewFullList: 'Ver Lista Completa de Registros',
+            inflowLabel: 'Entradas (Rec. + Aportes)',
+            outflowLoansLabel: 'Saídas (Empréstimos)',
+            outflowExpensesLabel: 'Saídas (Despesas)',
+            outflowSettlementsLabel: 'Saídas (Liquidações)',
+            initialCapitalLabel: 'Capital Inicial (Saldo Base)',
+            withdrawal: 'Retirada',
+            notifPaymentMsg: 'Enviou um pagamento de',
+            notifVerifyMsg: 'Por favor, verifique.',
+            notifSettlementMsg: 'Enviou uma liquidação de',
+            notifApproveMsg: 'Por favor, aprove.',
+            notifRefinanceMsg: 'Solicitou um refinanciamento de',
+            notifIdentityMsg: 'Verifique a identidade.',
+            noNotifications: 'Nenhuma notificação pendente.',
+            reportFilters: 'Filtros do Relatório',
+            filterByCollector: 'Filtrar por Cobrador',
+            dateStart: 'Data Início',
+            dateEnd: 'Data Fim',
+            generateReport: 'Gerar Relatório',
+            kpiGlobalPatrimony: 'Total Patrimônio Neto',
+            kpiGlobalDistributed: 'Capital Distribuído (Total)',
+            kpiGlobalCash: 'Capital em Caixas (Total)'
         },
 
         es: {
-            dashboard: 'Dashboard', reports: 'Reportes', settings: 'Ajustes', profile: 'Perfil', map: 'Mapa',
+            dashboard: 'Panel', 
+            reports: 'Reporte Gráfico', // <--- CAMBIO AQUÍ
+            settings: 'Ajustes', profile: 'Perfil', map: 'Mapa',
             totalCapital: 'Capital Total', activeCollectors: 'Cobradores Activos', activeClients: 'Clientes Activos',
             collectionTeam: 'Equipo de Cobranza', addCollector: 'Añadir Cobrador',
             globalFinances: 'Finanzas Globales', distributedCapital: 'Capital Distribuido', expectedToday: 'Ganancias Previstas Hoy',
@@ -1183,18 +1229,62 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             installAppMsg: 'Una experiencia más rápida y completa.',
             installBtn: 'Instalar',
             community: 'Comunidad',
-            installAppTitle: 'Instala nuestra aplicación',
-            installAppMsg: 'Una experiencia más rápida y completa.',
-            installBtn: 'Instalar',
-            community: 'Comunidad',
-            notificaciones: 'Notificaciones',
+            notifications: 'Notificaciones',
             paymentVerification: 'Verificación de Pago',
             settlementVerification: 'Verificación de Liquidación',
             refinanceRequest: 'Solicitud de Refinanciación',
-            aportarCapital: 'Aportar Capital'
+            aportarCapital: 'Aportar Capital',
+            salary: 'Salario',
+            calculatingFlow: 'CALCULANDO FLUJO...',
+            capitalGiro: 'CAPITAL DE GIRO',
+            totalAvailable: 'TOTAL DISPONIBLE',
+            totalOutflow: 'TOTAL SALIDAS',
+            netBalancePos: 'GANANCIA (LUCRO)',
+            netBalanceNeg: 'PÉRDIDA (DÉFICIT)',
+            distributionTitle: 'DISTRIBUCIÓN DE FLUJO',
+            newLoans: 'NUEVOS PRÉSTAMOS',
+            settlements: 'LIQUIDACIONES',
+            cashBalance: 'SALDO EN CAJA',
+            noData: 'SIN DATOS',
+            diagStableTitle: 'SISTEMA ESTABLE',
+            diagStableMsg: 'Flujo de caja equilibrado.',
+            diagProfitTitle: 'RESULTADO POSITIVO',
+            diagProfitMsg: 'Acumulación de capital positiva. Operación rentable.',
+            diagExpansionTitle: 'MODO EXPANSIÓN',
+            diagExpansionMsg: 'Déficit estratégico: Inversión en nuevos préstamos supera la recaudación.',
+            diagAlertTitle: 'ALERTA: FUGA DE RECURSOS',
+            diagAlertMsg: 'Crítico: Gastos operativos excesivos detectados.',
+            diagDeficitTitle: 'DÉFICIT DE CAJA',
+            diagDeficitMsg: 'Las salidas superan las entradas. Verifique retiros.',
+            maxExpenseLabel: 'Mayor gasto:',
+            noSignificantExpense: 'Sin gastos significativos.',
+            viewFullList: 'Ver Lista Completa de Registros',
+            inflowLabel: 'Entradas (Rec. + Aportes)',
+            outflowLoansLabel: 'Salidas (Préstamos)',
+            outflowExpensesLabel: 'Salidas (Gastos)',
+            outflowSettlementsLabel: 'Salidas (Liquidaciones)',
+            initialCapitalLabel: 'Capital Inicial (Saldo Base)',
+            withdrawal: 'Retiro',
+            notifPaymentMsg: 'Envió un pago de',
+            notifVerifyMsg: 'Por favor, verifique.',
+            notifSettlementMsg: 'Envió una liquidación de',
+            notifApproveMsg: 'Por favor, apruebe.',
+            notifRefinanceMsg: 'Solicitó un refinanciamiento de',
+            notifIdentityMsg: 'Verifique la identidad.',
+            noNotifications: 'Ninguna notificación pendiente.',
+            reportFilters: 'Filtros del Reporte',
+            filterByCollector: 'Filtrar por Cobrador',
+            dateStart: 'Fecha de Inicio',
+            dateEnd: 'Fecha de Fin',
+            generateReport: 'Generar Reporte',
+            kpiGlobalPatrimony: 'Patrimonio Neto Total',
+            kpiGlobalDistributed: 'Capital Distribuido (Total)',
+            kpiGlobalCash: 'Capital en Cajas (Total)'
         },
         en: {
-            dashboard: 'Dashboard', reports: 'Reports', settings: 'Settings', profile: 'Profile', map: 'Map',
+            dashboard: 'Dashboard',
+            reports: 'Graphic Report', // <--- CAMBIO AQUÍ
+            settings: 'Settings', profile: 'Profile', map: 'Map',
             totalCapital: 'Total Capital', activeCollectors: 'Active Collectors', activeClients: 'Active Clients',
             collectionTeam: 'Collection Team', addCollector: 'Add Collector',
             globalFinances: 'Global Finances', distributedCapital: 'Distributed Capital', expectedToday: 'Expected Earnings Today',
@@ -1239,7 +1329,53 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             paymentVerification: 'Payment Verification',
             settlementVerification: 'Settlement Verification',
             refinanceRequest: 'Refinance Request',
-            contributeCapital: 'Contribute Capital'
+            contributeCapital: 'Contribute Capital',
+            salary: 'Salary',
+            calculatingFlow: 'CALCULATING FLOW...',
+            capitalGiro: 'WORKING CAPITAL',
+            totalAvailable: 'TOTAL AVAILABLE',
+            totalOutflow: 'TOTAL OUTFLOW',
+            netBalancePos: 'PROFIT (GAIN)',
+            netBalanceNeg: 'LOSS (DEFICIT)',
+            distributionTitle: 'FLOW DISTRIBUTION',
+            newLoans: 'NEW LOANS',
+            settlements: 'SETTLEMENTS',
+            cashBalance: 'CASH BALANCE',
+            noData: 'NO DATA',
+            diagStableTitle: 'STABLE SYSTEM',
+            diagStableMsg: 'Balanced cash flow.',
+            diagProfitTitle: 'POSITIVE RESULT',
+            diagProfitMsg: 'Positive capital accumulation. Profitable operation.',
+            diagExpansionTitle: 'EXPANSION MODE',
+            diagExpansionMsg: 'Strategic deficit: Investment in new loans exceeds collection.',
+            diagAlertTitle: 'ALERT: RESOURCE DRAIN',
+            diagAlertMsg: 'Critical: Excessive operating expenses detected.',
+            diagDeficitTitle: 'CASH DEFICIT',
+            diagDeficitMsg: 'Outflows exceed inflows. Check withdrawals.',
+            maxExpenseLabel: 'Highest expense:',
+            noSignificantExpense: 'No significant expenses.',
+            viewFullList: 'View Full Record List',
+            inflowLabel: 'Inflows (Rec. + Injections)',
+            outflowLoansLabel: 'Outflows (Loans)',
+            outflowExpensesLabel: 'Outflows (Expenses)',
+            outflowSettlementsLabel: 'Outflows (Settlements)',
+            initialCapitalLabel: 'Initial Capital (Base Balance)',
+            withdrawal: 'Withdrawal',
+            notifPaymentMsg: 'Sent a payment of',
+            notifVerifyMsg: 'Please verify.',
+            notifSettlementMsg: 'Sent a settlement of',
+            notifApproveMsg: 'Please approve.',
+            notifRefinanceMsg: 'Requested a refinance of',
+            notifIdentityMsg: 'Verify identity.',
+            noNotifications: 'No pending notifications.',
+            reportFilters: 'Report Filters',
+            filterByCollector: 'Filter by Collector',
+            dateStart: 'Start Date',
+            dateEnd: 'End Date',
+            generateReport: 'Generate Report',
+            kpiGlobalPatrimony: 'Total Net Worth',
+            kpiGlobalDistributed: 'Total Distributed Capital',
+            kpiGlobalCash: 'Total Cash on Hand'
         }
     };
 
@@ -1578,49 +1714,54 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             document.getElementById('login-view').style.display = 'none';
             document.getElementById('splash-screen').style.display = 'none';
             document.getElementById('app-container').style.display = 'flex';
+            
+            // 1. Dibujar la estructura (Menú, Header, etc.)
             renderMainLayout();
+            
+            // 2. Crear iconos
             lucide.createIcons();
+            
+            // 3. Configurar eventos (clics, etc.)
             setupEventListeners();
+            
+            // 4. Aplicar Tema (Oscuro/Claro)
             const preferredTheme = localStorage.getItem('adminTheme') || 'dark';
             applyTheme(preferredTheme);
+            
+            // 5. [CORRECCIÓN CLAVE] Aplicar Idioma INMEDIATAMENTE
+            // Esto asegura que el menú inferior tenga texto desde el inicio
+            applyLanguage(currentLang);
+            
+            // 6. Mostrar la vista inicial
             const initialView = location.hash.substring(1) || 'dashboard';
             showView(initialView);
+
+            // --- Carga de Datos (Listeners) ---
 
             const collectorsQuery = query(collection(db, 'collectors'), where('companyId', '==', currentCompanyId));
             onSnapshot(collectorsQuery, snapshot => {
                 allCollectors = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 
-                // --- [INICIO CORRECCIÓN CONTABLE] ---
-                collectorsReady = true; // 1. Marcar como listo
-                checkAndRunGlobalUpdate(); // 2. Llamar a la función maestra
-                // updateDashboard(); // <--- ELIMINADO
-                // updateProfileView(); // <--- ELIMINADO
-                // --- [FIN CORRECCIÓN CONTABLE] ---
+                collectorsReady = true; 
+                checkAndRunGlobalUpdate(); 
 
-                // [REPARACIÓN] Se llama a la función para actualizar los marcadores cada vez que los datos del cobrador cambian.
                 updateCollectorMarkers();
             });
 
             onSnapshot(collection(db, 'companies', currentCompanyId, 'clients'), snapshot => {
                 allClients = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                  allClients.forEach(client => {
-                    // Capa de compatibilidad para clientes antiguos (Sin cambios)
                     if (!client.loans && client.totalLoan) {
                         client.loans = [{ ...client }];
                     } else if (!client.loans) {
                         client.loans = [];
                     }
 
-                    // --- [INICIO DE LA CORRECCIÓN] ---
-                    // Reemplazamos la lógica obsoleta.
-                    // Ahora usamos la función moderna para CADA préstamo.
                     client.loans.forEach(loan => {
-                        const details = calculateLoanDetails(loan); // <-- Llama a la función MODERNA
-                        loan.status = details.status; // <-- Asigna el estado REAL
-                        loan.lateFeesAccumulated = details.lateFeesAccumulated; // <-- GUARDA LA MORA
+                        const details = calculateLoanDetails(loan); 
+                        loan.status = details.status; 
+                        loan.lateFeesAccumulated = details.lateFeesAccumulated; 
                     });
-                    // --- [FIN DE LA CORRECCIÓN] ---
-
                 });
                 
                 clientsReady = true; 
@@ -1629,89 +1770,54 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             
             onSnapshot(collection(db, 'companies', currentCompanyId, 'expenses'), snapshot => {
                 allExpenses = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                
-                // --- [INICIO CORRECCIÓN CONTABLE] ---
-                expensesReady = true; // 1. Marcar como listo
-                checkAndRunGlobalUpdate(); // 2. Llamar a la función maestra
-                // updateProfileView(); // <--- ELIMINADO
-                // updateDashboard(); // <--- ELIMINADO
-                // --- [FIN CORRECCIÓN CONTABLE] ---
+                expensesReady = true; 
+                checkAndRunGlobalUpdate(); 
             });
 
+            onSnapshot(collection(db, 'companies', currentCompanyId, 'settlements'), snapshot => {
+                allSettlements = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                settlementsReady = true; 
+                checkAndRunGlobalUpdate(); 
+                const detailView = document.getElementById('collectorDetailView');
+                if (detailView && detailView.classList.contains('active')) {
+                    const collectorId = detailView.querySelector('#editCollectorBtn')?.dataset.collectorId; 
+                    if (collectorId) showCollectorDetails(collectorId); 
+                }
+            });
 
+            onSnapshot(collection(db, 'companies', currentCompanyId, 'capitalInjections'), snapshot => {
+                allCapitalInjections = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                capitalInjectionsReady = true; 
+                checkAndRunGlobalUpdate(); 
+            }, (error) => {
+                console.error("Error al obtener aportes de capital: ", error);
+                showToast('Falha ao carregar dados de aportes de capital.', true);
+            });
 
-    // --- LISTENER AÑADIDO PARA LIQUIDACIONES ---
-        onSnapshot(collection(db, 'companies', currentCompanyId, 'settlements'), snapshot => {
-            allSettlements = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            
-            // --- [INICIO CORRECCIÓN CONTABLE] ---
-            settlementsReady = true; // 1. Marcar como listo
-            checkAndRunGlobalUpdate(); // 2. Llamar a la función maestra
-            // updateDashboard(); // <--- ELIMINADO
-            // --- [FIN CORRECCIÓN CONTABLE] ---
+            // Configuración del Perfil con Datos de la Empresa
+            const logoUrl = currentCompanyData.plan?.companyLogo || DEFAULT_LOGO_URL;
+            currentAdmin.profilePic = logoUrl; 
 
-            // Si la vista de detalles está abierta, la actualizamos también
-            const detailView = document.getElementById('collectorDetailView');
-            if (detailView && detailView.classList.contains('active')) {
-                const collectorId = detailView.querySelector('#editCollectorBtn')?.dataset.collectorId; // Intenta obtener el ID del cobrador actual
-                if (collectorId) showCollectorDetails(collectorId); // Vuelve a renderizar los detalles
-            }
-        });
-    // --- FIN DEL LISTENER AÑADIDO ---
+            const companyName = currentCompanyData.name || "Painel Admin";
 
-          // --- [NUEVO BLOQUE] LISTENER PARA APORTES DE CAPITAL ---
-    // Escucha los aportes de capital (inyecciones) para TODOS los cobradores
-    onSnapshot(collection(db, 'companies', currentCompanyId, 'capitalInjections'), snapshot => {
-        allCapitalInjections = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        
-        // --- [INICIO CORRECCIÓN CONTABLE] ---
-        capitalInjectionsReady = true; // 1. Marcar como listo
-        checkAndRunGlobalUpdate(); // 2. Llamar a la función maestra
-        // --- [FIN CORRECCIÓN CONTABLE] ---
+            const headerImg = document.querySelector('.profile img');
+            const profileViewImg = document.getElementById('profile-view-img');
+            const headerLogoImg = document.getElementById('header-logo');
+            const headerLogoText = document.getElementById('header-logo-text');
 
-    }, (error) => {
-        console.error("Error al obtener aportes de capital: ", error);
-        showToast('Falha ao carregar dados de aportes de capital.', true);
-    });
-    // --- [FIN DEL NUEVO BLOQUE] ---
+            if (headerImg) headerImg.src = logoUrl;
+            if (profileViewImg) profileViewImg.src = logoUrl;
+            if (headerLogoImg) headerLogoImg.src = logoUrl;
+            if (headerLogoText) headerLogoText.textContent = companyName;
 
+            currentAdmin.name = currentCompanyData.owner?.name || companyName;
 
-
-
-           const logoUrl = currentCompanyData.plan?.companyLogo || DEFAULT_LOGO_URL;
-currentAdmin.profilePic = logoUrl; 
-
-// 2. Usar el nombre de la empresa
-const companyName = currentCompanyData.name || "Painel Admin";
-
-// 3. Aplicar en la UI (Header y Vista de Perfil)
-const headerImg = document.querySelector('.profile img');
-const profileViewImg = document.getElementById('profile-view-img');
-const headerLogoImg = document.getElementById('header-logo');
-const headerLogoText = document.getElementById('header-logo-text');
-
-if (headerImg) headerImg.src = logoUrl;
-if (profileViewImg) profileViewImg.src = logoUrl;
-if (headerLogoImg) headerLogoImg.src = logoUrl;
-if (headerLogoText) headerLogoText.textContent = companyName;
-
-// 4. Actualizamos el objeto 'currentAdmin' para la comunidad
-// (Usará el nombre del dueño si existe, o el de la empresa)
-currentAdmin.name = currentCompanyData.owner?.name || companyName;
-// currentAdmin.id se queda como 'admin' por ahora.
-// --- TAREA 2: FIN ---
-
-            // [NUEVO CÓDIGO] Cargar publicaciones de la comunidad
             const postsQuery = query(collection(db, 'communityPosts'), orderBy('createdAt', 'desc'));
             onSnapshot(postsQuery, (snapshot) => {
                 allCommunityPosts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                
-                // --- [INICIO CORRECCIÓN COMUNIDADE] ---
-                // Si estamos viendo la pestaña de comunidade, la actualizamos en vivo.
                 if (document.getElementById('community-view')?.classList.contains('active')) {
                     renderCommunityView();
                 }
-                // --- [FIN CORRECCIÓN COMUNIDADE] ---
             });
         }
 
@@ -1969,59 +2075,68 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
                     </div>
                     <div class="header-controls">
                         <div style="position: relative;">
-                            <button class="header-btn" id="lang-toggle" title="Mudar idioma"><i data-lucide="globe"></i></button>
+                            <!-- BOTÓN IDIOMA (GRANDE CON TEXTO) -->
+                            <button class="header-btn" id="lang-toggle" title="Mudar idioma" style="flex-direction: column; border-radius: 8px; width: auto; height: auto; padding: 4px 8px;">
+                                <i data-lucide="globe" style="width: 24px; height: 24px;"></i>
+                                <span style="font-size: 0.85em; font-weight: 700; margin-top: 2px;">Idioma</span>
+                            </button>
                             <div class="lang-dropdown" id="lang-dropdown" style="display: none;">
                                 <button data-lang="pt">Português</button>
                                 <button data-lang="es">Español</button>
                                 <button data-lang="en">English</button>
                             </div>
                         </div>
-                        <button class="header-btn" id="theme-toggle"><i data-lucide="moon"></i></button>
+                        
+                        <!-- BOTÓN TEMA (GRANDE CON TEXTO) -->
+                        <button class="header-btn" id="theme-toggle" title="Mudar tema" style="flex-direction: column; border-radius: 8px; width: auto; height: auto; padding: 4px 8px;">
+                            <i data-lucide="moon" style="width: 24px; height: 24px;"></i>
+                            <span style="font-size: 0.85em; font-weight: 700; margin-top: 2px;">Tema</span>
+                        </button>
+
                         <div class="profile" id="header-profile-link" style="cursor: pointer;"><img src="https://placehold.co/80x80/3b82f6/FFFFFF?text=A" alt="Foto do Admin"></div>
                     </div>
                 </header>
                 <main>
                     <div id="dashboard-view" class="view active container">
                         
-                        <!-- --- [INICIO MODIFICACIÓN: REORDENAR KPIs GLOBALES] --- -->
+                        <!-- KPIs GLOBALES -->
                         <section class="kpi-grid" style="grid-template-columns: 1fr 1fr; gap: 15px;">
                             
-                            <!-- KPI 1 (NUEVO ORDEN) - Total Patrimônio Neto (Soma dos Cobradores) -->
+                            <!-- KPI 1 -->
                             <div class="kpi-card" style="grid-column: 1 / -1; border-color: var(--accent-purple); border-width: 2px;">
                                 <h3 class="kpi-title" style="color: var(--accent-purple);">
-                                    <i data-lucide="gem"></i> Total Patrimônio Neto (Soma dos Cobradores)
+                                    <i data-lucide="gem"></i> <span data-lang-key="kpiGlobalPatrimony">Total Patrimônio Neto</span>
                                 </h3>
                                 <p class="kpi-value" id="kpi-global-patrimonio" style="color: var(--accent-purple);"></p>
                             </div>
 
-                            <!-- KPI 2 (NUEVO ORDEN) - Capital Distribuído (Total) -->
+                            <!-- KPI 2 -->
                             <div class="kpi-card" style="border-color: var(--warning-color);">
                                 <h3 class="kpi-title" style="color: var(--warning-color);">
-                                    <i data-lucide="briefcase"></i> Capital Distribuído (Total)
+                                    <i data-lucide="briefcase"></i> <span data-lang-key="kpiGlobalDistributed">Capital Distribuído (Total)</span>
                                 </h3>
                                 <p class="kpi-value" id="kpi-global-distributed" style="color: var(--warning-color);"></p>
                             </div>
                             
-                            <!-- KPI 3 (NUEVO) - Capital Destinado a Caixas (Total) -->
+                            <!-- KPI 3 -->
                             <div class="kpi-card" style="border-color: var(--accent-green);">
                                 <h3 class="kpi-title" style="color: var(--accent-green);">
-                                    <i data-lucide="banknote"></i> Capital em Caixas (Total)
+                                    <i data-lucide="banknote"></i> <span data-lang-key="kpiGlobalCash">Capital em Caixas (Total)</span>
                                 </h3>
                                 <p class="kpi-value" id="kpi-global-capital-on-hand" style="color: var(--accent-green);"></p>
                             </div>
 
-                            <!-- KPI 4 (Antiguo KPI 1) - Cobradores Activos -->
+                            <!-- KPI 4 -->
                             <div class="kpi-card">
                                 <h3 class="kpi-title" data-lang-key="activeCollectors"><i data-lucide="users"></i></h3>
                                 <p class="kpi-value" id="kpi-active-collectors"></p>
                             </div>
-                            <!-- KPI 5 (Antiguo KPI 2) - Clientes Activos -->
+                            <!-- KPI 5 -->
                                 <div class="kpi-card">
                                 <h3 class="kpi-title" data-lang-key="activeClients"><i data-lucide="user-check"></i></h3>
                                 <p class="kpi-value" id="kpi-active-clients"></p>
                             </div>
                         </section>
-                        <!-- --- [FIN MODIFICACIÓN: REORDENAR KPIs GLOBALES] --- -->
 
                         <section>
                             <h2 class="section-title" data-lang-key="collectionTeam"></h2>
@@ -2051,38 +2166,35 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
                     <div id="reports-view" class="view container" style="padding-bottom: 50px;">
                         <h1 class="section-title" data-lang-key="reports"></h1>
                         
-                        <!-- Novos Filtros Profissionais -->
                         <div class="kpi-card" style="margin-bottom: 20px;">
-                            <h3 class="kpi-title" style="margin: 0 0 15px; font-size: 1.1em; color: var(--text-primary);"><i data-lucide="filter"></i> Filtros do Relatório</h3>
+                            <h3 class="kpi-title" style="margin: 0 0 15px; font-size: 1.1em; color: var(--text-primary);">
+                                <i data-lucide="filter"></i> <span data-lang-key="reportFilters">Filtros do Relatório</span>
+                            </h3>
                             <div class="report-filters" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
                                 <div class="form-group">
-                                    <label for="report-collector-filter">Filtrar por Cobrador</label>
+                                    <label for="report-collector-filter" data-lang-key="filterByCollector">Filtrar por Cobrador</label>
                                     <select id="report-collector-filter"></select>
                                 </div>
                                 <div class="form-group">
-                                    <label for="report-date-start">Data Início</label>
+                                    <label for="report-date-start" data-lang-key="dateStart">Data Início</label>
                                     <input type="date" id="report-date-start">
                                 </div>
                                 <div class="form-group">
-                                    <label for="report-date-end">Data Fim</label>
+                                    <label for="report-date-end" data-lang-key="dateEnd">Data Fim</label>
                                     <input type="date" id="report-date-end">
                                 </div>
                             </div>
                             <button id="report-generate-btn" class="btn-primary" style="width: 100%; margin-top: 15px;">
-                                <i data-lucide="bar-chart-3"></i> Gerar Relatório
+                                <i data-lucide="bar-chart-3"></i> <span data-lang-key="generateReport">Gerar Relatório</span>
                             </button>
                         </div>
 
-                        <!-- Onde os resultados aparecerão -->
-                        <div id="report-results">
-                            <!-- O conteúdo será preenchido por JS -->
-                        </div>
+                        <div id="report-results"></div>
                     </div>
                     
                     <div id="notifications-view" class="view container">
                         <h1 class="section-title" data-lang-key="notifications"></h1>
                         <div class="item-list" id="admin-notifications-list">
-                            <!-- El contenido se cargará aquí por JS -->
                         </div>
                     </div>
                         
@@ -2097,13 +2209,11 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
                             <p style="margin: 5px 0 0; color: var(--text-secondary);">Painel de Controle</p>
                         </div>
 
-                        <!-- --- [INICIO MODIFICACIÓN: ARREGLAR "PLANO ATUAL"] --- -->
                         <div class="settings-section">
                             <h2 class="section-title" style="border: none; margin-bottom: 15px;">
                                 <i data-lucide="award" style="width: 18px; height: 18px; margin-right: 8px;"></i>
                                 Plano Atual
                             </h2>
-                            <!-- (Cambiado a grid-template-columns: 1fr 1fr) -->
                             <div class="info-grid" style="grid-template-columns: 1fr 1fr; gap: 15px; background: none; padding: 0; border: none;">
                                 <div>
                                     <label>Tipo de Plano</label>
@@ -2113,27 +2223,19 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
                                     <label>Cobradores Utilizados</label>
                                     <p id="plan-info-collectors">-- / --</p>
                                 </div>
-                                <!-- (NUEVO) Fecha de Inicio -->
                                 <div>
                                     <label>Data de Início</label>
                                     <p id="plan-info-start-date">--</p>
                                 </div>
-                                <!-- (NUEVO) Fecha de Vencimiento -->
                                 <div>
                                     <label>Data de Vencimento</label>
                                     <p id="plan-info-end-date">--</p>
                                 </div>
                             </div>
                         </div>
-                        <!-- --- [FIN MODIFICACIÓN: ARREGLAR "PLANO ATUAL"] --- -->
-
-                        <!-- --- [INICIO MODIFICACIÓN: ELIMINAR FINANÇAS GLOBAIS] --- -->
-                        <!-- La sección 'Finanças Globais' que estaba aquí fue eliminada -->
-                        <!-- --- [FIN MODIFICACIÓN: ELIMINAR FINANÇAS GLOBAIS] --- -->
                         
                         <h1 class="section-title" data-lang-key="settings"></h1>
 
-                        <!-- SECCIÓN RESTAURADA: Configuración de Empresa -->
                         <div class="settings-section">
                             <h2 class="section-title" data-lang-key="companySettings"></h2>
                             <div class="settings-logo-preview">
@@ -2175,7 +2277,6 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
                             </div>
                         </div>
 
-                        <!-- INICIO: NUEVA SECCIÓN DE CREDENCIALES -->
                         <div class="settings-section" style="margin-top: 20px;">
                             <h2 class="section-title" style="border: none; margin-bottom: 15px; font-size: 1.1em;">
                                 <i data-lucide="lock" style="width: 18px; height: 18px; margin-right: 8px;"></i>
@@ -2183,7 +2284,6 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
                             </h2>
                             <div class="form-group">
                                 <label>Email (Login)</label>
-                                <!-- Mostramos el email actual del usuario autenticado -->
                                 <input type="email" value="${auth.currentUser?.email || ''}" readonly style="background-color: var(--bg); opacity: 0.7; cursor: not-allowed;">
                             </div>
                             <div class="form-group">
@@ -2194,9 +2294,6 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
                                 </p>
                             </div>
                         </div>
-                        <!-- FIN: NUEVA SECCIÓN DE CREDENCIALES -->
-
-
 
                         <div class="action-buttons" style="position: static; margin-top: 20px;">
                             <button id="save-settings-btn" class="btn-primary" disabled><i data-lucide="save"></i> <span data-lang-key="saveSettings"></span></button>
@@ -2209,8 +2306,7 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
                     <div id="community-view" class="view container">
                             <h1 class="section-title" data-lang-key="community"></h1>
 
-                            
-                            <!-- Formulario para crear post --><div class="community-post-creator">
+                            <div class="community-post-creator">
                             <textarea id="post-text-input" placeholder="O que você está pensando, Administrador?"></textarea>
                             <img id="post-image-preview" class="community-post-image-preview" style="display: none;">
                             <div class="community-post-creator-actions">
@@ -2222,10 +2318,9 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
                             </div>
                         </div>
 
-                            <!-- Contenedor para las publicaciones -->
                             <div id="community-posts-list">
                                 <p style="text-align: center; color: var(--text-secondary); padding: 20px;">Carregando publicações...</p>
-                            /div>
+                            </div>
                     </div>
 
                 </main>
@@ -3204,213 +3299,429 @@ async function submitCollectorReport(collectorId) {
             const resultsContainer = document.getElementById('report-results');
             const generateBtn = document.getElementById('report-generate-btn');
 
-            if (!collectorFilter || !dateStartInput || !dateEndInput || !resultsContainer || !generateBtn) {
-                console.error("Elementos de relatório faltando no DOM.");
-                return;
-            }
+            if (!collectorFilter || !dateStartInput || !dateEndInput || !resultsContainer || !generateBtn) return;
 
-            // --- 1. POPULAR FILTRO DE COBRADOR (sempre) ---
+            // 0. Atajo de traducción
+            const t = translations[currentLang];
+
+            // 1. Configuración Inicial
             const currentSelectedCollector = collectorFilter.value;
-            collectorFilter.innerHTML = `<option value="all">Todos os Cobradores</option>` + allCollectors.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+            collectorFilter.innerHTML = `<option value="all">${t.all}</option>` + allCollectors.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
             collectorFilter.value = currentSelectedCollector || 'all';
 
-            // --- 2. CONFIGURAR DATAS PADRÃO (se vazias) ---
             const today = new Date();
             const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-            if (!dateStartInput.value) {
-                dateStartInput.value = firstDayOfMonth.toISOString().split('T')[0];
-            }
-            if (!dateEndInput.value) {
-                dateEndInput.value = today.toISOString().split('T')[0];
-            }
+            if (!dateStartInput.value) dateStartInput.value = firstDayOfMonth.toISOString().split('T')[0];
+            if (!dateEndInput.value) dateEndInput.value = today.toISOString().split('T')[0];
 
-            // --- 3. EXIBIR CARREGAMENTO E DESABILITAR BOTÃO ---
-            resultsContainer.innerHTML = `<div class="loading" style="padding: 30px; text-align: center;"><i data-lucide="loader-circle" style="animation: spin 1s linear infinite;"></i> Carregando dados...</div>`;
+            resultsContainer.innerHTML = `<div class="loading" style="padding: 80px; text-align: center;"><i data-lucide="aperture" style="animation: spin 3s linear infinite; width: 60px; height: 60px; color: #00f2ff;"></i><p style="margin-top:20px; color: #00f2ff; font-family: monospace; letter-spacing: 3px; font-size: 1.2em;">${t.calculatingFlow}</p></div>`;
             lucide.createIcons({nodes: resultsContainer.querySelectorAll('[data-lucide]')});
             generateBtn.disabled = true;
 
-            // --- 4. OBTER VALORES DOS FILTROS ---
             const selectedCollectorId = collectorFilter.value;
-            // Configura as datas para incluir o dia inteiro (00:00:00 a 23:59:59)
-            const startDate = new Date(dateStartInput.value);
-            startDate.setHours(0, 0, 0, 0);
-            const endDate = new Date(dateEndInput.value);
-            endDate.setHours(23, 59, 59, 999);
+            const startDate = new Date(dateStartInput.value); startDate.setHours(0, 0, 0, 0);
+            const endDate = new Date(dateEndInput.value); endDate.setHours(23, 59, 59, 999);
 
-            // --- 5. LÓGICA DE FILTRAGEM (Usa los arrays globales que ya están cargados) ---
-            
-            // A. Filtrar Pagamentos
+            // 2. Filtrado de Datos
             const filteredPayments = [];
-            allClients.forEach(client => {
-                if (selectedCollectorId === 'all' || client.collectorId === selectedCollectorId) {
-                    (client.loans || []).forEach((loan, loanIndex) => {
-                        (loan.history || []).forEach(h => {
-                            if (h.date?.seconds && h.status !== 'pending_verification' && h.status !== 'rejected' && h.status !== 'postponed') {
-                                const paymentDate = new Date(h.date.seconds * 1000);
-                                if (paymentDate >= startDate && paymentDate <= endDate) {
-                                    filteredPayments.push({ ...h, clientName: client.name, collectorId: client.collectorId, loanIndex: loanIndex + 1 });
-                                }
-                            }
-                        });
-                    });
+            const filteredNewLoans = [];
+            let valInitial = 0;
+
+            allCollectors.forEach(c => {
+                if (selectedCollectorId === 'all' || c.id === selectedCollectorId) {
+                    const initCap = (c.startingCapitalOnHand !== undefined) ? c.startingCapitalOnHand : (c.startingCapital || 0);
+                    valInitial += initCap;
                 }
             });
 
-            // B. Filtrar Novos Empréstimos (Capital Desplegado)
-            const filteredNewLoans = [];
             allClients.forEach(client => {
                 if (selectedCollectorId === 'all' || client.collectorId === selectedCollectorId) {
-                    (client.loans || []).forEach((loan, loanIndex) => {
-                         if (loan.startDate?.seconds) {
-                            const loanDate = new Date(loan.startDate.seconds * 1000);
-                            if (loanDate >= startDate && loanDate <= endDate) {
-                                filteredNewLoans.push({ ...loan, clientName: client.name, collectorId: client.collectorId, loanIndex: loanIndex + 1 });
+                    (client.loans || []).forEach((loan, idx) => {
+                        (loan.history || []).forEach(h => {
+                            if (h.date?.seconds && h.status !== 'pending_verification' && h.status !== 'rejected' && h.status !== 'postponed' && h.method !== 'migration') {
+                                const pd = new Date(h.date.seconds * 1000);
+                                if (pd >= startDate && pd <= endDate) filteredPayments.push({ ...h, clientName: client.name });
+                            }
+                        });
+                        if (loan.startDate?.seconds) {
+                            const ld = new Date(loan.startDate.seconds * 1000);
+                            if (ld >= startDate && ld <= endDate && !loan.migrationDate) {
+                                filteredNewLoans.push({ ...loan, clientName: client.name });
                             }
                         }
                     });
                 }
             });
 
-            // C. Filtrar Despesas
             const filteredExpenses = allExpenses.filter(e => {
                 if (selectedCollectorId !== 'all' && e.collectorId !== selectedCollectorId) return false;
                 if (!e.date?.seconds) return false;
-                const expenseDate = new Date(e.date.seconds * 1000);
-                return expenseDate >= startDate && expenseDate <= endDate;
+                const d = new Date(e.date.seconds * 1000);
+                return d >= startDate && d <= endDate;
             });
 
-            // D. Filtrar Liquidações
-            const filteredSettlements = allSettlements.filter(s => {
-                if (selectedCollectorId !== 'all' && s.collectorId !== selectedCollectorId) return false;
-                if (!s.date?.seconds) return false;
-                const settlementDate = new Date(s.date.seconds * 1000);
-                return settlementDate >= startDate && settlementDate <= endDate;
-            });
-
-            // E. Filtrar Aportes de Capital
             const filteredInjections = allCapitalInjections.filter(i => {
                 if (selectedCollectorId !== 'all' && i.collectorId !== selectedCollectorId) return false;
                 if (!i.date?.seconds) return false;
-                const injectionDate = new Date(i.date.seconds * 1000);
-                return injectionDate >= startDate && injectionDate <= endDate;
+                if (i.status !== 'approved') return false;
+                const d = new Date(i.date.seconds * 1000);
+                return d >= startDate && d <= endDate;
             });
 
-            // --- 6. CÁLCULO DE MÉTRICAS (Usa los filtros 'approved' o 'undefined') ---
-            const totalCollected = filteredPayments.reduce((sum, p) => sum + p.amount, 0);
-            const totalExpenses = filteredExpenses.reduce((sum, e) => sum + e.value, 0);
-            
-            const totalSettled = filteredSettlements
-                .filter(s => s.status === 'approved' || s.status === undefined)
-                .reduce((sum, s) => sum + (s.amount || 0), 0);
-            
-            const totalInjected = filteredInjections
-                .filter(i => i.status === 'approved' || i.status === undefined)
-                .reduce((sum, i) => sum + (i.amount || 0), 0);
-            
-            const totalDeployed = filteredNewLoans.reduce((sum, l) => sum + (l.principalAmount || (l.totalLoan / 1.2)), 0); 
+            const filteredSettlements = allSettlements.filter(s => {
+                if (selectedCollectorId !== 'all' && s.collectorId !== selectedCollectorId) return false;
+                if (!s.date?.seconds) return false;
+                if (s.status === 'rejected') return false;
+                const d = new Date(s.date.seconds * 1000);
+                return d >= startDate && d <= endDate;
+            });
 
-            const netBalance = (totalCollected + totalInjected) - (totalDeployed + totalExpenses + totalSettled);
+            // 3. Cálculos
+            const valCollected = filteredPayments.reduce((s, i) => s + (i.amount||0), 0);
+            const valInjected = filteredInjections.reduce((s, i) => s + (i.amount||0), 0);
+            const valDeployed = filteredNewLoans.reduce((s, l) => s + (l.principalAmount || (l.totalLoan / 1.2)), 0);
+            const valSettled = filteredSettlements.reduce((s, i) => s + (i.amount||0), 0);
 
-            // --- 7. RENDERIZAR RESULTADOS ---
+            const expensesByCategory = {};
+            let valExpensesTotal = 0;
+            filteredExpenses.forEach(e => {
+                const cat = e.category || 'other';
+                const val = e.value || 0;
+                expensesByCategory[cat] = (expensesByCategory[cat] || 0) + val;
+                valExpensesTotal += val;
+            });
+
+            // Totales Maestros
+            // Total Disponible = Inicial + Entradas (Cobros + Aportes)
+            const valInflows = valCollected + valInjected; // <--- NUEVO VALOR PARA EL GRÁFICO
+            const totalInflow = valInitial + valInflows;
+            
+            const totalOutflow = valExpensesTotal + valDeployed + valSettled;
+            const netBalance = totalInflow - totalOutflow;
+
+            // 4. Datos del Gráfico
+            const chartLabels = [];
+            const chartData = [];
+            const chartColors = [];
+            
+            const neonColors = {
+                'initial': '#94a3b8', // Gris (Base)
+                'inflows': '#00ff9d', // Verde Neón (Entradas + Aportes)
+                'salary': '#facc15', // Amarillo
+                'fuel': '#f97316',   // Naranja
+                'rent': '#ec4899',   // Rosa
+                'mechanics': '#ef4444', // Rojo
+                'food': '#8b5cf6',   // Violeta
+                'other': '#64748b',  // Gris
+                'loans': '#00f2ff',  // Cyan
+                'settlements': '#a855f7', // Púrpura
+                'balance': '#3b82f6'  // Azul Brillante (Saldo)
+            };
+
+            // A. Capital Inicial
+            if (valInitial > 0) { 
+                chartLabels.push(t.initialCapitalLabel.toUpperCase());
+                chartData.push(valInitial); 
+                chartColors.push(neonColors['initial']); 
+            }
+
+            // B. Entradas + Aportes (NUEVO SEGMENTO)
+            if (valInflows > 0) {
+                chartLabels.push(t.inflowLabel.toUpperCase()); // "ENTRADAS (REC. + APORTES)"
+                chartData.push(valInflows);
+                chartColors.push(neonColors['inflows']);
+            }
+            
+            // C. Gastos Desglosados
+            Object.keys(expensesByCategory).forEach(cat => {
+                if (expensesByCategory[cat] > 0) {
+                    chartLabels.push((t[cat] || cat).toUpperCase());
+                    chartData.push(expensesByCategory[cat]);
+                    chartColors.push(neonColors[cat] || '#ffffff');
+                }
+            });
+            
+            // D. Préstamos
+            if (valDeployed > 0) { 
+                chartLabels.push(t.newLoans.toUpperCase());
+                chartData.push(valDeployed); 
+                chartColors.push(neonColors['loans']); 
+            }
+
+            // E. Liquidaciones
+            if (valSettled > 0) { 
+                chartLabels.push(t.settlements.toUpperCase());
+                chartData.push(valSettled); 
+                chartColors.push(neonColors['settlements']); 
+            }
+            
+            // F. Saldo en Caja
+            if (netBalance > 0) { 
+                chartLabels.push(t.cashBalance.toUpperCase());
+                chartData.push(netBalance); 
+                chartColors.push(neonColors['balance']); 
+            }
+
+            // Fallback
+            if (chartData.length === 0) {
+                chartLabels.push(t.noData);
+                chartData.push(1); 
+                chartColors.push('#1e293b');
+            }
+
+            // 5. Diagnóstico
+            let diagColor = netBalance >= 0 ? "#00ff9d" : "#ff0055";
+            let diagTitle = netBalance >= 0 ? t.diagProfitTitle : t.diagDeficitTitle;
+            let balanceText = netBalance >= 0 ? t.netBalancePos : t.netBalanceNeg;
+            let balanceValueColor = netBalance >= 0 ? "#00ff9d" : "#ff0055"; 
+
+            let diagMsg = "";
+            if (netBalance >= 0) {
+                diagMsg = t.diagProfitMsg;
+            } else {
+                 if (valDeployed > valCollected) {
+                    diagTitle = t.diagExpansionTitle;
+                    diagMsg = t.diagExpansionMsg;
+                    diagColor = "#bd00ff";
+                 } else if (valExpensesTotal > (valCollected * 0.4)) {
+                    diagTitle = t.diagAlertTitle;
+                    diagMsg = t.diagAlertMsg;
+                    diagColor = "#ff0055";
+                 } else {
+                    diagTitle = t.diagDeficitTitle;
+                    diagMsg = t.diagDeficitMsg;
+                    diagColor = "#ffae00";
+                 }
+            }
+
+            let maxExpenseEntry = Object.entries(expensesByCategory).sort((a,b) => b[1]-a[1])[0];
+            let maxExpenseMsg = maxExpenseEntry && maxExpenseEntry[1] > 0 
+                ? `${t.maxExpenseLabel} ${(t[maxExpenseEntry[0]] || maxExpenseEntry[0]).toUpperCase()} (${money(maxExpenseEntry[1])})` 
+                : t.noSignificantExpense;
+
+            // 6. Construcción HTML
             resultsContainer.innerHTML = `
-                <!-- KPIs (Resumo Geral) -->
-                <div class="kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));">
-                    <div class="kpi-card">
-                        <h3 class="kpi-title" style="color: var(--accent-green);"><i data-lucide="arrow-up"></i> Total Recebido</h3>
-                        <p class="kpi-value" style="color: var(--accent-green);">${money(totalCollected)}</p>
-                    </div>
-                    <div class="kpi-card">
-                        <h3 class="kpi-title" style="color: var(--danger-color);"><i data-lucide="arrow-down"></i> Total Despesas</h3>
-                        <p class="kpi-value" style="color: var(--danger-color);">${money(totalExpenses)}</p>
-                    </div>
-                    <div class="kpi-card">
-                        <h3 class="kpi-title" style="color: var(--danger-color);"><i data-lucide="arrow-down"></i> Novos Empréstimos</h3>
-                        <p class="kpi-value" style="color: var(--danger-color);">${money(totalDeployed)}</p>
-                    </div>
-                    
+                <div style="
+                    background: linear-gradient(135deg, #020617 0%, #0f172a 100%); 
+                    border: 1px solid #1e293b; 
+                    border-radius: 24px; 
+                    padding: 30px; 
+                    box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+                    display: grid;
+                    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+                    gap: 40px;
+                    position: relative;
+                    overflow: hidden;
+                ">
+                    <div style="position: absolute; top: -50px; right: -50px; width: 200px; height: 200px; background: ${diagColor}; filter: blur(150px); opacity: 0.15; pointer-events: none;"></div>
 
-                     
-                    <div class="kpi-card" style="border-color: ${netBalance >= 0 ? 'var(--accent-green)' : 'var(--danger-color)'}; border-width: 2px;">
-                        <h3 class="kpi-title" style="color: var(--text-primary); font-weight: 600;"><i data-lucide="scale"></i> Saldo Líquido (Período)</h3>
-                        <p class="kpi-value" style="color: ${netBalance >= 0 ? 'var(--accent-green)' : 'var(--danger-color)'}; font-size: 1.8em;">${money(netBalance)}</p>
+                    <!-- GRÁFICO (IZQUIERDA) -->
+                    <div style="position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 350px;">
+                        <div style="position: absolute; top: 0; left: 0; color: #64748b; font-size: 0.8em; letter-spacing: 2px; font-weight: 700;">
+                            ${t.distributionTitle}
+                        </div>
+                        
+                        <div style="position: relative; height: 320px; width: 320px;">
+                            <canvas id="ultra-chart"></canvas>
+                            
+                            <!-- CENTRO HOLOGRÁFICO -->
+                            <div style="
+                                position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+                                text-align: center; width: 165px; height: 165px; border-radius: 50%;
+                                display: flex; flex-direction: column; justify-content: center;
+                                background: radial-gradient(circle, rgba(2,6,23,0.95) 0%, rgba(15,23,42,0.9) 100%);
+                                border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 0 30px rgba(0,0,0,0.5);
+                                pointer-events: none; z-index: 5;
+                            ">
+                                <p style="font-size: 0.65em; color: #94a3b8; margin: 0; letter-spacing: 1px;">${t.capitalGiro}</p>
+                                <p style="font-size: 1.05em; color: #fff; font-weight: 700; margin: 2px 0;">${money(totalInflow)}</p>
+                                <div style="width: 80%; height: 1px; background: #334155; margin: 6px auto;"></div>
+                                <p style="font-size: 0.65em; color: #94a3b8; margin: 0; letter-spacing: 1px;">${t.totalOutflow}</p>
+                                <p style="font-size: 1.05em; color: #ef4444; font-weight: 700; margin: 2px 0;">-${money(totalOutflow)}</p>
+                                <div style="margin-top: 8px; padding: 4px 10px; background: ${diagColor}20; border-radius: 12px; display: inline-block; border: 1px solid ${diagColor}40;">
+                                    <span style="color: ${diagColor}; font-size: 0.85em; font-weight: 800;">${netBalance >= 0 ? '+' : ''}${money(netBalance)}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- DATOS DETALLADOS (DERECHA) -->
+                    <div style="display: flex; flex-direction: column; justify-content: center; gap: 20px;">
+                        <div style="background: rgba(255,255,255,0.03); border-left: 4px solid ${diagColor}; padding: 20px; border-radius: 0 12px 12px 0;">
+                            <h3 style="margin: 0 0 5px; color: ${diagColor}; font-size: 1.2em; text-shadow: 0 0 10px ${diagColor}40;">${diagTitle}</h3>
+                            <p style="margin: 0; color: #cbd5e1; font-size: 0.95em;">${diagMsg}</p>
+                            <p style="margin: 10px 0 0; color: #94a3b8; font-size: 0.85em; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 8px;">${maxExpenseMsg}</p>
+                        </div>
+                        <div style="display: flex; flex-direction: column; gap: 12px; max-height: 350px; overflow-y: auto; padding-right: 10px;">
+                            
+                            <!-- ITEM 1: SALDO (Siempre arriba) -->
+                            <div style="display: flex; align-items: center; justify-content: space-between; font-size: 0.9em; padding: 8px 12px; background: ${balanceValueColor}10; border-radius: 8px; border: 1px solid ${balanceValueColor}30;">
+                                <div style="display: flex; align-items: center; gap: 12px;">
+                                    <div style="width: 12px; height: 12px; background: ${balanceValueColor}; border-radius: 3px; box-shadow: 0 0 8px ${balanceValueColor};"></div>
+                                    <span style="color: #fff; font-weight: 700;">${balanceText}</span>
+                                </div>
+                                <span style="color: ${balanceValueColor}; font-weight: 700; font-family: monospace;">${money(netBalance)}</span>
+                            </div>
+
+                            ${chartLabels.map((label, i) => {
+                                if (label === t.noData || label === t.cashBalance.toUpperCase()) return '';
+                                const val = chartData[i];
+                                const percent = totalInflow > 0 ? Math.round((val / totalInflow) * 100) : 0;
+                                return `
+                                <div style="padding: 0 5px;">
+                                    <div style="display: flex; align-items: center; justify-content: space-between; font-size: 0.9em; margin-bottom: 4px;">
+                                        <div style="display: flex; align-items: center; gap: 12px;">
+                                            <div style="width: 12px; height: 12px; background: ${chartColors[i]}; border-radius: 3px; box-shadow: 0 0 8px ${chartColors[i]};"></div>
+                                            <span style="color: #94a3b8; font-weight: 500;">${label}</span>
+                                        </div>
+                                        <div style="text-align: right;">
+                                            <span style="color: #fff; font-weight: 700; font-family: monospace;">${money(val)}</span>
+                                            <span style="color: #64748b; font-size: 0.85em; margin-left: 5px;">(${percent}%)</span>
+                                        </div>
+                                    </div>
+                                    <div style="width: 100%; height: 4px; background: #1e293b; border-radius: 2px;">
+                                        <div style="width: ${percent}%; height: 100%; background: ${chartColors[i]}; border-radius: 2px;"></div>
+                                    </div>
+                                </div>`;
+                            }).join('')}
+                        </div>
                     </div>
                 </div>
 
-                <!-- Gráfico -->
-                <div class="kpi-card" style="margin-top: 25px;">
-                    <h3 class="kpi-title" style="font-size: 1.1em; color: var(--text-primary);">
-                        <i data-lucide="bar-chart-2"></i> Fluxo de Caixa (Entradas vs. Saídas)
-                    </h3>
-                    <canvas id="report-chart"></canvas>
-                </div>
-                
-                <!-- Listas Detalhadas (Esta parte ya estaba correcta) -->
-                <div id="report-details-lists" style="margin-top: 25px; display: flex; flex-direction: column; gap: 15px;">
-                    ${generateDetailListHTML('Pagamentos Recebidos', 'check-circle', 'var(--accent-green)', filteredPayments, (p) => `
-                        <span>${p.clientName} (E${p.loanIndex}) - <i>${p.collectorId}</i></span>
-                        <span style="font-weight: 600; color: var(--accent-green);">${money(p.amount)}</span>`)}
-                    
-                    ${generateDetailListHTML('Despesas Registradas', 'arrow-down-circle', 'var(--danger-color)', filteredExpenses, (e) => `
-                        <span>${translations[currentLang][e.category] || e.category} - <i>${e.collectorId}</i></span>
-                        <span style="font-weight: 600; color: var(--danger-color);">-${money(e.value)}</span>`)}
-
-                    ${generateDetailListHTML('Novos Empréstimos (Desplegados)', 'arrow-down-circle', 'var(--danger-color)', filteredNewLoans, (l) => `
-                        <span>${l.clientName} (E${l.loanIndex}) - <i>${l.collectorId}</i></span>
-                        <span style="font-weight: 600; color: var(--danger-color);">-${money(l.principalAmount || (l.totalLoan / 1.2))}</span>`)}
-
-                    
-                    
-                    
+                <div style="margin-top: 30px;">
+                    <details class="kpi-card" style="background: var(--surface); border: 1px solid var(--border-color);">
+                        <summary style="cursor: pointer; font-weight: 600; color: var(--text-secondary); padding: 15px; display: flex; align-items: center; gap: 10px;">
+                            <i data-lucide="list"></i> ${t.viewFullList}
+                        </summary>
+                        <div id="report-details-lists" style="margin-top: 0; padding: 0 15px 15px; display: flex; flex-direction: column; gap: 10px;">
+                             ${valInitial > 0 ? `<div class="payment-history-item" style="padding: 10px; background-color: var(--bg); border: 1px dashed var(--text-secondary);"><span style="font-weight: 600;">${t.initialCapitalLabel}</span><span style="font-weight: 700; color: var(--text-primary);">${money(valInitial)}</span></div>` : ''}
+                             ${generateDetailListHTML(t.inflowLabel, 'arrow-up-circle', '#00ff9d', [...filteredPayments, ...filteredInjections], (item) => `<span>${item.clientName || 'Aporte'}</span><span style="color:var(--accent-green); font-weight:700;">${money(item.amount)}</span>`)}
+                             ${generateDetailListHTML(t.outflowLoansLabel, 'briefcase', '#00f2ff', filteredNewLoans, (l) => `<span>${l.clientName}</span><span style="color:#3b82f6; font-weight:700;">${money(l.principalAmount || l.totalLoan/1.2)}</span>`)}
+                             ${generateDetailListHTML(t.outflowExpensesLabel, 'shopping-cart', '#ff0055', filteredExpenses, (e) => `<span>${t[e.category]||e.category}</span><span style="color:var(--danger-color); font-weight:700;">${money(e.value)}</span>`)}
+                             ${generateDetailListHTML(t.outflowSettlementsLabel, 'archive', '#a855f7', filteredSettlements, (s) => `<span>${t.withdrawal}</span><span style="color:#a855f7; font-weight:700;">${money(s.amount)}</span>`)}
+                        </div>
+                    </details>
                 </div>
             `;
 
-            // --- 8. RENDERIZAR GRÁFICO ---
-            const chartCtx = document.getElementById('report-chart').getContext('2d');
-            if (reportChartInstance) {
-                reportChartInstance.destroy(); 
-            }
-            reportChartInstance = new Chart(chartCtx, {
-                type: 'bar',
+            const ctx = document.getElementById('ultra-chart').getContext('2d');
+            if (reportChartInstance) reportChartInstance.destroy();
+
+            const externalTooltipHandler = (context) => {
+                const {chart, tooltip} = context;
+                let tooltipEl = document.getElementById('chartjs-tooltip');
+
+                if (!tooltipEl) {
+                    tooltipEl = document.createElement('div');
+                    tooltipEl.id = 'chartjs-tooltip';
+                    tooltipEl.style.background = 'rgba(2, 6, 23, 0.95)';
+                    tooltipEl.style.borderRadius = '8px';
+                    tooltipEl.style.color = 'white';
+                    tooltipEl.style.opacity = 1;
+                    tooltipEl.style.pointerEvents = 'none';
+                    tooltipEl.style.position = 'absolute';
+                    tooltipEl.style.transition = 'all .1s ease';
+                    tooltipEl.style.border = '1px solid rgba(255,255,255,0.2)';
+                    tooltipEl.style.boxShadow = '0 4px 20px rgba(0,0,0,0.5)';
+                    tooltipEl.style.zIndex = '1000';
+                    tooltipEl.style.padding = '10px';
+                    tooltipEl.style.fontFamily = 'monospace';
+                    const table = document.createElement('table');
+                    table.style.margin = '0px';
+                    tooltipEl.appendChild(table);
+                    document.body.appendChild(tooltipEl);
+                }
+
+                if (tooltip.opacity === 0) {
+                    tooltipEl.style.opacity = 0;
+                    return;
+                }
+
+                if (tooltip.body) {
+                    const bodyLines = tooltip.body.map(b => b.lines);
+                    const tableBody = document.createElement('tbody');
+                    bodyLines.forEach((body, i) => {
+                        const colors = tooltip.labelColors[i];
+                        const span = document.createElement('span');
+                        span.style.background = colors.backgroundColor;
+                        span.style.borderColor = colors.borderColor;
+                        span.style.borderWidth = '2px';
+                        span.style.marginRight = '10px';
+                        span.style.height = '10px';
+                        span.style.width = '10px';
+                        span.style.display = 'inline-block';
+                        span.style.borderRadius = '2px';
+
+                        const tr = document.createElement('tr');
+                        const td = document.createElement('td');
+                        const text = body[0]; 
+                        const parts = text.split(':');
+                        const label = parts[0];
+                        const val = parts.slice(1).join(':');
+
+                        td.innerHTML = '';
+                        td.appendChild(span);
+                        td.appendChild(document.createTextNode(label));
+                        const valSpan = document.createElement('span');
+                        valSpan.innerText = val;
+                        valSpan.style.fontWeight = 'bold';
+                        valSpan.style.marginLeft = '8px';
+                        valSpan.style.color = colors.backgroundColor;
+                        td.appendChild(valSpan);
+                        tr.appendChild(td);
+                        tableBody.appendChild(tr);
+                    });
+                    const tableRoot = tooltipEl.querySelector('table');
+                    while (tableRoot.firstChild) { tableRoot.firstChild.remove(); }
+                    tableRoot.appendChild(tableBody);
+                }
+
+                const {offsetLeft: positionX, offsetTop: positionY} = chart.canvas;
+                tooltipEl.style.opacity = 1;
+                let left = positionX + tooltip.caretX;
+                if (left < 100) left += 120; 
+                tooltipEl.style.left = left + 'px';
+                tooltipEl.style.top = positionY + tooltip.caretY + 'px';
+            };
+
+            reportChartInstance = new Chart(ctx, {
+                type: 'doughnut',
                 data: {
-                    labels: ['Fluxo de Caixa'],
-                    datasets: [
-                        {
-                            label: 'Entradas (Recebidos + Aportes)',
-                            data: [totalCollected + totalInjected],
-                            backgroundColor: 'rgba(34, 197, 94, 0.7)', 
-                            borderColor: 'rgba(34, 197, 94, 1)',
-                            borderWidth: 1,
-                            maxBarThickness: 100 
-                        },
-                        {
-                            label: 'Saídas (Despesas + Empréstimos)',
-                            data: [totalExpenses + totalDeployed],
-                            backgroundColor: 'rgba(239, 68, 68, 0.7)', 
-                            borderColor: 'rgba(239, 68, 68, 1)',
-                            borderWidth: 1,
-                            maxBarThickness: 100 
-                        }
-                    ]
+                    labels: chartLabels,
+                    datasets: [{
+                        data: chartData,
+                        backgroundColor: chartColors,
+                        borderWidth: 0,
+                        hoverOffset: 15,
+                        borderRadius: 3,
+                        spacing: 2
+                    }]
                 },
                 options: {
                     responsive: true,
-                    scales: {
-                        y: { beginAtZero: true }
-                    },
+                    maintainAspectRatio: false,
+                    cutout: '70%', 
                     plugins: {
-                        legend: { position: 'top' },
+                        legend: { display: false },
                         tooltip: {
+                            enabled: false, 
+                            external: externalTooltipHandler, 
                             callbacks: {
                                 label: function(context) {
-                                    return `${context.dataset.label}: ${money(context.raw)}`;
+                                    return `${context.label}: ${money(context.raw)}`;
                                 }
                             }
                         }
+                    },
+                    animation: {
+                        animateScale: true,
+                        animateRotate: true,
+                        duration: 1500,
+                        easing: 'easeOutQuart'
                     }
                 }
             });
 
-            // --- 9. REABILITAR BOTÃO E APLICAR ÍCONES/IDIOMA ---
             generateBtn.disabled = false;
             lucide.createIcons({nodes: resultsContainer.querySelectorAll('[data-lucide]')});
             applyLanguage(currentLang);
@@ -4963,14 +5274,18 @@ async function submitCollectorReport(collectorId) {
         /* === INICIO: REEMPLAZO COMPLETO (FASE 3 - BLOQUE 3/6) === */
 /* Reemplaza la función 'updateAdminNotificationsView' (aprox. línea 2583) */
 
+/* Reemplaza la función 'updateAdminNotificationsView' (aprox. línea 2583) */
+
+/* Reemplaza la función 'updateAdminNotificationsView' (aprox. línea 2011 o 2583 dependiendo de la versión) */
+
 function updateAdminNotificationsView() {
     const container = document.getElementById('admin-notifications-list');
     const badge = document.getElementById('admin-notification-badge');
-    if (!badge) return; // Si el badge no existe, la UI no está lista
+    if (!badge) return; 
 
     let notifications = [];
 
-    // 1. Buscar Pagos Pendientes de Verificación (Lógica existente)
+    // 1. Buscar Pagos Pendientes de Verificación
     allClients.forEach(client => {
         (client.loans || []).forEach((loan, loanIndex) => {
             (loan.history || []).forEach((payment, historyIndex) => {
@@ -4991,7 +5306,7 @@ function updateAdminNotificationsView() {
         });
     });
 
-    // 2. Buscar Liquidaciones Pendientes (Lógica existente)
+    // 2. Buscar Liquidaciones Pendientes
     allSettlements.forEach(settlement => {
         if (settlement && settlement.status === 'pending_verification') {
             const collector = allCollectors.find(c => c.id === settlement.collectorId);
@@ -5008,12 +5323,11 @@ function updateAdminNotificationsView() {
         }
     });
 
-    // --- [INICIO DE LA MODIFICACIÓN] ---
-    // 3. (NUEVO) Buscar Solicitudes de Refinanciamiento
+    // 3. Buscar Solicitudes de Refinanciamiento
     allClients.forEach(client => {
         if (client.refinanceRequest && client.refinanceRequest.status === 'pending') {
              notifications.push({
-                type: 'refinance', // <-- Nuevo tipo
+                type: 'refinance',
                 date: client.refinanceRequest.requestDate,
                 clientId: client.id,
                 clientName: client.name,
@@ -5023,22 +5337,22 @@ function updateAdminNotificationsView() {
             });
         }
     });
-    // --- [FIN DE LA MODIFICACIÓN] ---
     
-    // Ordenar por fecha (más reciente primero)
     notifications.sort((a, b) => (b.date?.seconds || 0) - (a.date?.seconds || 0));
 
-    // Actualizar el badge (SIEMPRE)
     badge.textContent = notifications.length;
     badge.style.display = notifications.length > 0 ? 'flex' : 'none';
     badge.classList.toggle('visible', notifications.length > 0);
 
-    // Renderizar la lista (SOLO SI LA VISTA ESTÁ ACTIVA Y EL CONTENEDOR EXISTE)
     const viewIsActive = document.getElementById('notifications-view')?.classList.contains('active');
     if (container && viewIsActive) {
         console.log("[ADMIN-APP] Renderizando lista de notificaciones...");
+        
+        const t = translations[currentLang];
+        
         if (notifications.length === 0) {
-            container.innerHTML = `<p class="no-items" style="text-align: center; padding: 20px; color: var(--text-secondary);">Nenhuma notificação pendente.</p>`;
+            // CORRECCIÓN CLAVE: Añadido data-lang-key="noNotifications"
+            container.innerHTML = `<p class="no-items" style="text-align: center; padding: 20px; color: var(--text-secondary);" data-lang-key="noNotifications">${t.noNotifications}</p>`;
             return;
         }
 
@@ -5049,14 +5363,13 @@ function updateAdminNotificationsView() {
             const photoUrl = n.profilePictureUrl || placeholderUrl;
             
             let subtitle = '';
+            
             if (n.type === 'payment') {
-                subtitle = `Enviou um pagamento de <strong>${money(n.amount)}</strong>. Por favor, verifique.`;
+                subtitle = `${t.notifPaymentMsg} <strong>${money(n.amount)}</strong>. ${t.notifVerifyMsg}`;
             } else if (n.type === 'settlement') {
-                subtitle = `Enviou uma liquidação de <strong>${money(n.amount)}</strong>. Por favor, aprove.`;
+                subtitle = `${t.notifSettlementMsg} <strong>${money(n.amount)}</strong>. ${t.notifApproveMsg}`;
             } else if (n.type === 'refinance') {
-                // --- [INICIO DE LA MODIFICACIÓN] ---
-                subtitle = `Solicitou um refinanciamento de <strong>${money(n.amount)}</strong>. Verifique a identidade.`;
-                // --- [FIN DE LA MODIFICACIÓN] ---
+                subtitle = `${t.notifRefinanceMsg} <strong>${money(n.amount)}</strong>. ${t.notifIdentityMsg}`;
             }
 
             return `
@@ -6117,28 +6430,36 @@ function setupEventListeners() {
                     if (langDropdown) langDropdown.style.display = 'none';
                 }
                 const langBtn = target.closest('[data-lang]');
-                if(langBtn) {
-                    const newLang = langBtn.dataset.lang;
-                    
-                    // 1. Guardar y Aplicar
-                    localStorage.setItem('adminLanguage', newLang);
-                    applyLanguage(newLang);
-                    
-                    // 2. Forzar actualización de vistas dinámicas
-                    // Esto asegura que las listas (cobradores, dashboard) se traduzcan al instante
-                    if (document.getElementById('dashboard-view').classList.contains('active')) {
-                        updateDashboard();
-                    }
-                    if (document.getElementById('profile-view').classList.contains('active')) {
-                        updateProfileView();
-                    }
-                    
-                    // 3. Cerrar visualmente el menú dropdown
-                    const langDropdown = document.getElementById('lang-dropdown');
-                    if (langDropdown) langDropdown.style.display = 'none';
-                    
-                    showToast(`Idioma alterado para: ${langBtn.textContent.trim()}`);
+            if(langBtn) {
+                const newLang = langBtn.dataset.lang;
+                
+                // 1. Guardar y Aplicar
+                localStorage.setItem('adminLanguage', newLang);
+                applyLanguage(newLang);
+                
+                // 2. Forzar actualización de vistas dinámicas
+                if (document.getElementById('dashboard-view').classList.contains('active')) {
+                    updateDashboard();
                 }
+                if (document.getElementById('profile-view').classList.contains('active')) {
+                    updateProfileView();
+                }
+                if (document.getElementById('reports-view').classList.contains('active')) {
+                    updateReportsView(); 
+                }
+
+                // --- NUEVO: Actualizar notificaciones si es la vista activa ---
+                if (document.getElementById('notifications-view').classList.contains('active')) {
+                    updateAdminNotificationsView();
+                }
+                // --------------------------------------------------------------
+                
+                // 3. Cerrar menú
+                const langDropdown = document.getElementById('lang-dropdown');
+                if (langDropdown) langDropdown.style.display = 'none';
+                
+                showToast(`Idioma alterado para: ${langBtn.textContent.trim()}`);
+            }
                 
 
                 if (target.closest('#submit-post-btn')) {
@@ -6365,10 +6686,12 @@ function setupEventListeners() {
 
         
         function applyTheme(theme) {
-            document.body.classList.toggle('dark-mode', theme === 'dark');
+            const body = document.body;
             const themeToggle = document.getElementById('theme-toggle');
+            body.classList.toggle('dark-mode', theme === 'dark');
             if (themeToggle) {
-                themeToggle.innerHTML = `<i data-lucide="${theme === 'dark' ? 'sun' : 'moon'}"></i>`;
+                // MODIFICADO: Mantiene texto 'Tema' y tamaño grande
+                themeToggle.innerHTML = `<i data-lucide="${theme === 'dark' ? 'sun' : 'moon'}" style="width: 24px; height: 24px;"></i><span style="font-size: 0.85em; font-weight: 700; margin-top: 2px;">Tema</span>`;
                 lucide.createIcons({ nodes: [themeToggle] });
             }
         }
