@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -1088,7 +1087,7 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
     const translations = {
         pt: {
             dashboard: 'Painel', 
-            reports: 'Relatório Gráfico', // <--- CAMBIO AQUÍ
+            reports: 'Relatório Gráfico', 
             settings: 'Ajustes', profile: 'Perfil', map: 'Mapa',
             totalCapital: 'Capital Total', activeCollectors: 'Cobradores Ativos', activeClients: 'Clientes Ativos',
             collectionTeam: 'Equipe de Cobrança', addCollector: 'Adicionar Cobrador',
@@ -1133,10 +1132,8 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             community: 'Comunidade',
             notifications: 'Notificações',
             paymentVerification: 'Verificação de Pagamento',
-            settlementVerification: 'Verificação de Liquidação',
             refinanceRequest: 'Solicitação de Refinanciamento',
             aportarCapital: 'Aportar Capital',
-            // --- NUEVAS CLAVES REPORTE ---
             salary: 'Salário',
             calculatingFlow: 'CALCULANDO FLUXO...',
             capitalGiro: 'CAPITAL DE GIRO',
@@ -1146,7 +1143,6 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             netBalanceNeg: 'PREJUÍZO (PERDA)',
             distributionTitle: 'DISTRIBUIÇÃO DE FLUXO',
             newLoans: 'NOVOS EMPRÉSTIMOS',
-            settlements: 'LIQUIDAÇÕES',
             cashBalance: 'SALDO EM CAJA',
             noData: 'SEM DADOS',
             diagStableTitle: 'SISTEMA ESTÁVEL',
@@ -1165,12 +1161,10 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             inflowLabel: 'Entradas (Rec. + Aportes)',
             outflowLoansLabel: 'Saídas (Empréstimos)',
             outflowExpensesLabel: 'Saídas (Despesas)',
-            outflowSettlementsLabel: 'Saídas (Liquidações)',
             initialCapitalLabel: 'Capital Inicial (Saldo Base)',
             withdrawal: 'Retirada',
             notifPaymentMsg: 'Enviou um pagamento de',
             notifVerifyMsg: 'Por favor, verifique.',
-            notifSettlementMsg: 'Enviou uma liquidação de',
             notifApproveMsg: 'Por favor, aprove.',
             notifRefinanceMsg: 'Solicitou um refinanciamento de',
             notifIdentityMsg: 'Verifique a identidade.',
@@ -1182,12 +1176,21 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             generateReport: 'Gerar Relatório',
             kpiGlobalPatrimony: 'Total Patrimônio Neto',
             kpiGlobalDistributed: 'Capital Distribuído (Total)',
-            kpiGlobalCash: 'Capital em Caixas (Total)'
+            kpiGlobalCash: 'Capital em Caixas (Total)',
+            // --- NUEVOS TÉRMINOS CORREGIDOS ---
+            settlements: 'RETIRADAS',
+            outflowSettlementsLabel: 'Saídas (Retiradas)',
+            settlementVerification: 'Verificação de Retirada',
+            notifSettlementMsg: 'Enviou uma retirada de',
+            settlementHistory: 'Histórico de Retiradas',
+            registerSettlement: 'Registrar Retirada',
+            settlementRejected: 'Retirada Rejeitada',
+            settlementApproved: 'Retirada APROVADA com sucesso!'
         },
 
         es: {
             dashboard: 'Panel', 
-            reports: 'Reporte Gráfico', // <--- CAMBIO AQUÍ
+            reports: 'Reporte Gráfico', 
             settings: 'Ajustes', profile: 'Perfil', map: 'Mapa',
             totalCapital: 'Capital Total', activeCollectors: 'Cobradores Activos', activeClients: 'Clientes Activos',
             collectionTeam: 'Equipo de Cobranza', addCollector: 'Añadir Cobrador',
@@ -1231,7 +1234,6 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             community: 'Comunidad',
             notifications: 'Notificaciones',
             paymentVerification: 'Verificación de Pago',
-            settlementVerification: 'Verificación de Liquidación',
             refinanceRequest: 'Solicitud de Refinanciación',
             aportarCapital: 'Aportar Capital',
             salary: 'Salario',
@@ -1243,7 +1245,6 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             netBalanceNeg: 'PÉRDIDA (DÉFICIT)',
             distributionTitle: 'DISTRIBUCIÓN DE FLUJO',
             newLoans: 'NUEVOS PRÉSTAMOS',
-            settlements: 'LIQUIDACIONES',
             cashBalance: 'SALDO EN CAJA',
             noData: 'SIN DATOS',
             diagStableTitle: 'SISTEMA ESTABLE',
@@ -1262,12 +1263,10 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             inflowLabel: 'Entradas (Rec. + Aportes)',
             outflowLoansLabel: 'Salidas (Préstamos)',
             outflowExpensesLabel: 'Salidas (Gastos)',
-            outflowSettlementsLabel: 'Salidas (Liquidaciones)',
             initialCapitalLabel: 'Capital Inicial (Saldo Base)',
             withdrawal: 'Retiro',
             notifPaymentMsg: 'Envió un pago de',
             notifVerifyMsg: 'Por favor, verifique.',
-            notifSettlementMsg: 'Envió una liquidación de',
             notifApproveMsg: 'Por favor, apruebe.',
             notifRefinanceMsg: 'Solicitó un refinanciamiento de',
             notifIdentityMsg: 'Verifique la identidad.',
@@ -1279,11 +1278,20 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             generateReport: 'Generar Reporte',
             kpiGlobalPatrimony: 'Patrimonio Neto Total',
             kpiGlobalDistributed: 'Capital Distribuido (Total)',
-            kpiGlobalCash: 'Capital en Cajas (Total)'
+            kpiGlobalCash: 'Capital en Cajas (Total)',
+            // --- NUEVOS TÉRMINOS CORREGIDOS ---
+            settlements: 'RETIRO DE CAJA',
+            outflowSettlementsLabel: 'Salidas (Retiros de Caja)',
+            settlementVerification: 'Verificación de Retiro',
+            notifSettlementMsg: 'Envió un retiro de',
+            settlementHistory: 'Historial de Retiros',
+            registerSettlement: 'Registrar Retiro',
+            settlementRejected: 'Retiro Rechazado',
+            settlementApproved: '¡Retiro APROBADO con éxito!'
         },
         en: {
             dashboard: 'Dashboard',
-            reports: 'Graphic Report', // <--- CAMBIO AQUÍ
+            reports: 'Graphic Report', 
             settings: 'Settings', profile: 'Profile', map: 'Map',
             totalCapital: 'Total Capital', activeCollectors: 'Active Collectors', activeClients: 'Active Clients',
             collectionTeam: 'Collection Team', addCollector: 'Add Collector',
@@ -1327,7 +1335,6 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             community: 'Community',
             notifications: 'Notifications',
             paymentVerification: 'Payment Verification',
-            settlementVerification: 'Settlement Verification',
             refinanceRequest: 'Refinance Request',
             contributeCapital: 'Contribute Capital',
             salary: 'Salary',
@@ -1339,7 +1346,6 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             netBalanceNeg: 'LOSS (DEFICIT)',
             distributionTitle: 'FLOW DISTRIBUTION',
             newLoans: 'NEW LOANS',
-            settlements: 'SETTLEMENTS',
             cashBalance: 'CASH BALANCE',
             noData: 'NO DATA',
             diagStableTitle: 'STABLE SYSTEM',
@@ -1358,12 +1364,10 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             inflowLabel: 'Inflows (Rec. + Injections)',
             outflowLoansLabel: 'Outflows (Loans)',
             outflowExpensesLabel: 'Outflows (Expenses)',
-            outflowSettlementsLabel: 'Outflows (Settlements)',
             initialCapitalLabel: 'Initial Capital (Base Balance)',
             withdrawal: 'Withdrawal',
             notifPaymentMsg: 'Sent a payment of',
             notifVerifyMsg: 'Please verify.',
-            notifSettlementMsg: 'Sent a settlement of',
             notifApproveMsg: 'Please approve.',
             notifRefinanceMsg: 'Requested a refinance of',
             notifIdentityMsg: 'Verify identity.',
@@ -1375,7 +1379,16 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             generateReport: 'Generate Report',
             kpiGlobalPatrimony: 'Total Net Worth',
             kpiGlobalDistributed: 'Total Distributed Capital',
-            kpiGlobalCash: 'Total Cash on Hand'
+            kpiGlobalCash: 'Total Cash on Hand',
+            // --- NEW KEYS ---
+            settlements: 'CASH WITHDRAWALS',
+            outflowSettlementsLabel: 'Outflows (Cash Withdrawals)',
+            settlementVerification: 'Withdrawal Verification',
+            notifSettlementMsg: 'Sent a cash withdrawal of',
+            settlementHistory: 'Withdrawal History',
+            registerSettlement: 'Register Withdrawal',
+            settlementRejected: 'Withdrawal Rejected',
+            settlementApproved: 'Withdrawal APPROVED successfully!'
         }
     };
 
@@ -4179,15 +4192,17 @@ async function submitCollectorReport(collectorId) {
 
 
         function showSettlementModal(collectorId, collectorName, currentCapitalOnHand) {
-    // Reutilizamos el modal overlay genérico 'reportOptionsModal'
     const modal = document.getElementById('reportOptionsModal');
-    modal.classList.add('active'); // Muestra el overlay oscuro
+    modal.classList.add('active'); 
 
+    // CORRECCIÓN: Título dinámico desde 'translations'
+    const t = translations[currentLang];
+    
     modal.innerHTML = `
     <div class="modal-content" style="max-width: 400px;">
         <button class="close-modal-btn" style="position: absolute; top: 10px; right: 10px; background: none; border: none; font-size: 24px; color: var(--text-secondary);">&times;</button>
 
-        <h3 style="margin-bottom: 15px; text-align: center;">Registrar Liquidación</h3>
+        <h3 style="margin-bottom: 15px; text-align: center;">${t.registerSettlement}</h3>
         <p style="text-align: center; color: var(--text-secondary); margin-bottom: 25px;">
             Para: <strong>${collectorName}</strong><br>
             (Capital em Mãos Atual: ${money(currentCapitalOnHand)})
@@ -4210,19 +4225,16 @@ async function submitCollectorReport(collectorId) {
     </div>
     `;
 
-    // --- Lógica de los Botones del Modal ---
     const confirmBtn = modal.querySelector('#confirm-settlement-btn');
     const cancelBtn = modal.querySelector('#cancel-settlement-btn');
     const closeModalBtn = modal.querySelector('.close-modal-btn');
     const amountInput = modal.querySelector('#settlement-amount');
     const notesInput = modal.querySelector('#settlement-notes');
 
-    // Cerrar modal
     const closeModal = () => modal.classList.remove('active');
     cancelBtn.addEventListener('click', closeModal);
     closeModalBtn.addEventListener('click', closeModal);
 
-    // Confirmar y Guardar
     confirmBtn.addEventListener('click', async () => {
         const amount = parseFloat(amountInput.value);
         if (isNaN(amount) || amount <= 0) {
@@ -4238,25 +4250,21 @@ async function submitCollectorReport(collectorId) {
 
         const settlementData = {
             collectorId: collectorId,
-            collectorName: collectorName, // Guarda el nombre para facilitar reportes
+            collectorName: collectorName, 
             amount: amount,
             notes: notesInput.value.trim(),
-            date: serverTimestamp(), // Fecha y hora del servidor
-            adminId: auth.currentUser ? auth.currentUser.uid : 'admin_manual', // Quién registró
-            status: 'approved' // <-- [¡CORRECCIÓN CRÍTICA AÑADIDA!]
+            date: serverTimestamp(), 
+            adminId: auth.currentUser ? auth.currentUser.uid : 'admin_manual', 
+            status: 'approved' 
         };
 
         try {
-            // Añade el documento a la nueva colección 'settlements'
             await addDoc(collection(db, 'companies', currentCompanyId, 'settlements'), settlementData);
-            showToast('Liquidación registrada com sucesso!');
+            showToast(t.settlementApproved);
             closeModal();
-            // El 'onSnapshot' de la colección 'settlements' (línea 1000)
-            // detectará este nuevo documento APROBADO, llamará a
-            // checkAndRunGlobalUpdate() y la contabilidad se recalculará automáticamente.
         } catch (error) {
-            console.error("Erro ao registrar liquidação:", error);
-            showToast('Erro ao salvar a liquidação.', true);
+            console.error("Erro ao registrar retirada:", error);
+            showToast('Erro ao salvar a retirada.', true);
             confirmBtn.disabled = false;
             confirmBtn.innerHTML = `Confirmar Registro`;
         }
@@ -4552,10 +4560,9 @@ async function submitCollectorReport(collectorId) {
     function showCollectorDetails(collectorId) {
             const detailView = document.getElementById('collectorDetailView');
             const collector = allCollectors.find(c => c.id === collectorId);
-            const clients = allClients.filter(c => c.collectorId === collectorId); // <-- Todos los clientes (para contabilidad)
+            const clients = allClients.filter(c => c.collectorId === collectorId); 
             if (!collector) return;
 
-            // --- Lógica para cerrar el mapa si estaba abierto (Sin cambios) ---
             const mapView = document.getElementById('map-view');
             if (mapView && mapView.classList.contains('active')) {
                 mapView.classList.remove('active');
@@ -4569,32 +4576,26 @@ async function submitCollectorReport(collectorId) {
             const isTrackingActive = collector.isRealtimeTrackingActive;
             const lastSeenTime = formatTimestamp(collector.lastLocationUpdate);
 
-            // --- [INICIO FASE 3 (ADMIN): LECTURA DE MÉTRICAS] ---
             const metrics = calculatedCollectorMetrics.get(collectorId);
             
             if (!metrics) {
-                console.warn(`Métricas para ${collectorId} aún no calculadas. Mostrando modal con datos incompletos.`);
+                console.warn(`Métricas para ${collectorId} aún no calculadas.`);
                 detailView.innerHTML = `<header class="modal-header">...</header><div class="modal-content-wrapper container"><p>Calculando dados...</p></div>`;
             }
             
-            // === [INICIO DE LA CORRECCIÓN] ===
             const {
-                capitalOnHand = 0, // KPI 1
-                totalDistributedCapital = 0, // KPI 2
-                totalPatrimonio = 0, // KPI 3
+                capitalOnHand = 0, 
+                totalDistributedCapital = 0, 
+                totalPatrimonio = 0, 
                 status = { textKey: 'inOrder', color: 'var(--accent-green)', icon: 'check-circle' },
-                totalClientsCount, // (Ej: 35)
-                activeClientsCount = 0, // (Ej: 30)
+                totalClientsCount, 
+                activeClientsCount = 0, 
                 lateClientsCount = 0,
                 dailyCollected = 0,
                 weeklyCollected = 0,
                 monthlyCollected = 0
             } = metrics || {}; 
-            // === [FIN DE LA CORRECCIÓN] ===
-            // --- [FIN FASE 3 (ADMIN): LECTURA DE MÉTRICAS] ---
 
-
-            // --- [INICIO: Lógica de Lista de Clientes (Sin cambios)] ---
             let clientsListHtml = '';
             if (clients.length > 0) {
                 const clientsWithDisplayLoan = clients.map(client => {
@@ -4658,9 +4659,7 @@ async function submitCollectorReport(collectorId) {
             } else {
                 clientsListHtml = '<p>Nenhum cliente para este cobrador.</p>';
             }
-            // --- [FIN: Lógica de Lista de Clientes] ---
 
-            // --- HTML (Actualizado para usar las variables de métricas) ---
             detailView.innerHTML = `
                 <header class="modal-header">
                     <button id="closeDetailView"><i data-lucide="arrow-left"></i></button>
@@ -4690,43 +4689,33 @@ async function submitCollectorReport(collectorId) {
                         </div>
                     </div>
 
-                    <!-- --- [INICIO FASE 3 (ADMIN): NOVOS KPIs] --- -->
-                    <!-- KPI 3: Capital Total (Patrimônio) -->
                     <div class="kpi-card" style="margin-bottom: 20px; text-align: center; border-color: var(--accent-purple); border-width: 2px;">
                         <h3 class="kpi-title" style="justify-content: center; color: var(--accent-purple);"><i data-lucide="gem"></i> Capital Total (Patrimônio)</h3>
                         <p class="kpi-value" id="kpi-total-patrimonio" style="color: var(--accent-purple); font-size: 1.8em;">${money(totalPatrimonio)}</p>
                     </div>
                     
-                    <!-- KPI 1: Capital em Mãos (Efectivo) -->
                     <div class="kpi-card" style="margin-bottom: 20px; text-align: center; border-color: var(--accent-green); border-width: 2px;">
                         <h3 class="kpi-title" style="justify-content: center; color: var(--accent-green);" data-lang-key="capitalOnHand"><i data-lucide="banknote"></i></h3>
                         <p class="kpi-value" id="kpi-capital-total" style="color: var(--accent-green);">${money(capitalOnHand)}</p>
                     </div>
 
-                    <!-- KPI 2: Capital Distribuido (en la Calle) -->
                     <div class="kpi-card" style="margin-bottom: 20px; text-align: center; border-color: var(--warning-color); border-width: 2px;">
                         <h3 class="kpi-title" style="justify-content: center; color: var(--warning-color);"><i data-lucide="briefcase"></i> Capital Distribuído</h3>
                         <p class="kpi-value" id="kpi-distributed-capital" style="color: var(--warning-color);">${money(totalDistributedCapital)}</p>
                     </div>
-                    <!-- --- [FIN FASE 3 (ADMIN)] --- -->
 
-                    <!-- === [INICIO DE LA CORRECCIÓN] === -->
                     <section class="kpi-grid" style="grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
                         <div class="kpi-card">
                             <h3 class="kpi-title" data-lang-key="status"><i data-lucide="${status.icon}"></i></h3>
                             <p class="kpi-value" style="color: ${status.color}; font-size: 1.2em;">${translations[currentLang][status.textKey]}</p>
                         </div>
                         
-                        <!-- KPI NUEVO: Clientes Activos -->
                         <div class="kpi-card">
                             <h3 class="kpi-title" data-lang-key="activeClients"><i data-lucide="user-check"></i></h3>
                             <p class="kpi-value">${activeClientsCount}</p>
                         </div>
                         
-                        <!-- KPI EXISTENTE: Clientes Totales (AHORA "Clientes Registrados") -->
                         <div class="kpi-card">
-                            <!-- 1. Quitamos data-lang-key="clients" -->
-                            <!-- 2. Añadimos el texto "Clientes Registrados" -->
                             <h3 class="kpi-title"><i data-lucide="users"></i> Clientes Registrados</h3>
                             <p class="kpi-value">${totalClientsCount !== undefined ? totalClientsCount : activeClientsCount}</p>
                         </div>
@@ -4736,20 +4725,19 @@ async function submitCollectorReport(collectorId) {
                             <p class="kpi-value" style="color: var(--danger-color);">${lateClientsCount}</p>
                         </div>
                     </section>
-                    <!-- === [FIN DE LA CORRECCIÓN] === -->
 
                     <section style="display: flex; flex-direction: column; gap: 10px; margin-top: 20px; margin-bottom: 20px;">
                         <div class="kpi-card" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 15px;">
                             <h3 class="kpi-title" data-lang-key="collectedToday" style="margin: 0; font-size: 0.95em;"><i data-lucide="sun" style="width: 16px; height: 16px;"></i></h3>
-                            <p class="kpi-value" style="font-size: 1.2em; color: var(--accent-green);">${money(dailyCollected)}</p> <!-- <- USA DATO REFACTORIZADO -->
+                            <p class="kpi-value" style="font-size: 1.2em; color: var(--accent-green);">${money(dailyCollected)}</p>
                         </div>
                         <div class="kpi-card" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 15px;">
                             <h3 class="kpi-title" data-lang-key="collectedWeek" style="margin: 0; font-size: 0.95em;"><i data-lucide="calendar" style="width: 16px; height: 16px;"></i></h3>
-                            <p class="kpi-value" style="font-size: 1.2em; color: var(--accent-green);">${money(weeklyCollected)}</p> <!-- <- USA DATO REFACTORIZADO -->
+                            <p class="kpi-value" style="font-size: 1.2em; color: var(--accent-green);">${money(weeklyCollected)}</p>
                         </div>
                         <div class="kpi-card" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 15px;">
                             <h3 class="kpi-title" data-lang-key="collectedMonth" style="margin: 0; font-size: 0.95em;"><i data-lucide="calendar-days" style="width: 16px; height: 16px;"></i></h3>
-                            <p class="kpi-value" style="font-size: 1.2em; color: var(--accent-green);">${money(monthlyCollected)}</p> <!-- <- USA DATO REFACTORIZADO -->
+                            <p class="kpi-value" style="font-size: 1.2em; color: var(--accent-green);">${money(monthlyCollected)}</p>
                         </div>
                     </section>
 
@@ -4759,7 +4747,8 @@ async function submitCollectorReport(collectorId) {
                     </div>
 
                     <section style="margin-top: 30px;">
-                    <h2 class="section-title">Histórico de Liquidações</h2>
+                    <!-- CORRECCIÓN CLAVE: Título con traducción dinámica -->
+                    <h2 class="section-title" data-lang-key="settlementHistory">Histórico de Liquidações</h2>
                     <div class="item-list" id="settlements-history-list">
                     <!-- Las liquidaciones se cargarán aquí -->
                 </div>
@@ -4767,26 +4756,25 @@ async function submitCollectorReport(collectorId) {
                 </div>
                  <div class="action-buttons">
                     <button id="download-report-btn" data-collector-id="${collectorId}" class="btn-secondary"><i data-lucide="download"></i> <span data-lang-key="downloadReport"></span></button>
+                    <!-- CORRECCIÓN CLAVE: Botón con traducción dinámica -->
                     <button id="register-settlement-btn" data-collector-id="${collectorId}" class="btn-primary">
-                    <i data-lucide="arrow-down-circle"></i> Registrar Liquidación
+                    <i data-lucide="arrow-down-circle"></i> <span data-lang-key="registerSettlement">Registrar Retiro</span>
                     </button>
                     <button id="add-capital-injection-btn" data-collector-id="${collectorId}" class="btn-primary" style="flex-grow: 1; background-color: var(--accent-green); border-color: var(--accent-green);">
                         <i data-lucide="arrow-up-circle"></i> <span data-lang-key="aportarCapital"></span>
                     </button>
-                <!-- Botón Desbloquear App -->
                     <button id="unlock-app-btn" data-collector-id="${collectorId}" class="btn-primary" style="flex-grow: 1; background-color: var(--warning-color); border-color: var(--warning-color); color: white;">
                         <i data-lucide="lock-open"></i> Desbloquear (30m)
                     </button></div>
             `;
 
-            // --- Lógica de renderizado de liquidaciones (Sin cambios) ---
             const settlementsListContainer = detailView.querySelector('#settlements-history-list');
             const collectorSettlements = allSettlements
                 .filter(s => s.collectorId === collectorId)
                 .sort((a, b) => (b.date?.seconds || 0) - (a.date?.seconds || 0)); 
             if (settlementsListContainer) {
                 if (collectorSettlements.length === 0) {
-                    settlementsListContainer.innerHTML = `<p class="no-items">Nenhuma liquidação registrada para este cobrador.</p>`;
+                    settlementsListContainer.innerHTML = `<p class="no-items">Nenhuma retirada registrada para este cobrador.</p>`;
                 } else {
                     settlementsListContainer.innerHTML = collectorSettlements.map(settlement => {
                         const date = settlement.date?.seconds ? new Date(settlement.date.seconds * 1000) : null;
@@ -4805,9 +4793,7 @@ async function submitCollectorReport(collectorId) {
                     }).join('');
                 }
             }
-            // --- Fin lógica liquidaciones ---
             
-            // --- Lógica de listeners (Sin cambios) ---
             detailView.classList.add('active');
             lucide.createIcons({nodes: detailView.querySelectorAll('[data-lucide]')});
             applyLanguage(currentLang);
@@ -4825,28 +4811,23 @@ async function submitCollectorReport(collectorId) {
             detailView.querySelector('#download-report-btn').addEventListener('click', (e) => showReportOptionsModal(e.currentTarget.dataset.collectorId));
             detailView.querySelector('.collector-map-btn').addEventListener('click', (e) => focusOnCollector(e.currentTarget.dataset.collectorId));
 
-            // (El listener de 'register-settlement-btn' usa 'capitalOnHand', 
-            // que ahora es el valor 100% correcto y refactorizado)
             const registerSettlementBtn = detailView.querySelector('#register-settlement-btn');
             if (registerSettlementBtn) {
                 registerSettlementBtn.addEventListener('click', (e) => {
                     const collectorId = e.currentTarget.dataset.collectorId;
                     const collector = allCollectors.find(c => c.id === collectorId);
-                    // ¡Pasa el capitalOnHand refactorizado al modal!
                     showSettlementModal(collectorId, collector.name, capitalOnHand); 
                 });
             }
 
-            // --- [INICIO NUEVO LISTENER] ---
             const addCapitalBtn = detailView.querySelector('#add-capital-injection-btn');
             if (addCapitalBtn) {
                 addCapitalBtn.addEventListener('click', (e) => {
                     const collectorId = e.currentTarget.dataset.collectorId;
                     const collector = allCollectors.find(c => c.id === collectorId);
-                    // Llama a la nueva función que crearemos
                     showCapitalInjectionModal(collectorId, collector.name);
                 });
-            }// --- [INICIO NUEVO: DESBLOQUEO DE EMERGENCIA] ---
+            }
             const unlockBtn = detailView.querySelector('#unlock-app-btn');
             if (unlockBtn) {
                 unlockBtn.addEventListener('click', async (e) => {
@@ -4862,7 +4843,7 @@ async function submitCollectorReport(collectorId) {
 
                     try {
                         const unlockUntil = new Date();
-                        unlockUntil.setMinutes(unlockUntil.getMinutes() + 30); // Sumar 30 min
+                        unlockUntil.setMinutes(unlockUntil.getMinutes() + 30); 
 
                         await updateDoc(doc(db, 'collectors', cId), {
                             tempUnlockUntil: Timestamp.fromDate(unlockUntil)
@@ -4874,10 +4855,6 @@ async function submitCollectorReport(collectorId) {
                     }
                 });
             }
-            // --- [FIN NUEVO] ---
-            // --- [FIN NUEVO LISTENER] ---
-
-
         }
 
 
@@ -7084,6 +7061,7 @@ async function showRefinanceVerificationModal(clientId) {
     </script>
 </body>
     </html>
+
 
 
 
