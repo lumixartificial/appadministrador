@@ -1185,8 +1185,9 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             registerSettlement: 'Registrar Retirada',
             settlementRejected: 'Retirada Rejeitada',
             settlementApproved: 'Retirada APROVADA com sucesso!',
-            // --- NUEVA CLAVE ---
-            downloadGraphicPDF: 'Baixar PDF Gráfico'
+            downloadGraphicPDF: 'Baixar PDF Gráfico',
+            // --- NUEVO ---
+            chartCenterBalance: 'SALDO (CAIXA)' 
         },
 
         es: {
@@ -1288,8 +1289,9 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             registerSettlement: 'Registrar Retiro',
             settlementRejected: 'Retiro Rechazado',
             settlementApproved: '¡Retiro APROBADO con éxito!',
-            // --- NUEVA CLAVE ---
-            downloadGraphicPDF: 'Descargar PDF Gráfico'
+            downloadGraphicPDF: 'Descargar PDF Gráfico',
+            // --- NUEVO ---
+            chartCenterBalance: 'SALDO (CAJA)' 
         },
         en: {
             dashboard: 'Dashboard',
@@ -1390,8 +1392,9 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             registerSettlement: 'Register Withdrawal',
             settlementRejected: 'Withdrawal Rejected',
             settlementApproved: 'Withdrawal APPROVED successfully!',
-            // --- NUEVA CLAVE ---
-            downloadGraphicPDF: 'Download Graphic PDF'
+            downloadGraphicPDF: 'Download Graphic PDF',
+            // --- NUEVO ---
+            chartCenterBalance: 'CASH BALANCE' 
         }
     };
 
@@ -3328,8 +3331,12 @@ async function submitCollectorReport(collectorId) {
 
             // Fechas por defecto
             const today = new Date();
-            const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-            if (!dateStartInput.value) dateStartInput.value = firstDayOfMonth.toISOString().split('T')[0];
+            // CAMBIO: Calculamos 30 días atrás
+            const thirtyDaysAgo = new Date(today);
+            thirtyDaysAgo.setDate(today.getDate() - 30);
+
+            // Usamos thirtyDaysAgo en lugar de firstDayOfMonth
+            if (!dateStartInput.value) dateStartInput.value = thirtyDaysAgo.toISOString().split('T')[0];
             if (!dateEndInput.value) dateEndInput.value = today.toISOString().split('T')[0];
 
             resultsContainer.innerHTML = `<div class="loading" style="padding: 80px; text-align: center;"><i data-lucide="aperture" style="animation: spin 3s linear infinite; width: 60px; height: 60px; color: #00f2ff;"></i><p style="margin-top:20px; color: #00f2ff; font-family: monospace; letter-spacing: 3px; font-size: 1.2em;">${t.calculatingFlow}</p></div>`;
@@ -3535,15 +3542,19 @@ async function submitCollectorReport(collectorId) {
                 ">
                     <div style="position: absolute; top: -50px; right: -50px; width: 200px; height: 200px; background: ${diagColor}; filter: blur(150px); opacity: 0.15; pointer-events: none;"></div>
 
-                    <!-- GRÁFICO (IZQUIERDA) -->
-                    <div style="position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 350px;">
-                        <div style="position: absolute; top: 0; left: 0; color: #64748b; font-size: 0.8em; letter-spacing: 2px; font-weight: 700;">
+                     
+                        
+                        <!-- GRÁFICO CON TÍTULO CENTRADO -->
+                    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%;">
+
+                        <!-- Título Agregado -->
+                        <div style="margin-bottom: 20px; color: #64748b; font-size: 0.8em; letter-spacing: 2px; font-weight: 700; text-align: center; width: 100%;">
                             ${t.distributionTitle}
                         </div>
-                        
+
                         <div style="position: relative; height: 320px; width: 320px;">
                             <canvas id="ultra-chart"></canvas>
-                            
+
                             <!-- CENTRO HOLOGRÁFICO -->
                             <div style="
                                 position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
@@ -3558,8 +3569,11 @@ async function submitCollectorReport(collectorId) {
                                 <div style="width: 80%; height: 1px; background: #334155; margin: 6px auto;"></div>
                                 <p style="font-size: 0.65em; color: #94a3b8; margin: 0; letter-spacing: 1px;">${t.totalOutflow}</p>
                                 <p style="font-size: 1.05em; color: #ef4444; font-weight: 700; margin: 2px 0;">-${money(totalOutflow)}</p>
-                                <div style="margin-top: 8px; padding: 4px 10px; background: ${diagColor}20; border-radius: 12px; display: inline-block; border: 1px solid ${diagColor}40;">
-                                    <span style="color: ${diagColor}; font-size: 0.85em; font-weight: 800;">${netBalance >= 0 ? '+' : ''}${money(netBalance)}</span>
+                                 <div style="margin-top: 8px; padding: 4px 10px; background: ${diagColor}20; border-radius: 12px; display: flex; flex-direction: column; align-items: center; border: 1px solid ${diagColor}40;">
+                                    <!-- Título agregado -->
+                                    <span style="font-size: 0.55em; font-weight: 700; color: ${diagColor}; margin-bottom: 1px; letter-spacing: 0.5px;">${t.chartCenterBalance}</span>
+                                    <!-- Valor -->
+                                    <span style="color: ${diagColor}; font-size: 0.95em; font-weight: 800;">${netBalance >= 0 ? '+' : ''}${money(netBalance)}</span>
                                 </div>
                             </div>
                         </div>
@@ -6561,6 +6575,19 @@ function updateAdminNotificationsView() {
 /* Reemplaza la función 'setupEventListeners' (aprox. línea 2651) */
 
 function setupEventListeners() {
+            // --- NUEVO: La barra desaparece al soltar el dedo ---
+    document.addEventListener('touchend', (e) => {
+        const tooltipEl = document.getElementById('chartjs-tooltip');
+        
+        // Si soltaste el dedo sobre el gráfico...
+        if (tooltipEl && e.target.id === 'ultra-chart') {
+            // ...ocultamos la barra inmediatamente (con un pequeño retraso técnico)
+            setTimeout(() => { 
+                tooltipEl.style.opacity = '0'; 
+            }, 100); 
+        }
+    });
+    // ---------------------------------------------------- 
 
             window.addEventListener('popstate', (event) => {
                 console.log("[POPSTATE] Evento popstate disparado.");
@@ -7266,10 +7293,3 @@ async function showRefinanceVerificationModal(clientId) {
     </script>
 </body>
     </html>
-
-
-
-
-
-
-
