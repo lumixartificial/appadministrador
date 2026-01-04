@@ -226,13 +226,49 @@
     .modal-header button { background: none; border: none; color: var(--text-primary); cursor: pointer; margin-right: 15px; }
     .modal-title { font-size: 1.2em; font-weight: 600; flex-grow: 1; }
     .modal-content-wrapper { flex-grow: 1; overflow-y: auto; }
-    .action-buttons { background-color: var(--surface); border-top: 1px solid var(--border-color); padding: 15px 20px; display: flex; gap: 15px; margin-top: auto; position: sticky; bottom: 0; flex-shrink: 0; }
-    .action-buttons button { flex-grow: 1; padding: 15px; font-size: 1em; font-weight: 600; border: none; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; }
+     .action-buttons { 
+        background-color: var(--surface); 
+        border-top: 1px solid var(--border-color); 
+        padding: 15px 20px; 
+        display: flex; 
+        gap: 15px; 
+        margin-top: auto; 
+        position: sticky; 
+        bottom: 0; 
+        flex-shrink: 0;
+        
+        /* Habilitar deslizamiento con el dedo */
+        overflow-x: auto; 
+        white-space: nowrap;
+        -webkit-overflow-scrolling: touch; 
+        scrollbar-width: none; /* Ocultar barra en Firefox */
+    }
+    
+    /* Ocultar barra de scroll en Chrome/Safari */
+    .action-buttons::-webkit-scrollbar { display: none; }
+
+    .action-buttons button { 
+        flex-grow: 1; 
+        flex-shrink: 0; /* IMPIDE que se aplasten */
+        min-width: fit-content; /* ASEGURA que el texto quepa entero */
+        padding: 15px; 
+        font-size: 1em; 
+        font-weight: 600; 
+        border: none; 
+        border-radius: 8px; 
+        cursor: pointer; 
+        display: flex; 
+        align-items: center; 
+        justify-content: center; 
+        gap: 8px; 
+    }
+
+    /* COLORES (Se mantienen) */
     .btn-primary { background-color: var(--accent-blue); color: white; }
     .btn-secondary { background-color: transparent; color: var(--accent-blue); border: 2px solid var(--accent-blue); }
     .btn-danger { background-color: var(--danger-color); color: white; }
     .action-buttons button:disabled { background-color: var(--text-secondary); cursor: not-allowed; opacity: 0.7; }
-
+Con esto, los botones "Aportar Capital" y "Desbloquear" se podrán deslizar hacia los lados con el dedo si no caben en la pantalla, y se verán perfectos.
     .fab { position: fixed; bottom: 90px; right: 20px; width: 60px; height: 60px; background-color: var(--accent-blue); color: white; border-radius: 50%; border: none; box-shadow: 0 5px 15px rgba(0,0,0,0.2); display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 160; }
     .view { display: none; }
     .view.active { display: block; }
@@ -3741,15 +3777,16 @@ async function submitCollectorReport(collectorId) {
                 collectorFilter.value = currentSelectedCollector || 'all';
             }
 
-            // Fechas por defecto
+            // --- CORRECCIÓN DE FECHAS: POR DEFECTO "DESDE EL INICIO" ---
             const today = new Date();
-            // CAMBIO: Calculamos 30 días atrás
-            const thirtyDaysAgo = new Date(today);
-            thirtyDaysAgo.setDate(today.getDate() - 30);
+            
+            // Establecemos una fecha muy antigua como inicio predeterminado (ej: 01/01/2023)
+            // para que el reporte coincida con el Panel Principal (que muestra TODO el historial).
+            const beginningOfTime = '2023-01-01'; 
 
-            // Usamos thirtyDaysAgo en lugar de firstDayOfMonth
-            if (!dateStartInput.value) dateStartInput.value = thirtyDaysAgo.toISOString().split('T')[0];
+            if (!dateStartInput.value) dateStartInput.value = beginningOfTime;
             if (!dateEndInput.value) dateEndInput.value = today.toISOString().split('T')[0];
+            // -----------------------------------------------------------
 
             resultsContainer.innerHTML = `<div class="loading" style="padding: 80px; text-align: center;"><i data-lucide="aperture" style="animation: spin 3s linear infinite; width: 60px; height: 60px; color: #00f2ff;"></i><p style="margin-top:20px; color: #00f2ff; font-family: monospace; letter-spacing: 3px; font-size: 1.2em;">${t.calculatingFlow}</p></div>`;
             lucide.createIcons({nodes: resultsContainer.querySelectorAll('[data-lucide]')});
@@ -3758,11 +3795,9 @@ async function submitCollectorReport(collectorId) {
             const selectedCollectorId = collectorFilter.value;
             
             // Corrección de fechas para cubrir todo el día (00:00 a 23:59)
-            // Usamos split para evitar problemas de zona horaria con input date
             const startParts = dateStartInput.value.split('-');
             const endParts = dateEndInput.value.split('-');
             
-            // Mes en JS es 0-indexado (Enero = 0)
             const startDate = new Date(startParts[0], startParts[1] - 1, startParts[2], 0, 0, 0, 0);
             const endDate = new Date(endParts[0], endParts[1] - 1, endParts[2], 23, 59, 59, 999);
 
@@ -3786,7 +3821,6 @@ async function submitCollectorReport(collectorId) {
                         // Pagos
                         (loan.history || []).forEach(h => {
                             if (h.status !== 'pending_verification' && h.status !== 'rejected' && h.status !== 'postponed' && h.method !== 'migration') {
-                                // CORRECCIÓN: Si h.date es null/undefined (latencia), usar HOY
                                 let pd = new Date(); 
                                 if (h.date && h.date.seconds) {
                                     pd = new Date(h.date.seconds * 1000);
@@ -3804,7 +3838,6 @@ async function submitCollectorReport(collectorId) {
                             ld = new Date(loan.startDate.seconds * 1000);
                         }
                         
-                        // Incluimos si está en fecha O es nuevo (sin fecha confirmada aún)
                         if ((hasValidDate || !loan.migrationDate) && ld >= startDate && ld <= endDate && !loan.migrationDate) {
                             filteredNewLoans.push({ ...loan, clientName: client.name });
                         }
@@ -3812,11 +3845,10 @@ async function submitCollectorReport(collectorId) {
                 }
             });
 
-            // C. Gastos (LA CORRECCIÓN CRÍTICA ESTÁ AQUÍ)
+            // C. Gastos
             const filteredExpenses = allExpenses.filter(e => {
                 if (selectedCollectorId !== 'all' && e.collectorId !== selectedCollectorId) return false;
                 
-                // Forzamos fecha de hoy si es null/undefined (latencia de Firestore)
                 let d = new Date(); 
                 if (e.date && e.date.seconds) {
                     d = new Date(e.date.seconds * 1000);
@@ -3933,7 +3965,6 @@ async function submitCollectorReport(collectorId) {
 
             // 6. Construcción HTML
             resultsContainer.innerHTML = `
-                <!-- BOTÓN DE DESCARGA PDF -->
                 <div style="display: flex; justify-content: flex-end; margin-bottom: 15px;">
                     <button id="download-graphic-pdf-btn" class="btn-secondary" style="background-color: var(--surface); color: var(--accent-blue); border-color: var(--accent-blue); padding: 8px 16px; font-size: 0.9em; display: flex; align-items: center; gap: 8px;">
                         <i data-lucide="file-down"></i> ${t.downloadGraphicPDF}
@@ -3954,20 +3985,13 @@ async function submitCollectorReport(collectorId) {
                 ">
                     <div style="position: absolute; top: -50px; right: -50px; width: 200px; height: 200px; background: ${diagColor}; filter: blur(150px); opacity: 0.15; pointer-events: none;"></div>
 
-                     
-                        
-                        <!-- GRÁFICO CON TÍTULO CENTRADO -->
                     <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%;">
-
-                        <!-- Título Agregado -->
                         <div style="margin-bottom: 20px; color: #64748b; font-size: 0.8em; letter-spacing: 2px; font-weight: 700; text-align: center; width: 100%;">
                             ${t.distributionTitle}
                         </div>
 
                         <div style="position: relative; height: 320px; width: 320px;">
                             <canvas id="ultra-chart"></canvas>
-
-                            <!-- CENTRO HOLOGRÁFICO -->
                             <div style="
                                 position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
                                 text-align: center; width: 165px; height: 165px; border-radius: 50%;
@@ -3982,16 +4006,13 @@ async function submitCollectorReport(collectorId) {
                                 <p style="font-size: 0.65em; color: #94a3b8; margin: 0; letter-spacing: 1px;">${t.totalOutflow}</p>
                                 <p style="font-size: 1.05em; color: #ef4444; font-weight: 700; margin: 2px 0;">-${money(totalOutflow)}</p>
                                  <div style="margin-top: 8px; padding: 4px 10px; background: ${diagColor}20; border-radius: 12px; display: flex; flex-direction: column; align-items: center; border: 1px solid ${diagColor}40;">
-                                    <!-- Título agregado -->
                                     <span style="font-size: 0.55em; font-weight: 700; color: ${diagColor}; margin-bottom: 1px; letter-spacing: 0.5px;">${t.chartCenterBalance}</span>
-                                    <!-- Valor -->
                                     <span style="color: ${diagColor}; font-size: 0.95em; font-weight: 800;">${netBalance >= 0 ? '+' : ''}${money(netBalance)}</span>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- DATOS DETALLADOS (DERECHA) -->
                     <div style="display: flex; flex-direction: column; justify-content: center; gap: 20px;">
                         <div style="background: rgba(255,255,255,0.03); border-left: 4px solid ${diagColor}; padding: 20px; border-radius: 0 12px 12px 0;">
                             <h3 style="margin: 0 0 5px; color: ${diagColor}; font-size: 1.2em; text-shadow: 0 0 10px ${diagColor}40;">${diagTitle}</h3>
@@ -3999,8 +4020,6 @@ async function submitCollectorReport(collectorId) {
                             <p style="margin: 10px 0 0; color: #94a3b8; font-size: 0.85em; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 8px;">${maxExpenseMsg}</p>
                         </div>
                         <div style="display: flex; flex-direction: column; gap: 12px; max-height: 350px; overflow-y: auto; padding-right: 10px;">
-                            
-                            <!-- ITEM 1: SALDO -->
                             <div style="display: flex; align-items: center; justify-content: space-between; font-size: 0.9em; padding: 8px 12px; background: ${balanceValueColor}10; border-radius: 8px; border: 1px solid ${balanceValueColor}30;">
                                 <div style="display: flex; align-items: center; gap: 12px;">
                                     <div style="width: 12px; height: 12px; background: ${balanceValueColor}; border-radius: 3px; box-shadow: 0 0 8px ${balanceValueColor};"></div>
@@ -4057,7 +4076,6 @@ async function submitCollectorReport(collectorId) {
                 reportChartInstance = null;
             }
 
-            // Handler para tooltip
             const externalTooltipHandler = (context) => {
                 const {chart, tooltip} = context;
                 let tooltipEl = document.getElementById('chartjs-tooltip');
@@ -4184,7 +4202,6 @@ async function submitCollectorReport(collectorId) {
                 }
             });
 
-            // Configurar botón de descarga
             const downloadBtn = document.getElementById('download-graphic-pdf-btn');
             const newDownloadBtn = downloadBtn.cloneNode(true);
             downloadBtn.parentNode.replaceChild(newDownloadBtn, downloadBtn);
