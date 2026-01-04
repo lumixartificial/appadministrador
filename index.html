@@ -53,247 +53,344 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.css">
     <style>
-        :root {
-            --bg: #f1f5f9;
-            --surface: #ffffff;
-            --text-primary: #0f172a;
-            --text-secondary: #64748b;
-            --accent-green: #22c55e;
-            --accent-blue: #3b82f6;
-            --accent-blue-darker: #2563eb;
-            --border-color: #e2e8f0;
-            --danger-color: #ef4444;
-            --warning-color: #f59e0b;
-            --accent-purple: #6f42c1; 
-            --accent-purple-darker: #5a349c;
-        }
-        body.dark-mode {
-            --bg: #020617;
-            --surface: #0f172a;
-            --text-primary: #e2e8f0;
-            --text-secondary: #94a3b8;
-            --border-color: #1e293b;
-            --danger-color: #f87171;
-            --warning-color: #f59e0b;
-        }
-        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-        html, body {
-            height: 100%;
-            margin: 0;
-            padding: 0;
-            overflow: hidden; 
-        }
-        body { font-family: 'Inter', sans-serif; background-color: var(--bg); color: var(--text-primary); transition: background-color 0.3s, color 0.3s; }
+        /* === ESTILOS FUTURISTAS LUMIX NEON === */
+    :root {
+        --bg: #f1f5f9;
+        --surface: #ffffff;
+        --text-primary: #0f172a;
+        --text-secondary: #64748b;
+        /* Colores Neón Vibrantes */
+        --accent-green: #00ff9d; /* Verde Neón */
+        --accent-blue: #00f2ff;  /* Cyan Neón */
+        --accent-blue-darker: #00bcd4;
+        --accent-purple: #bd00ff; /* Púrpura Neón */
+        --accent-purple-darker: #8a00e6;
+        --warning-color: #ffae00; /* Naranja Neón */
+        --danger-color: #ff0055;  /* Rojo Neón */
+        --border-color: #e2e8f0;
+        --card-bg: #ffffff;
+        --card-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+    }
+
+    body.dark-mode {
+        --bg: #020617; /* Fondo Ultra Oscuro (Space Blue) */
+        --surface: #0f172a; /* Superficie Slate Oscura */
+        --text-primary: #f8fafc;
+        --text-secondary: #94a3b8;
+        --border-color: rgba(255, 255, 255, 0.1); /* Bordes sutiles */
+        --danger-color: #ff0055;
+        --warning-color: #ffae00;
         
-        @keyframes pulse {
-            0% { transform: scale(1); opacity: 0.9; }
-            50% { transform: scale(1.05); opacity: 1; }
-            100% { transform: scale(1); opacity: 0.9; }
-        }
+        /* Efecto Vidrio Oscuro para Tarjetas */
+        --card-bg: linear-gradient(145deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.6) 100%);
+        --card-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); /* Sombra profunda */
+    }
 
-        @keyframes subtle-glow {
-          0%, 100% {
-            filter: drop-shadow(0 0 8px rgba(138, 43, 226, 0.7));
-          }
-          50% {
-            filter: drop-shadow(0 0 16px rgba(57, 255, 20, 0.7));
-          }
-        }
+    /* --- SOLUCIÓN MÓVIL: CUADRÍCULA INTELIGENTE --- */
+    .kpi-grid { 
+        display: grid; 
+        /* En pantallas chicas (móvil), cada tarjeta ocupará todo el ancho. 
+           En PC, si caben más de 280px, se pondrán al lado. */
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); 
+        gap: 20px; 
+        margin-bottom: 30px; 
+    }
 
-        #splash-screen {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background-color: var(--bg);
-            display: flex; justify-content: center; align-items: center;
-            z-index: 10000;
-            transition: opacity 0.5s ease-out;
-        }
-        #splash-screen img { 
-            width: 150px; 
-            height: 150px; 
-            animation: pulse 2.5s infinite ease-in-out;
-        }
+    /* --- TARJETAS FUTURISTAS --- */
+    .kpi-card { 
+        background: var(--card-bg); 
+        padding: 25px; 
+        border-radius: 16px; 
+        box-shadow: var(--card-shadow); 
+        border: 1px solid var(--border-color); 
+        backdrop-filter: blur(10px); /* Efecto Blur */
+        transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    /* Efecto Hover (Levitar y Brillar) */
+    .kpi-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.4);
+        border-color: rgba(255, 255, 255, 0.2);
+    }
 
-        #login-view {
-            display: none; flex-direction: column; justify-content: center; align-items: center;
-            height: 100%; padding: 20px;
-            background-color: var(--bg);
-        }
-        .login-card {
-            background-color: transparent;
-            box-shadow: none;
-            border: none;
-            width: 100%; max-width: 400px; text-align: center;
-        }
-        
-        .login-card .logo {
-            display: flex;
-            justify-content: center;
-        }
+    .kpi-title { 
+        display: flex; 
+        align-items: center; 
+        gap: 10px; 
+        font-size: 0.85em; 
+        text-transform: uppercase; 
+        letter-spacing: 1px; /* Letras espaciadas estilo tech */
+        font-weight: 700;
+        color: var(--text-secondary); 
+        margin: 0 0 15px; 
+        opacity: 0.9;
+    }
+    
+    .kpi-value { 
+        font-size: 2em; /* Números más grandes */
+        font-weight: 800; 
+        margin: 0; 
+        letter-spacing: -0.5px;
+        text-shadow: 0 0 20px rgba(0,0,0,0.2); /* Sutil resplandor en texto */
+    }
 
-        .login-card .logo img { 
-            width: 140px; 
-            height: 140px; 
-            margin-bottom: 30px; 
-            animation: subtle-glow 5s ease-in-out infinite;
-        }
-        .login-card h2 { margin-bottom: 10px; font-size: 1.8em; font-weight: 700; color: var(--text-primary); }
-        .login-card p { margin-bottom: 40px; color: var(--text-secondary); }
-        .login-card .form-group { text-align: left; margin-bottom: 20px; }
-        .login-card .form-group label { display: block; margin-bottom: 8px; font-weight: 500; color: var(--text-secondary); }
-        .login-card .form-group input { 
-            width: 100%; 
-            padding: 15px; 
-            font-size: 1em; 
-            border-radius: 8px; 
-            border: 1px solid #334155; 
-            background-color: #1e293b; 
-            color: var(--text-primary); 
-            transition: border-color 0.2s, box-shadow 0.2s;
-        }
-        .login-card .form-group input:focus {
-            border-color: var(--accent-blue);
-            outline: none;
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
-        }
-        .login-card .btn-primary { 
-            width: 100%; 
-            padding: 15px; 
-            font-size: 1.1em;
-            font-weight: 600;
-            border: none; 
-            border-radius: 8px; 
-            cursor: pointer; 
-            background-color: var(--accent-blue); 
-            color: white; 
-            transition: background-color 0.2s;
-        }
-        .login-card .btn-primary:hover {
-            background-color: var(--accent-blue-darker);
-        }
+    /* ESTILOS RESTANTES NECESARIOS */
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body { height: 100%; margin: 0; padding: 0; overflow: hidden; }
+    body { font-family: 'Inter', sans-serif; background-color: var(--bg); color: var(--text-primary); transition: background-color 0.3s, color 0.3s; }
+    
+    @keyframes pulse { 0% { transform: scale(1); opacity: 0.9; } 50% { transform: scale(1.05); opacity: 1; } 100% { transform: scale(1); opacity: 0.9; } }
+    @keyframes subtle-glow { 0%, 100% { filter: drop-shadow(0 0 8px rgba(138, 43, 226, 0.7)); } 50% { filter: drop-shadow(0 0 16px rgba(57, 255, 20, 0.7)); } }
 
-        .form-group { margin-bottom: 20px; }
-        .form-group label { display: block; margin-bottom: 8px; font-weight: 500; color: var(--text-secondary); }
-        .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 12px; font-size: 1em; border-radius: 8px; border: 1px solid var(--border-color); background-color: var(--surface); color: var(--text-primary); }
-        .form-group input[readonly] { background-color: var(--bg); opacity: 0.7; cursor: not-allowed; }
-        .form-group .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
-        .day-selector { display: flex; justify-content: space-between; gap: 5px; margin-bottom: 20px; }
-        .day-selector label { padding: 10px; flex-grow: 1; font-weight: 600; font-size: 0.9em; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; background-color: var(--surface); border: 1px solid var(--border-color); border-radius: 8px; cursor: pointer; text-align: center; }
-        .day-selector input { display: none; }
-        .day-selector input:checked + label { background-color: var(--accent-blue); color: white; border-color: var(--accent-blue); }
+    #splash-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: var(--bg); display: flex; justify-content: center; align-items: center; z-index: 10000; transition: opacity 0.5s ease-out; }
+    #splash-screen img { width: 150px; height: 150px; animation: pulse 2.5s infinite ease-in-out; }
 
-        #app-container { 
-            display: none; flex-direction: column;
-            height: 100%; width: 100%;
-        }
-        main { flex-grow: 1; overflow-y: auto; }
-        .container { padding: 20px; }
-        
-        .main-header { display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; background-color: var(--surface); border-bottom: 1px solid var(--border-color); position: sticky; top: 0; z-index: 100; flex-shrink: 0; }
-        .logo { display: flex; align-items: center; gap: 10px; }
-        .logo img { height: 40px; width: 40px; object-fit: cover; }
-        .logo-text { font-size: 1.2em; font-weight: 700; color: var(--text-primary); }
-        .header-controls { display: flex; align-items: center; gap: 10px; }
-        .header-btn { background: none; border: none; color: var(--text-secondary); cursor: pointer; padding: 5px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
-        .lang-dropdown { display: none; position: absolute; top: 40px; right: 0; background-color: var(--surface); border-radius: 8px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); border: 1px solid var(--border-color); overflow: hidden; z-index: 110; }
-        .lang-dropdown button { display: block; width: 100%; text-align: left; padding: 10px 15px; background: none; border: none; color: var(--text-primary); cursor: pointer; }
-        .lang-dropdown button:hover { background-color: var(--bg); }
-        .profile img { height: 40px; width: 40px; border-radius: 50%; border: 2px solid var(--accent-blue); object-fit: cover; }
-        
-        .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 30px; }
-        .kpi-card { background-color: var(--surface); padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05); border: 1px solid var(--border-color); }
-        body.dark-mode .kpi-card { box-shadow: none; }
-        .kpi-title { display: flex; align-items: center; gap: 8px; font-size: 0.9em; color: var(--text-secondary); margin: 0 0 10px; }
-        .kpi-value { font-size: 1.8em; font-weight: 700; margin: 0; }
-        
-        .section-title { font-size: 1.3em; font-weight: 600; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid var(--border-color); }
-        .item-list { display: flex; flex-direction: column; gap: 15px; }
-        
-        .client-card, .report-item-card { background-color: var(--surface); border-radius: 12px; padding: 15px; display: flex; align-items: center; gap: 15px; border: 1px solid var(--border-color); transition: transform 0.2s, box-shadow 0.2s; }
-        .client-card, .report-item-card.clickable { cursor: pointer; }
-        .client-card:hover, .report-item-card.clickable:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.07); }
+    #login-view { display: none; flex-direction: column; justify-content: center; align-items: center; height: 100%; padding: 20px; background-color: var(--bg); }
+    .login-card { background-color: transparent; box-shadow: none; border: none; width: 100%; max-width: 400px; text-align: center; }
+    .login-card .logo { display: flex; justify-content: center; }
+    .login-card .logo img { width: 140px; height: 140px; margin-bottom: 30px; animation: subtle-glow 5s ease-in-out infinite; }
+    .login-card h2 { margin-bottom: 10px; font-size: 1.8em; font-weight: 700; color: var(--text-primary); }
+    .login-card p { margin-bottom: 40px; color: var(--text-secondary); }
+    .login-card .form-group { text-align: left; margin-bottom: 20px; }
+    .login-card .form-group label { display: block; margin-bottom: 8px; font-weight: 500; color: var(--text-secondary); }
+    .login-card .form-group input { width: 100%; padding: 15px; font-size: 1em; border-radius: 8px; border: 1px solid #334155; background-color: #1e293b; color: var(--text-primary); transition: border-color 0.2s, box-shadow 0.2s; }
+    .login-card .form-group input:focus { border-color: var(--accent-blue); outline: none; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2); }
+    .login-card .btn-primary { width: 100%; padding: 15px; font-size: 1.1em; font-weight: 600; border: none; border-radius: 8px; cursor: pointer; background-color: var(--accent-blue); color: white; transition: background-color 0.2s; }
+    .login-card .btn-primary:hover { background-color: var(--accent-blue-darker); }
 
-        .collector-card {
-            background-color: var(--surface); border-radius: 12px; padding: 12px;
-            display: flex; align-items: center; gap: 15px;
-            border: 1px solid var(--border-color);
-            transition: transform 0.2s, box-shadow 0.2s;
-            cursor: pointer;
-        }
-        .collector-card:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.07); }
-        .item-avatar img { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
-        .collector-card-main { flex-grow: 1; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
-        .collector-card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
-        .item-info { flex-grow: 1; min-width: 0; }
-        .item-name { font-weight: 600; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .item-subtext { font-size: 0.9em; color: var(--text-secondary); margin-top: 2px; }
-        .item-details { text-align: right; }
-        .item-detail-value { font-weight: 600; font-size: 1.1em; white-space: nowrap; flex-shrink: 0; }
-        .item-tags { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-        .item-status-tag, .tracking-tag { display: inline-flex; align-items: center; gap: 5px; font-size: 0.75em; font-weight: 600; padding: 4px 8px; border-radius: 12px; }
-        .tracking-tag.available { background-color: #3b82f620; color: var(--accent-blue); }
-        .tracking-tag.unavailable { background-color: #64748b20; color: var(--text-secondary); }
+    .form-group { margin-bottom: 20px; }
+    .form-group label { display: block; margin-bottom: 8px; font-weight: 500; color: var(--text-secondary); }
+    .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 12px; font-size: 1em; border-radius: 8px; border: 1px solid var(--border-color); background-color: var(--surface); color: var(--text-primary); }
+    .form-group input[readonly] { background-color: var(--bg); opacity: 0.7; cursor: not-allowed; }
+    .form-group .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+    .day-selector { display: flex; justify-content: space-between; gap: 5px; margin-bottom: 20px; }
+    .day-selector label { padding: 10px; flex-grow: 1; font-weight: 600; font-size: 0.9em; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; background-color: var(--surface); border: 1px solid var(--border-color); border-radius: 8px; cursor: pointer; text-align: center; }
+    .day-selector input { display: none; }
+    .day-selector input:checked + label { background-color: var(--accent-blue); color: white; border-color: var(--accent-blue); }
 
-        .nav-item {
-            position: relative; /* Necesario para posicionar el badge */
-        }
-        .notification-badge {
-            position: absolute;
-            top: 2px;
-            right: 8px; /* Ajusta 'right' para que no choque con el texto */
-            background-color: var(--danger-color);
-            color: white;
-            border-radius: 50%;
-            width: 18px;
-            height: 18px;
-            font-size: 0.7em;
-            font-weight: bold;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border: 2px solid var(--surface);
-            transform: scale(0);
-            transition: transform 0.2s;
-        }
-        .notification-badge.visible { 
-            transform: scale(1); 
-        }
+    #app-container { display: none; flex-direction: column; height: 100%; width: 100%; }
+    main { flex-grow: 1; overflow-y: auto; }
+    .container { padding: 20px; }
+    
+    .main-header { display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; background-color: var(--surface); border-bottom: 1px solid var(--border-color); position: sticky; top: 0; z-index: 100; flex-shrink: 0; }
+    .logo { display: flex; align-items: center; gap: 10px; }
+    .logo img { height: 40px; width: 40px; object-fit: cover; }
+    .logo-text { font-size: 1.2em; font-weight: 700; color: var(--text-primary); }
+    .header-controls { display: flex; align-items: center; gap: 10px; }
+    .header-btn { background: none; border: none; color: var(--text-secondary); cursor: pointer; padding: 5px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+    .lang-dropdown { display: none; position: absolute; top: 40px; right: 0; background-color: var(--surface); border-radius: 8px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); border: 1px solid var(--border-color); overflow: hidden; z-index: 110; }
+    .lang-dropdown button { display: block; width: 100%; text-align: left; padding: 10px 15px; background: none; border: none; color: var(--text-primary); cursor: pointer; }
+    .lang-dropdown button:hover { background-color: var(--bg); }
+    .profile img { height: 40px; width: 40px; border-radius: 50%; border: 2px solid var(--accent-blue); object-fit: cover; }
+    
+    .section-title { font-size: 1.3em; font-weight: 600; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid var(--border-color); }
+    .item-list { display: flex; flex-direction: column; gap: 15px; }
+    
+    .client-card, .report-item-card { background-color: var(--surface); border-radius: 12px; padding: 15px; display: flex; align-items: center; gap: 15px; border: 1px solid var(--border-color); transition: transform 0.2s, box-shadow 0.2s; }
+    .client-card, .report-item-card.clickable { cursor: pointer; }
+    .client-card:hover, .report-item-card.clickable:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.07); }
 
-        .bottom-nav { flex-shrink: 0; background-color: var(--surface); border-top: 1px solid var(--border-color); display: flex; justify-content: space-around; padding: 10px 0; }
-        .nav-item { display: flex; flex-direction: column; align-items: center; gap: 5px; color: var(--text-secondary); text-decoration: none; font-size: 0.8em; padding: 5px 15px; cursor: pointer; }
-        .nav-item.active { color: var(--accent-blue); }
-        
-        .modal-view, .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 200; }
-        .modal-view { background-color: var(--bg); transform: translateX(100%); transition: transform 0.3s ease-in-out; display: flex; flex-direction: column; }
-        .modal-view.active { transform: translateX(0); }
+    .collector-card { background-color: var(--surface); border-radius: 12px; padding: 12px; display: flex; align-items: center; gap: 15px; border: 1px solid var(--border-color); transition: transform 0.2s, box-shadow 0.2s; cursor: pointer; }
+    .collector-card:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.07); }
+    .item-avatar img { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
+    .collector-card-main { flex-grow: 1; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+    .collector-card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+    .item-info { flex-grow: 1; min-width: 0; }
+    .item-name { font-weight: 600; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .item-subtext { font-size: 0.9em; color: var(--text-secondary); margin-top: 2px; }
+    .item-details { text-align: right; }
+    .item-detail-value { font-weight: 600; font-size: 1.1em; white-space: nowrap; flex-shrink: 0; }
+    .item-tags { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .item-status-tag, .tracking-tag { display: inline-flex; align-items: center; gap: 5px; font-size: 0.75em; font-weight: 600; padding: 4px 8px; border-radius: 12px; }
+    .tracking-tag.available { background-color: #3b82f620; color: var(--accent-blue); }
+    .tracking-tag.unavailable { background-color: #64748b20; color: var(--text-secondary); }
 
-        .modal-overlay { 
-    z-index: 300; /* <-- AÑADIDO: z-index más alto para que aparezca ENCIMA de .modal-view */
-    background-color: rgba(0,0,0,0.5); 
-    backdrop-filter: blur(4px); 
-    display: none; 
-    justify-content: center; 
-    align-items: center; 
-}
-        
-        .modal-overlay.active { display: flex; }
-        .modal-content { background-color: var(--surface); padding: 20px; border-radius: 12px; width: 90%; max-width: 500px; }
+    .nav-item { position: relative; }
+    .notification-badge { position: absolute; top: 2px; right: 8px; background-color: var(--danger-color); color: white; border-radius: 50%; width: 18px; height: 18px; font-size: 0.7em; font-weight: bold; display: flex; align-items: center; justify-content: center; border: 2px solid var(--surface); transform: scale(0); transition: transform 0.2s; }
+    .notification-badge.visible { transform: scale(1); }
 
-        .modal-header { display: flex; align-items: center; padding: 15px 20px; background-color: var(--surface); border-bottom: 1px solid var(--border-color); flex-shrink: 0; }
-        .modal-header button { background: none; border: none; color: var(--text-primary); cursor: pointer; margin-right: 15px; }
-        .modal-title { font-size: 1.2em; font-weight: 600; flex-grow: 1; }
-        .modal-content-wrapper { flex-grow: 1; overflow-y: auto; }
-        .action-buttons { background-color: var(--surface); border-top: 1px solid var(--border-color); padding: 15px 20px; display: flex; gap: 15px; margin-top: auto; position: sticky; bottom: 0; flex-shrink: 0; }
-        .action-buttons button { flex-grow: 1; padding: 15px; font-size: 1em; font-weight: 600; border: none; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; }
-        .btn-primary { background-color: var(--accent-blue); color: white; }
-        .btn-secondary { background-color: transparent; color: var(--accent-blue); border: 2px solid var(--accent-blue); }
-        .btn-danger { background-color: var(--danger-color); color: white; }
-        .action-buttons button:disabled { background-color: var(--text-secondary); cursor: not-allowed; opacity: 0.7; }
+    .bottom-nav { flex-shrink: 0; background-color: var(--surface); border-top: 1px solid var(--border-color); display: flex; justify-content: space-around; padding: 10px 0; }
+    .nav-item { display: flex; flex-direction: column; align-items: center; gap: 5px; color: var(--text-secondary); text-decoration: none; font-size: 0.8em; padding: 5px 15px; cursor: pointer; }
+    .nav-item.active { color: var(--accent-blue); }
+    
+    .modal-view, .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 200; }
+    .modal-view { background-color: var(--bg); transform: translateX(100%); transition: transform 0.3s ease-in-out; display: flex; flex-direction: column; }
+    .modal-view.active { transform: translateX(0); }
+    .modal-overlay { z-index: 300; background-color: rgba(0,0,0,0.5); backdrop-filter: blur(4px); display: none; justify-content: center; align-items: center; }
+    .modal-overlay.active { display: flex; }
+    .modal-content { background-color: var(--surface); padding: 20px; border-radius: 12px; width: 90%; max-width: 500px; }
+    .modal-header { display: flex; align-items: center; padding: 15px 20px; background-color: var(--surface); border-bottom: 1px solid var(--border-color); flex-shrink: 0; }
+    .modal-header button { background: none; border: none; color: var(--text-primary); cursor: pointer; margin-right: 15px; }
+    .modal-title { font-size: 1.2em; font-weight: 600; flex-grow: 1; }
+    .modal-content-wrapper { flex-grow: 1; overflow-y: auto; }
+    .action-buttons { background-color: var(--surface); border-top: 1px solid var(--border-color); padding: 15px 20px; display: flex; gap: 15px; margin-top: auto; position: sticky; bottom: 0; flex-shrink: 0; }
+    .action-buttons button { flex-grow: 1; padding: 15px; font-size: 1em; font-weight: 600; border: none; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; }
+    .btn-primary { background-color: var(--accent-blue); color: white; }
+    .btn-secondary { background-color: transparent; color: var(--accent-blue); border: 2px solid var(--accent-blue); }
+    .btn-danger { background-color: var(--danger-color); color: white; }
+    .action-buttons button:disabled { background-color: var(--text-secondary); cursor: not-allowed; opacity: 0.7; }
 
-        .fab { position: fixed; bottom: 90px; right: 20px; width: 60px; height: 60px; background-color: var(--accent-blue); color: white; border-radius: 50%; border: none; box-shadow: 0 5px 15px rgba(0,0,0,0.2); display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 160; }
-        .view { display: none; }
-        .view.active { display: block; }
-        .search-bar-wrapper { position: relative; margin-bottom: 20px; }
-        .search-bar-wrapper input { width: 100%; padding: 12px 12px 12px 40px; font-size: 1em; border-radius: 8px; border: 1px solid var(--border-color); background-color: var(--surface); color: var(--text-primary); }
+    .fab { position: fixed; bottom: 90px; right: 20px; width: 60px; height: 60px; background-color: var(--accent-blue); color: white; border-radius: 50%; border: none; box-shadow: 0 5px 15px rgba(0,0,0,0.2); display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 160; }
+    .view { display: none; }
+    .view.active { display: block; }
+    .search-bar-wrapper { position: relative; margin-bottom: 20px; }
+    .search-bar-wrapper input { width: 100%; padding: 12px 12px 12px 40px; font-size: 1em; border-radius: 8px; border: 1px solid var(--border-color); background-color: var(--surface); color: var(--text-primary); }
+    .search-bar-wrapper .icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-secondary); }
+    #toast-container { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 1000; }
+    .toast { background-color: #333; color: white; padding: 12px 20px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); font-size: 0.9em; opacity: 0; transform: translateY(-20px); transition: opacity 0.3s, transform 0.3s; }
+    .toast.show { opacity: 1; transform: translateY(0); }
+    .toast.toast-error { background-color: var(--danger-color); }
+
+    .status-pending { color: var(--warning-color); } .status-paid { color: var(--accent-green); } .status-late { color: var(--danger-color); }
+    .profile-pic-wrapper { position: relative; cursor: pointer; display: inline-block; }
+    .profile-pic-wrapper::after { content: '✎'; position: absolute; bottom: 5px; right: 5px; background-color: rgba(0,0,0,0.6); color: white; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-size: 14px; }
+    #profile-view-img { width: 100px; height: 100px; border-radius: 50%; border: 3px solid var(--accent-blue); object-fit: cover; }
+    
+    #cropper-container { height: calc(100% - 150px); }
+    #cropper-container img { max-width: 100%; height: auto; }
+    
+    .collector-detail-header { display: flex; align-items: center; gap: 15px; background-color: var(--surface); padding: 20px; border-radius: 12px; margin-bottom: 20px; }
+    .collector-detail-header img { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; }
+    .collector-detail-info { flex-grow: 1; }
+    .collector-detail-info .status-indicator { display: flex; align-items: center; gap: 6px; font-size: 0.9em; font-weight: 500; }
+    .collector-detail-info .status-indicator.online::before { content: ''; display: block; width: 8px; height: 8px; border-radius: 50%; background-color: var(--accent-green); }
+    .collector-detail-info .status-indicator.offline::before { content: ''; display: block; width: 8px; height: 8px; border-radius: 50%; background-color: var(--text-secondary); }
+    .last-seen-info { font-size: 0.8em; color: var(--text-secondary); margin-top: 4px; display: flex; align-items: center; gap: 4px; }
+    .header-btn { background: none; border: none; cursor: pointer; color: var(--text-secondary); padding: 4px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center;}
+    .header-btn:hover { background-color: var(--bg); color: var(--accent-blue); }
+    
+    .info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; background-color: var(--surface); padding: 20px; border-radius: 12px; border: 1px solid var(--border-color); margin-bottom: 20px;}
+    .info-grid div { display: flex; flex-direction: column; }
+    .info-grid label { font-size: 0.8em; color: var(--text-secondary); margin-bottom: 4px; font-weight: 500; }
+    .info-grid p { margin: 0; font-weight: 600; word-break: break-all; }
+    .document-item { display: flex; align-items: center; gap: 10px; background-color: var(--surface); padding: 10px 15px; border-radius: 8px; border: 1px solid var(--border-color); text-decoration: none; color: var(--text-primary); transition: background-color 0.2s; }
+    .document-item:hover { background-color: var(--bg); }
+    .document-item span { flex-grow: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .payment-history-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 15px; background-color: var(--surface); border-radius: 8px; border: 1px solid var(--border-color); }
+
+    .report-filters { display: flex; flex-wrap: wrap; gap: 15px; margin-bottom: 20px; }
+    .report-filters .form-group { flex-grow: 1; margin-bottom: 0; }
+    .filter-buttons { display: flex; gap: 10px; margin-bottom: 20px; overflow-x: auto; padding-bottom: 5px;}
+    .filter-btn { padding: 8px 16px; border: 1px solid var(--border-color); background-color: var(--surface); color: var(--text-secondary); border-radius: 20px; font-weight: 500; cursor: pointer; white-space: nowrap; }
+    .filter-btn.active { background-color: var(--accent-blue); color: white; border-color: var(--accent-blue); }
+
+    .leaflet-popup-content-wrapper { border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+    body.dark-mode .leaflet-popup-content-wrapper { background-color: var(--surface); color: var(--text-primary); }
+    .leaflet-popup-content { margin: 0; width: 250px; }
+    .map-popup-card { font-family: 'Inter', sans-serif; }
+    .popup-header { display: flex; align-items: center; gap: 12px; padding: 12px; border-bottom: 1px solid var(--border-color); }
+    .popup-avatar { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; border: 2px solid var(--accent-blue); }
+    .popup-info { flex-grow: 1; }
+    .popup-info .popup-name { font-size: 1.05em; font-weight: 600; color: var(--text-primary); }
+    .popup-info .item-status-tag { margin-top: 4px; padding: 3px 8px; font-size: 0.7em; display: inline-flex; }
+    .popup-stats { display: grid; grid-template-columns: 1fr 1fr; padding: 12px; gap: 10px; }
+    .popup-stats div { display: flex; flex-direction: column; text-align: center; }
+    .popup-stats .stat-label { font-size: 0.75em; color: var(--text-secondary); margin-bottom: 2px; text-transform: uppercase; font-weight: 500; }
+    .popup-stats .stat-value { font-size: 1.1em; font-weight: 600; color: var(--text-primary); }
+    .popup-actions { padding: 8px 12px; border-top: 1px solid var(--border-color); text-align: center; }
+    .popup-action-link { text-decoration: none; color: var(--accent-blue); font-weight: 600; font-size: 0.9em; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+    .popup-action-link i { width: 14px; height: 14px; }
+    
+    .progress-card { text-align: center; }
+    .progress-circle { position: relative; width: 120px; height: 120px; margin: 0 auto 15px; }
+    .progress-circle svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+    .progress-circle circle { fill: none; stroke-width: 10; }
+    .progress-circle .bg-circle { stroke: var(--border-color); }
+    .progress-circle .progress-bar { stroke: var(--accent-blue); stroke-linecap: round; transition: stroke-dashoffset 1s ease-out; }
+    .progress-text { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 1.5em; font-weight: 700; }
+    
+    .settings-section { background-color: var(--surface); padding: 20px; border-radius: 12px; margin-bottom: 20px; border: 1px solid var(--border-color); }
+    .settings-logo-preview { display: flex; align-items: center; gap: 15px; margin-bottom: 15px; }
+    .settings-logo-preview img { width: 64px; height: 64px; object-fit: cover; border: 2px solid var(--border-color); }
+    .toggle-switch { display: flex; align-items: center; justify-content: space-between; }
+    .toggle-switch .switch { position: relative; display: inline-block; width: 50px; height: 28px; }
+    .toggle-switch .switch input { display: none; }
+    .toggle-switch .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 28px; }
+    .toggle-switch .slider:before { position: absolute; content: ""; height: 20px; width: 20px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
+    .toggle-switch input:checked + .slider { background-color: var(--accent-blue); }
+    .toggle-switch input:checked + .slider:before { transform: translateX(22px); }
+    
+    #install-banner { display: none; position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); width: calc(100% - 40px); max-width: 400px; background-color: var(--surface); color: var(--text-primary); padding: 25px; border-radius: 16px; z-index: 5000; box-shadow: 0 10px 40px rgba(0,0,0,0.2); border: 1px solid var(--border-color); text-align: center; }
+
+    #community-view { padding-bottom: 80px; }
+    #community-view .community-post-creator { background-color: var(--surface); border-radius: 12px; border: 1px solid var(--border-color); margin-bottom: 25px; padding: 15px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05); }
+    body.dark-mode #community-view .community-post-creator { box-shadow: none; }
+    #community-view .community-post-creator textarea { width: 100%; border: none; background: transparent; color: var(--text-primary); min-height: 60px; resize: vertical; font-size: 1.1em; outline: none; padding: 0; margin-bottom: 10px; }
+    #community-view .community-post-creator-actions { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border-color); }
+    #community-view .community-post-image-preview { display: block; width: 100%; max-height: 250px; object-fit: contain; border-radius: 8px; margin-top: 10px; border: 1px solid var(--border-color); }
+    #community-view .post-card { background-color: var(--surface); border-radius: 12px; border: 1px solid var(--border-color); margin-bottom: 25px; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08); overflow: hidden; }
+    body.dark-mode #community-view .post-card { box-shadow: none; }
+    #community-view .post-card .post-header { display: flex; align-items: center; padding: 12px 15px; gap: 12px; position: relative; }
+    #community-view .post-card .post-header img.post-header-img { width: 40px !important; min-width: 40px !important; height: 40px !important; border-radius: 50% !important; object-fit: cover !important; border: 1px solid var(--border-color); flex-shrink: 0; display: block; }
+    #community-view .post-card .post-header .post-header-info { display: flex; flex-direction: column; flex-grow: 1; gap: 2px; min-width: 0; }
+    #community-view .post-card .post-header .post-header-info .post-admin-name { font-weight: 600; font-size: 0.95em; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    #community-view .post-card .post-header .post-header-info .post-admin-date { font-size: 0.8em; color: var(--text-secondary); }
+    #community-view .post-card img.post-image { display: block; width: 100%; max-height: 70vh; object-fit: contain; border-top: 1px solid var(--border-color); border-bottom: 1px solid var(--border-color); background-color: var(--bg); }
+    #community-view .post-card .post-text-content { padding: 15px; font-size: 1em; line-height: 1.6; color: var(--text-primary); white-space: pre-wrap; word-wrap: break-word; }
+    #community-view .post-card .post-actions { display: flex; justify-content: flex-start; gap: 25px; padding: 12px 15px; border-top: 1px solid var(--border-color); }
+    #community-view .post-card .post-actions .action-btn { background: none; border: none; color: var(--text-secondary); cursor: pointer; display: flex; align-items: center; gap: 6px; font-weight: 600; font-size: 0.9em; padding: 5px 0; border-radius: 6px; transition: color 0.2s ease; }
+    #community-view .post-card .post-actions .action-btn:hover { color: var(--accent-blue); }
+    #community-view .post-card .post-actions .action-btn i { width: 22px; height: 22px; stroke-width: 2; }
+    #community-view .post-card .post-actions .action-btn span { line-height: 1; }
+    #community-view .post-card .post-actions .action-btn.active { color: var(--accent-blue); font-weight: 700; }
+    #community-view .post-card .post-actions .action-btn.active i { fill: var(--accent-blue); }
+    #community-view .post-comments-section { padding: 0 15px 15px 15px; background-color: var(--bg); border-top: 1px solid var(--border-color); max-height: 400px; overflow-y: auto; }
+    #community-view .comment-item { display: flex; gap: 10px; padding: 12px 0; border-bottom: 1px solid var(--border-color); }
+    #community-view .comment-item:last-child { border-bottom: none; }
+    #community-view .comment-item img.comment-author-pic { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
+    #community-view .comment-item .comment-content { display: flex; flex-direction: column; flex-grow: 1; background-color: var(--surface); border-radius: 8px; padding: 8px 12px; }
+    #community-view .comment-item .comment-author-name { font-weight: 600; font-size: 0.85em; color: var(--text-primary); margin-bottom: 3px; }
+    #community-view .comment-item .comment-text { font-size: 0.9em; color: var(--text-primary); line-height: 1.5; white-space: pre-wrap; word-wrap: break-word; }
+    #community-view .post-comment-input-area { display: flex; gap: 10px; align-items: center; padding: 12px 15px; border-top: 1px solid var(--border-color); }
+    #community-view .post-comment-input-area img { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; }
+    #community-view .post-comment-input-area input { flex-grow: 1; border: 1px solid var(--border-color); background-color: var(--bg); border-radius: 20px; padding: 8px 15px; font-size: 0.9em; color: var(--text-primary); outline: none; }
+    #community-view .post-comment-input-area input:focus { border-color: var(--accent-blue); }
+    #community-view .post-comment-input-area .submit-comment-btn { background: none; border: none; color: var(--accent-blue); cursor: pointer; padding: 5px; }
+    #community-view .post-card .post-delete-btn { position: absolute; top: 8px; right: 12px; background: none; border: none; color: var(--text-secondary); cursor: pointer; padding: 4px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+    #community-view .post-card .post-delete-btn:hover { background-color: var(--bg); color: var(--danger-color); }
+
+    #collector-verification-results .verification-card { padding: 15px; border-radius: 8px; border: 1px solid var(--border-color); text-align: center; }
+    #collector-verification-results .verification-loading { background-color: var(--surface); display: flex; align-items: center; justify-content: center; gap: 10px; color: var(--text-secondary); }
+    #collector-verification-results .verification-clean { background-color: color-mix(in srgb, var(--accent-green) 10%, var(--surface)); border-color: var(--accent-green); color: var(--text-primary); }
+    #collector-verification-results .verification-clean i { color: var(--accent-green); }
+    #collector-verification-results .verification-conflict { background-color: color-mix(in srgb, var(--warning-color) 10%, var(--surface)); border-color: var(--warning-color); color: var(--text-primary); text-align: left; }
+    #collector-verification-results .verification-conflict .conflict-title { display: flex; align-items: center; gap: 8px; font-weight: 600; margin-bottom: 12px; color: var(--warning-color); }
+    #collector-verification-results .verification-conflict ul { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; }
+    #collector-verification-results .verification-conflict li { font-size: 0.9em; padding-left: 1.5em; position: relative; }
+    #collector-verification-results .verification-conflict li::before { content: '•'; position: absolute; left: 0.5em; color: var(--warning-color); font-weight: bold; }
+    #collector-verification-results .verification-conflict li strong { color: var(--text-primary); }
+    #collector-verification-results .verification-conflict.reported { background-color: color-mix(in srgb, var(--danger-color) 15%, var(--surface)); border-color: var(--danger-color); }
+    #collector-verification-results .verification-conflict.reported .conflict-title { color: var(--danger-color); }
+    #collector-verification-results .verification-conflict.reported li::before { content: '⚠'; color: var(--danger-color); }
+    #collector-verification-results .verification-conflict .report-reason { font-style: italic; color: var(--danger-color); font-size: 0.85em; margin-top: 5px; display: block; }
+
+    #reportOptionsModal .modal-content textarea { width: 100%; min-height: 80px; padding: 10px; border-radius: 8px; border: 1px solid var(--border-color); background-color: var(--bg); color: var(--text-primary); font-size: 0.95em; margin-bottom: 20px; resize: vertical; }
+    #reportOptionsModal .modal-content label { display: block; text-align: left; margin-bottom: 8px; font-weight: 500; color: var(--text-secondary); }
+
+    .payment-history-item[data-history-index] { cursor: pointer; transition: background-color 0.2s; }
+    .payment-history-item[data-history-index]:hover { background-color: var(--bg); }
+    #paymentDetailModal .receipt-preview { width: 100%; max-height: 40vh; object-fit: contain; border-radius: 8px; margin-top: 10px; border: 1px solid var(--border-color); background-color: var(--bg); }
+    #paymentDetailModal .no-receipt { color: var(--text-secondary); text-align: center; padding: 30px; background-color: var(--bg); border-radius: 8px; border: 1px solid var(--border-color); }
+
+    .loan-tabs-wrapper { background-color: var(--surface); border-bottom: 1px solid var(--border-color); padding: 0 20px; }
+    .loan-tabs-container { display: flex; gap: 8px; padding: 12px 0; overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none; }
+    .loan-tabs-container::-webkit-scrollbar { display: none; }
+    .loan-tab { padding: 10px 20px; border: 2px solid transparent; background-color: var(--bg); color: var(--text-secondary); border-radius: 20px; font-weight: 600; font-size: 0.9em; cursor: pointer; white-space: nowrap; transition: all 0.2s; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+    .loan-tab.active { background-color: var(--accent-blue); color: white; border-color: var(--accent-blue); font-weight: 700; }
+    .loan-tab:not(.active):hover { background-color: var(--border-color); color: var(--text-primary); }
+
+    .validation-message { font-size: 0.85em; font-weight: 500; margin-top: 8px; display: none; align-items: center; gap: 5px; }
+    .validation-message.checking { display: flex; color: var(--text-secondary); }
+    .validation-message.valid { display: flex; color: var(--accent-green); }
+    .validation-message.invalid { display: flex; color: var(--danger-color); }
+
+    .photo-comparison-container { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px; }
+    .photo-comparison-item { text-align: center; }
+    .photo-comparison-item label { font-weight: 600; font-size: 0.9em; color: var(--text-secondary); margin-bottom: 8px; display: block; }
+    .photo-comparison-item img { width: 100%; height: auto; aspect-ratio: 1 / 1; object-fit: cover; border-radius: 8px; border: 2px solid var(--border-color); background-color: var(--bg); }  width: 100%; padding: 12px 12px 12px 40px; font-size: 1em; border-radius: 8px; border: 1px solid var(--border-color); background-color: var(--surface); color: var(--text-primary); }
         .search-bar-wrapper .icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-secondary); }
         #toast-container { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 1000; }
         .toast { background-color: #333; color: white; padding: 12px 20px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); font-size: 0.9em; opacity: 0; transform: translateY(-20px); transition: opacity 0.3s, transform 0.3s; }
@@ -1086,6 +1183,10 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
         // ... código existente ...
     const translations = {
         pt: {
+            editData: 'Editar Dados', // <--- AGREGAR ESTA LÍNEA
+            routeName: 'Nome da Rota (Visível no App)',
+            routeNameDesc: 'Este nome aparecerá de forma profissional no topo do aplicativo do cobrador.',
+            routePlaceholder: 'Ex: Rota Centro, Rota Norte...',
             dashboard: 'Painel', 
             reports: 'Relatório Gráfico', 
             settings: 'Ajustes', profile: 'Perfil', map: 'Mapa',
@@ -1191,6 +1292,10 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
         },
 
         es: {
+            editData: 'Editar Datos', // <--- AGREGAR ESTA LÍNEA
+            routeName: 'Nombre de la Ruta (Visible en App)',
+            routeNameDesc: 'Este nombre aparecerá de forma profesional en la parte superior de la app del cobrador.',
+            routePlaceholder: 'Ej: Ruta Centro, Ruta Norte...',
             dashboard: 'Panel', 
             reports: 'Reporte Gráfico', 
             settings: 'Ajustes', profile: 'Perfil', map: 'Mapa',
@@ -1294,6 +1399,10 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             chartCenterBalance: 'SALDO (CAJA)' 
         },
         en: {
+            editData: 'Edit Data', // <--- AGREGAR ESTA LÍNEA
+            routeName: 'Route Name (Visible in App)',
+            routeNameDesc: 'This name will appear professionally at the top of the collector app.',
+            routePlaceholder: 'Ex: Downtown Route, North Route...',
             dashboard: 'Dashboard',
             reports: 'Graphic Report', 
             settings: 'Settings', profile: 'Profile', map: 'Map',
@@ -1841,7 +1950,308 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
         }
 
         
+            function showCollectorDetails(collectorId) {
+            const detailView = document.getElementById('collectorDetailView');
+            const collector = allCollectors.find(c => c.id === collectorId);
+            const clients = allClients.filter(c => c.collectorId === collectorId); 
+            if (!collector) return;
 
+            const mapView = document.getElementById('map-view');
+            if (mapView && mapView.classList.contains('active')) {
+                mapView.classList.remove('active');
+                document.getElementById('dashboard-view').classList.add('active');
+                document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+                const dashboardNavItem = document.querySelector('.nav-item[data-view="dashboard"]');
+                if (dashboardNavItem) dashboardNavItem.classList.add('active');
+            }
+            
+            const placeholderUrl = `https://placehold.co/128x128/0f172a/FFFFFF?text=${(collector.name || 'C').charAt(0)}`;
+            const isTrackingActive = collector.isRealtimeTrackingActive;
+            const lastSeenTime = formatTimestamp(collector.lastLocationUpdate);
+
+            const metrics = calculatedCollectorMetrics.get(collectorId);
+            
+            if (!metrics) {
+                console.warn(`Métricas para ${collectorId} aún no calculadas.`);
+                detailView.innerHTML = `<header class="modal-header">...</header><div class="modal-content-wrapper container"><p>Calculando dados...</p></div>`;
+            }
+            
+            const {
+                capitalOnHand = 0, 
+                totalDistributedCapital = 0, 
+                totalPatrimonio = 0, 
+                status = { textKey: 'inOrder', color: 'var(--accent-green)', icon: 'check-circle' },
+                totalClientsCount, 
+                activeClientsCount = 0, 
+                lateClientsCount = 0,
+                dailyCollected = 0,
+                weeklyCollected = 0,
+                monthlyCollected = 0
+            } = metrics || {}; 
+
+            let clientsListHtml = '';
+            if (clients.length > 0) {
+                const clientsWithDisplayLoan = clients.map(client => {
+                    const loansWithStatus = (client.loans || []).map((loan, index) => {
+                        const details = calculateLoanDetails(loan);
+                        return { ...loan, status: details.status, lateDays: details.lateDays, originalIndex: index };
+                    });
+                    
+                    const activeLoans = loansWithStatus.filter(l => l.status !== 'finished');
+                    const hasMultipleActive = activeLoans.length > 1;
+
+                    let displayLoan = loansWithStatus.find(l => l.status === 'late') || 
+                                      loansWithStatus.find(l => l.status === 'pending') || 
+                                      loansWithStatus.find(l => l.status === 'paid') || 
+                                      loansWithStatus[0];
+                    
+                    if (!displayLoan) {
+                         displayLoan = { amount: 0, status: 'n/a', lateDays: 0, originalIndex: 0 };
+                    }
+
+                    return { client, displayLoan, hasMultipleActive, activeLoansCount: activeLoans.length };
+                }).sort((a, b) => a.client.name.localeCompare(b.client.name));
+
+                clientsListHtml = clientsWithDisplayLoan.map(({ client, displayLoan, hasMultipleActive, activeLoansCount }) => {
+                    const statusClass = `status-${displayLoan.status}`;
+                    const statusText = (translations[currentLang] && translations[currentLang][displayLoan.status]) || displayLoan.status;
+                    const nameInitial = (client.name || 'C').charAt(0).toUpperCase();
+                    const placeholderUrl = `https://placehold.co/80x80/3b82f6/FFFFFF?text=${nameInitial}`;
+                    const photoUrl = client.profilePictureUrl || placeholderUrl;
+                    
+                    const lateDays = displayLoan.lateDays || 0;
+                    const reputationScore = Math.max(0, 10 - lateDays);
+                    let repClass = 'rep-bad';
+                    if (reputationScore === 10) repClass = 'rep-perfect';
+                    else if (reputationScore >= 7) repClass = 'rep-good';
+                    else if (reputationScore >= 3) repClass = 'rep-regular';
+                    
+                    const multipleLoansIndicator = hasMultipleActive 
+                        ? `<span style="font-size: 0.75em; color: var(--accent-purple); font-weight: 600; margin-left: 5px;">(${activeLoansCount} Préstamos)</span>` 
+                        : '';
+
+                    return `
+                        <div class="client-card" data-client-id="${client.id}" data-loan-index="${displayLoan.originalIndex}">
+                            <div class="item-avatar">
+                                <img src="${photoUrl}" alt="Foto do Cliente" style="width: 40px; height: 40px;">
+                            </div>
+                            <div class="item-info">
+                                <h4 class="item-name" style="font-size: 0.95em;">${client.name}${multipleLoansIndicator}</h4>
+                                <p class="item-subtext" style="font-size: 0.85em;">${client.address || 'Endereço não informado'}</p>
+                            </div>
+                            <div class="item-details" style="text-align: right;">
+                                <span class="item-detail-value" style="font-size: 1em;">${money(displayLoan.amount)}</span>
+                                <div style="display: flex; gap: 8px; align-items: center; margin-top: 5px;">
+                                   <span class="reputation-score ${repClass}" style="font-size: 0.75em;"><i data-lucide="star" style="width: 12px; height: 12px;"></i> ${reputationScore}/10</span>
+                                   <span class="payment-status ${statusClass}" style="font-size: 0.75em;">${statusText}</span> 
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            } else {
+                clientsListHtml = '<p>Nenhum cliente para este cobrador.</p>';
+            }
+
+            detailView.innerHTML = `
+                <header class="modal-header">
+                    <button id="closeDetailView"><i data-lucide="arrow-left"></i></button>
+                    <span class="modal-title">${collector.name}</span>
+                    
+                    <!-- BOTÓN MEJORADO: GRANDE, FUERTE Y TRADUCIDO -->
+                    <button id="editCollectorBtn" class="btn-secondary" style="padding: 8px 16px; font-size: 1em; font-weight: 700; display: flex; align-items: center; gap: 8px; border-radius: 8px; border-width: 2px;" data-collector-id="${collectorId}">
+                        <i data-lucide="edit-3" style="width: 18px; height: 18px;"></i> 
+                        <span data-lang-key="editData">Editar Dados</span>
+                    </button>
+
+                </header>
+                <div class="modal-content-wrapper container">
+                    <div class="collector-detail-header">
+                        <img src="${collector.profilePictureUrl || placeholderUrl}" alt="Foto do Cobrador">
+                        <div class="collector-detail-info">
+                            <h3 class="item-name" style="margin-bottom: 5px;">${collector.name}</h3>
+                            <div class="status-indicator ${isTrackingActive ? 'online' : 'offline'}">
+                                <span data-lang-key="${isTrackingActive ? 'online' : 'offline'}"></span>
+                            </div>
+                            ${!isTrackingActive && lastSeenTime ? `
+                                <div class="last-seen-info">
+                                    <i data-lucide="clock" style="width:12px; height:12px;"></i>
+                                    <span data-lang-key="lastSeen"></span> ${lastSeenTime}
+                                </div>` : ''
+                            }
+                        </div>
+                        <div style="margin-left: auto; display: flex; gap: 8px;">
+                            ${collector.whatsapp ? `<a href="https://wa.me/${collector.whatsapp.replace(/\D/g, '')}" target="_blank" class="header-btn" title="Enviar mensagem via WhatsApp"><svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 12c0 1.77.46 3.45 1.28 4.95L2 22l5.25-1.38c1.45.77 3.09 1.23 4.79 1.23h.01c5.46 0 9.91-4.45 9.91-9.91C21.95 6.45 17.5 2 12.04 2M12.04 20.15c-1.49 0-2.92-.39-4.19-1.09l-.3-.18-3.12.82.83-3.04-.2-.31c-.78-1.23-1.19-2.69-1.19-4.2c0-4.4 3.57-7.97 7.97-7.97s7.97 3.57 7.97 7.97-3.57 7.97-7.97 7.97m5.42-6.2c-.28-.14-1.65-.81-1.9-.91c-.25-.1-.44-.14-.62.14c-.18.28-.72.91-.88 1.1c-.16.18-.32.2-.6.07c-.28-.13-1.18-.43-2.25-1.39c-.84-.75-1.4-1.68-1.57-1.96c-.16-.28-.02-.43.12-.57c.13-.13.28-.33.43-.49c.14-.16.19-.28.28-.46c.1-.18.05-.37-.02-.51c-.07-.14-.62-1.5-.85-2.05c-.23-.55-.46-.48-.62-.48c-.16 0-.35-.05-.53-.05c-.18 0-.46.07-.7.35c-.24.28-.92.9-1.12 2.18c-.2 1.28.2 2.53.23 2.7c.03.18 1.14 1.75 2.78 2.45c1.64.7 1.64.47 1.93.44c.28-.03 1.65-.67 1.88-1.32c.23-.65.23-1.2.16-1.32c-.07-.13-.26-.2-.53-.34Z"></path></svg></a>` : `<button class="header-btn" disabled style="opacity: 0.3;"><svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 12c0 1.77.46 3.45 1.28 4.95L2 22l5.25-1.38c1.45.77 3.09 1.23 4.79 1.23h.01c5.46 0 9.91-4.45 9.91-9.91C21.95 6.45 17.5 2 12.04 2M12.04 20.15c-1.49 0-2.92-.39-4.19-1.09l-.3-.18-3.12.82.83-3.04-.2-.31c-.78-1.23-1.19-2.69-1.19-4.2c0-4.4 3.57-7.97 7.97-7.97s7.97 3.57 7.97 7.97-3.57 7.97-7.97 7.97m5.42-6.2c-.28-.14-1.65-.81-1.9-.91c-.25-.1-.44-.14-.62.14c-.18.28-.72.91-.88 1.1c-.16.18-.32.2-.6.07c-.28-.13-1.18-.43-2.25-1.39c-.84-.75-1.4-1.68-1.57-1.96c-.16-.28-.02-.43.12-.57c.13-.13.28-.33.43-.49c.14-.16.19-.28.28-.46c.1-.18.05-.37-.02-.51c-.07-.14-.62-1.5-.85-2.05c-.23-.55-.46-.48-.62-.48c-.16 0-.35-.05-.53-.05c-.18 0-.46.07-.7.35c-.24.28-.92.9-1.12 2.18c-.2 1.28.2 2.53.23 2.7c.03.18 1.14 1.75 2.78 2.45c1.64.7 1.64.47 1.93.44c.28-.03 1.65-.67 1.88-1.32c.23-.65.23-1.2.16-1.32c-.07-.13-.26-.2-.53-.34Z"></path></svg></button>`}
+                            <button class="header-btn collector-map-btn" data-collector-id="${collectorId}" title="Ver no mapa">
+                                <i data-lucide="map-pin" style="width: 24px; height: 24px;"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="kpi-card" style="margin-bottom: 20px; text-align: center; border-color: var(--accent-purple); border-width: 2px;">
+                        <h3 class="kpi-title" style="justify-content: center; color: var(--accent-purple);"><i data-lucide="gem"></i> Capital Total (Patrimônio)</h3>
+                        <p class="kpi-value" id="kpi-total-patrimonio" style="color: var(--accent-purple); font-size: 1.8em;">${money(totalPatrimonio)}</p>
+                    </div>
+                    
+                    <div class="kpi-card" style="margin-bottom: 20px; text-align: center; border-color: var(--accent-green); border-width: 2px;">
+                        <h3 class="kpi-title" style="justify-content: center; color: var(--accent-green);" data-lang-key="capitalOnHand"><i data-lucide="banknote"></i></h3>
+                        <p class="kpi-value" id="kpi-capital-total" style="color: var(--accent-green);">${money(capitalOnHand)}</p>
+                    </div>
+
+                    <div class="kpi-card" style="margin-bottom: 20px; text-align: center; border-color: var(--warning-color); border-width: 2px;">
+                        <h3 class="kpi-title" style="justify-content: center; color: var(--warning-color);"><i data-lucide="briefcase"></i> Capital Distribuído</h3>
+                        <p class="kpi-value" id="kpi-distributed-capital" style="color: var(--warning-color);">${money(totalDistributedCapital)}</p>
+                    </div>
+
+                    <section class="kpi-grid" style="grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
+                        <div class="kpi-card">
+                            <h3 class="kpi-title" data-lang-key="status"><i data-lucide="${status.icon}"></i></h3>
+                            <p class="kpi-value" style="color: ${status.color}; font-size: 1.2em;">${translations[currentLang][status.textKey]}</p>
+                        </div>
+                        
+                        <div class="kpi-card">
+                            <h3 class="kpi-title" data-lang-key="activeClients"><i data-lucide="user-check"></i></h3>
+                            <p class="kpi-value">${activeClientsCount}</p>
+                        </div>
+                        
+                        <div class="kpi-card">
+                            <h3 class="kpi-title"><i data-lucide="users"></i> Clientes Registrados</h3>
+                            <p class="kpi-value">${totalClientsCount !== undefined ? totalClientsCount : activeClientsCount}</p>
+                        </div>
+                        
+                        <div class="kpi-card">
+                            <h3 class="kpi-title" data-lang-key="lateClients"><i data-lucide="user-x"></i></h3>
+                            <p class="kpi-value" style="color: var(--danger-color);">${lateClientsCount}</p>
+                        </div>
+                    </section>
+
+                    <section style="display: flex; flex-direction: column; gap: 10px; margin-top: 20px; margin-bottom: 20px;">
+                        <div class="kpi-card" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 15px;">
+                            <h3 class="kpi-title" data-lang-key="collectedToday" style="margin: 0; font-size: 0.95em;"><i data-lucide="sun" style="width: 16px; height: 16px;"></i></h3>
+                            <p class="kpi-value" style="font-size: 1.2em; color: var(--accent-green);">${money(dailyCollected)}</p>
+                        </div>
+                        <div class="kpi-card" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 15px;">
+                            <h3 class="kpi-title" data-lang-key="collectedWeek" style="margin: 0; font-size: 0.95em;"><i data-lucide="calendar" style="width: 16px; height: 16px;"></i></h3>
+                            <p class="kpi-value" style="font-size: 1.2em; color: var(--accent-green);">${money(weeklyCollected)}</p>
+                        </div>
+                        <div class="kpi-card" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 15px;">
+                            <h3 class="kpi-title" data-lang-key="collectedMonth" style="margin: 0; font-size: 0.95em;"><i data-lucide="calendar-days" style="width: 16px; height: 16px;"></i></h3>
+                            <p class="kpi-value" style="font-size: 1.2em; color: var(--accent-green);">${money(monthlyCollected)}</p>
+                        </div>
+                    </section>
+
+                    <h2 class="section-title">Clientes de ${collector.name}</h2>
+                    <div class="item-list">
+                        ${clientsListHtml}
+                    </div>
+
+                    <section style="margin-top: 30px;">
+                    <h2 class="section-title" data-lang-key="settlementHistory">Histórico de Liquidações</h2>
+                    <div class="item-list" id="settlements-history-list">
+                </div>
+            </section>
+                </div>
+                 <div class="action-buttons">
+                    <button id="download-report-btn" data-collector-id="${collectorId}" class="btn-secondary"><i data-lucide="download"></i> <span data-lang-key="downloadReport"></span></button>
+                    <button id="register-settlement-btn" data-collector-id="${collectorId}" class="btn-primary">
+                    <i data-lucide="arrow-down-circle"></i> <span data-lang-key="registerSettlement">Registrar Retiro</span>
+                    </button>
+                    <button id="add-capital-injection-btn" data-collector-id="${collectorId}" class="btn-primary" style="flex-grow: 1; background-color: var(--accent-green); border-color: var(--accent-green);">
+                        <i data-lucide="arrow-up-circle"></i> <span data-lang-key="aportarCapital"></span>
+                    </button>
+                    <button id="unlock-app-btn" data-collector-id="${collectorId}" class="btn-primary" style="flex-grow: 1; background-color: var(--warning-color); border-color: var(--warning-color); color: white;">
+                        <i data-lucide="lock-open"></i> Desbloquear (30m)
+                    </button></div>
+            `;
+
+            const settlementsListContainer = detailView.querySelector('#settlements-history-list');
+            const collectorSettlements = allSettlements
+                .filter(s => s.collectorId === collectorId)
+                .sort((a, b) => (b.date?.seconds || 0) - (a.date?.seconds || 0)); 
+            if (settlementsListContainer) {
+                if (collectorSettlements.length === 0) {
+                    settlementsListContainer.innerHTML = `<p class="no-items">Nenhuma retirada registrada para este cobrador.</p>`;
+                } else {
+                    settlementsListContainer.innerHTML = collectorSettlements.map(settlement => {
+                        const date = settlement.date?.seconds ? new Date(settlement.date.seconds * 1000) : null;
+                        const dateString = date ? date.toLocaleDateString('pt-BR') : 'Data inválida';
+                        const timeString = date ? date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '';
+                        return `
+                        <div class="payment-history-item" style="cursor: default;">
+                            <div class="payment-history-details">
+                                <h4 class="payment-history-title">${dateString} - ${timeString}</h4>
+                                ${settlement.notes ? `<p class="payment-history-description" style="font-style: italic;">${settlement.notes}</p>` : ''}
+                            </div>
+                            <div class="payment-history-info">
+                                <span class="payment-history-amount" style="color: var(--text-primary); font-size: 1.1em;">${money(settlement.amount)}</span>
+                            </div>
+                        </div>`;
+                    }).join('');
+                }
+            }
+            
+            detailView.classList.add('active');
+            lucide.createIcons({nodes: detailView.querySelectorAll('[data-lucide]')});
+            applyLanguage(currentLang);
+
+            detailView.querySelector('#closeDetailView').addEventListener('click', () => detailView.classList.remove('active'));
+
+            detailView.querySelector('.item-list').addEventListener('click', (e) => {
+                const clientCard = e.target.closest('.client-card');
+                if (clientCard) {
+                    showClientDetails(clientCard.dataset.clientId, parseInt(clientCard.dataset.loanIndex, 10));
+                }
+            });
+            
+            detailView.querySelector('#editCollectorBtn').addEventListener('click', (e) => showCollectorFormModal(e.currentTarget.dataset.collectorId));
+            detailView.querySelector('#download-report-btn').addEventListener('click', (e) => showReportOptionsModal(e.currentTarget.dataset.collectorId));
+            detailView.querySelector('.collector-map-btn').addEventListener('click', (e) => focusOnCollector(e.currentTarget.dataset.collectorId));
+
+            const registerSettlementBtn = detailView.querySelector('#register-settlement-btn');
+            if (registerSettlementBtn) {
+                registerSettlementBtn.addEventListener('click', (e) => {
+                    const collectorId = e.currentTarget.dataset.collectorId;
+                    const collector = allCollectors.find(c => c.id === collectorId);
+                    showSettlementModal(collectorId, collector.name, capitalOnHand); 
+                });
+            }
+
+            const addCapitalBtn = detailView.querySelector('#add-capital-injection-btn');
+            if (addCapitalBtn) {
+                addCapitalBtn.addEventListener('click', (e) => {
+                    const collectorId = e.currentTarget.dataset.collectorId;
+                    const collector = allCollectors.find(c => c.id === collectorId);
+                    showCapitalInjectionModal(collectorId, collector.name);
+                });
+            }
+            const unlockBtn = detailView.querySelector('#unlock-app-btn');
+            if (unlockBtn) {
+                unlockBtn.addEventListener('click', async (e) => {
+                    const cId = e.currentTarget.dataset.collectorId;
+                    
+                    const confirmed = await showConfirmationModal(
+                        'Desbloquear App',
+                        'Isso permitirá que o cobrador acesse o aplicativo por 30 minutos, ignorando horários ou bloqueios. Continuar?',
+                        'Sim, Desbloquear', 'btn-primary'
+                    );
+                    
+                    if (!confirmed) return;
+
+                    try {
+                        const unlockUntil = new Date();
+                        unlockUntil.setMinutes(unlockUntil.getMinutes() + 30); 
+
+                        await updateDoc(doc(db, 'collectors', cId), {
+                            tempUnlockUntil: Timestamp.fromDate(unlockUntil)
+                        });
+                        showToast("App liberada por 30 minutos!", false);
+                    } catch (error) {
+                        console.error("Erro ao desbloquear:", error);
+                        showToast("Erro ao desbloquear app.", true);
+                    }
+                });
+            }
+        }
 
 
         function showToast(message, isError = false) {
@@ -2118,40 +2528,42 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
                 <main>
                     <div id="dashboard-view" class="view active container">
                         
-                        <!-- KPIs GLOBALES -->
-                        <section class="kpi-grid" style="grid-template-columns: 1fr 1fr; gap: 15px;">
+                        <!-- KPIs GLOBALES - ESTRUCTURA FUTURISTA (Corregida para Móvil) -->
+                        <section class="kpi-grid">
                             
-                            <!-- KPI 1 -->
-                            <div class="kpi-card" style="grid-column: 1 / -1; border-color: var(--accent-purple); border-width: 2px;">
+                            <!-- KPI 1: PATRIMONIO (Tarjeta Principal) -->
+                            <div class="kpi-card" style="grid-column: 1 / -1; border-left: 4px solid var(--accent-purple);">
                                 <h3 class="kpi-title" style="color: var(--accent-purple);">
-                                    <i data-lucide="gem"></i> <span data-lang-key="kpiGlobalPatrimony">Total Patrimônio Neto</span>
+                                    <i data-lucide="gem" style="filter: drop-shadow(0 0 5px var(--accent-purple));"></i> 
+                                    <span data-lang-key="kpiGlobalPatrimony">Total Patrimônio Neto</span>
                                 </h3>
-                                <p class="kpi-value" id="kpi-global-patrimonio" style="color: var(--accent-purple);"></p>
+                                <p class="kpi-value" id="kpi-global-patrimonio" style="color: var(--text-primary);"></p>
                             </div>
 
-                            <!-- KPI 2 -->
-                            <div class="kpi-card" style="border-color: var(--warning-color);">
+                            <!-- KPI 2: CAPITAL DISTRIBUIDO -->
+                            <div class="kpi-card" style="border-top: 4px solid var(--warning-color);">
                                 <h3 class="kpi-title" style="color: var(--warning-color);">
-                                    <i data-lucide="briefcase"></i> <span data-lang-key="kpiGlobalDistributed">Capital Distribuído (Total)</span>
+                                    <i data-lucide="briefcase" style="filter: drop-shadow(0 0 5px var(--warning-color));"></i> 
+                                    <span data-lang-key="kpiGlobalDistributed">Capital Distribuído</span>
                                 </h3>
-                                <p class="kpi-value" id="kpi-global-distributed" style="color: var(--warning-color);"></p>
+                                <p class="kpi-value" id="kpi-global-distributed" style="color: var(--text-primary);"></p>
                             </div>
                             
-                            <!-- KPI 3 -->
-                            <div class="kpi-card" style="border-color: var(--accent-green);">
+                            <!-- KPI 3: CAPITAL EN CAJAS -->
+                            <div class="kpi-card" style="border-top: 4px solid var(--accent-green);">
                                 <h3 class="kpi-title" style="color: var(--accent-green);">
-                                    <i data-lucide="banknote"></i> <span data-lang-key="kpiGlobalCash">Capital em Caixas (Total)</span>
+                                    <i data-lucide="banknote" style="filter: drop-shadow(0 0 5px var(--accent-green));"></i> 
+                                    <span data-lang-key="kpiGlobalCash">Capital em Caixas</span>
                                 </h3>
-                                <p class="kpi-value" id="kpi-global-capital-on-hand" style="color: var(--accent-green);"></p>
+                                <p class="kpi-value" id="kpi-global-capital-on-hand" style="color: var(--text-primary);"></p>
                             </div>
 
-                            <!-- KPI 4 -->
+                            <!-- KPI 4 & 5 (Más compactos) -->
                             <div class="kpi-card">
                                 <h3 class="kpi-title" data-lang-key="activeCollectors"><i data-lucide="users"></i></h3>
                                 <p class="kpi-value" id="kpi-active-collectors"></p>
                             </div>
-                            <!-- KPI 5 -->
-                                <div class="kpi-card">
+                            <div class="kpi-card">
                                 <h3 class="kpi-title" data-lang-key="activeClients"><i data-lucide="user-check"></i></h3>
                                 <p class="kpi-value" id="kpi-active-clients"></p>
                             </div>
@@ -4776,305 +5188,7 @@ async function submitCollectorReport(collectorId) {
 
 
         
-    function showCollectorDetails(collectorId) {
-            const detailView = document.getElementById('collectorDetailView');
-            const collector = allCollectors.find(c => c.id === collectorId);
-            const clients = allClients.filter(c => c.collectorId === collectorId); 
-            if (!collector) return;
-
-            const mapView = document.getElementById('map-view');
-            if (mapView && mapView.classList.contains('active')) {
-                mapView.classList.remove('active');
-                document.getElementById('dashboard-view').classList.add('active');
-                document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
-                const dashboardNavItem = document.querySelector('.nav-item[data-view="dashboard"]');
-                if (dashboardNavItem) dashboardNavItem.classList.add('active');
-            }
-            
-            const placeholderUrl = `https://placehold.co/128x128/0f172a/FFFFFF?text=${(collector.name || 'C').charAt(0)}`;
-            const isTrackingActive = collector.isRealtimeTrackingActive;
-            const lastSeenTime = formatTimestamp(collector.lastLocationUpdate);
-
-            const metrics = calculatedCollectorMetrics.get(collectorId);
-            
-            if (!metrics) {
-                console.warn(`Métricas para ${collectorId} aún no calculadas.`);
-                detailView.innerHTML = `<header class="modal-header">...</header><div class="modal-content-wrapper container"><p>Calculando dados...</p></div>`;
-            }
-            
-            const {
-                capitalOnHand = 0, 
-                totalDistributedCapital = 0, 
-                totalPatrimonio = 0, 
-                status = { textKey: 'inOrder', color: 'var(--accent-green)', icon: 'check-circle' },
-                totalClientsCount, 
-                activeClientsCount = 0, 
-                lateClientsCount = 0,
-                dailyCollected = 0,
-                weeklyCollected = 0,
-                monthlyCollected = 0
-            } = metrics || {}; 
-
-            let clientsListHtml = '';
-            if (clients.length > 0) {
-                const clientsWithDisplayLoan = clients.map(client => {
-                    const loansWithStatus = (client.loans || []).map((loan, index) => {
-                        const details = calculateLoanDetails(loan);
-                        return { ...loan, status: details.status, lateDays: details.lateDays, originalIndex: index };
-                    });
-                    
-                    const activeLoans = loansWithStatus.filter(l => l.status !== 'finished');
-                    const hasMultipleActive = activeLoans.length > 1;
-
-                    let displayLoan = loansWithStatus.find(l => l.status === 'late') || 
-                                      loansWithStatus.find(l => l.status === 'pending') || 
-                                      loansWithStatus.find(l => l.status === 'paid') || 
-                                      loansWithStatus[0];
-                    
-                    if (!displayLoan) {
-                         displayLoan = { amount: 0, status: 'n/a', lateDays: 0, originalIndex: 0 };
-                    }
-
-                    return { client, displayLoan, hasMultipleActive, activeLoansCount: activeLoans.length };
-                }).sort((a, b) => a.client.name.localeCompare(b.client.name));
-
-                clientsListHtml = clientsWithDisplayLoan.map(({ client, displayLoan, hasMultipleActive, activeLoansCount }) => {
-                    const statusClass = `status-${displayLoan.status}`;
-                    const statusText = (translations[currentLang] && translations[currentLang][displayLoan.status]) || displayLoan.status;
-                    const nameInitial = (client.name || 'C').charAt(0).toUpperCase();
-                    const placeholderUrl = `https://placehold.co/80x80/3b82f6/FFFFFF?text=${nameInitial}`;
-                    const photoUrl = client.profilePictureUrl || placeholderUrl;
-                    
-                    const lateDays = displayLoan.lateDays || 0;
-                    const reputationScore = Math.max(0, 10 - lateDays);
-                    let repClass = 'rep-bad';
-                    if (reputationScore === 10) repClass = 'rep-perfect';
-                    else if (reputationScore >= 7) repClass = 'rep-good';
-                    else if (reputationScore >= 3) repClass = 'rep-regular';
-                    
-                    const multipleLoansIndicator = hasMultipleActive 
-                        ? `<span style="font-size: 0.75em; color: var(--accent-purple); font-weight: 600; margin-left: 5px;">(${activeLoansCount} Préstamos)</span>` 
-                        : '';
-
-                    return `
-                        <div class="client-card" data-client-id="${client.id}" data-loan-index="${displayLoan.originalIndex}">
-                            <div class="item-avatar">
-                                <img src="${photoUrl}" alt="Foto do Cliente" style="width: 40px; height: 40px;">
-                            </div>
-                            <div class="item-info">
-                                <h4 class="item-name" style="font-size: 0.95em;">${client.name}${multipleLoansIndicator}</h4>
-                                <p class="item-subtext" style="font-size: 0.85em;">${client.address || 'Endereço não informado'}</p>
-                            </div>
-                            <div class="item-details" style="text-align: right;">
-                                <span class="item-detail-value" style="font-size: 1em;">${money(displayLoan.amount)}</span>
-                                <div style="display: flex; gap: 8px; align-items: center; margin-top: 5px;">
-                                   <span class="reputation-score ${repClass}" style="font-size: 0.75em;"><i data-lucide="star" style="width: 12px; height: 12px;"></i> ${reputationScore}/10</span>
-                                   <span class="payment-status ${statusClass}" style="font-size: 0.75em;">${statusText}</span> 
-                                </div>
-                            </div>
-                        </div>
-                    `;
-                }).join('');
-            } else {
-                clientsListHtml = '<p>Nenhum cliente para este cobrador.</p>';
-            }
-
-            detailView.innerHTML = `
-                <header class="modal-header">
-                    <button id="closeDetailView"><i data-lucide="arrow-left"></i></button>
-                    <span class="modal-title">${collector.name}</span>
-                    <button id="editCollectorBtn" class="header-btn" data-collector-id="${collectorId}"><i data-lucide="edit"></i></button>
-                </header>
-                <div class="modal-content-wrapper container">
-                    <div class="collector-detail-header">
-                        <img src="${collector.profilePictureUrl || placeholderUrl}" alt="Foto do Cobrador">
-                        <div class="collector-detail-info">
-                            <h3 class="item-name" style="margin-bottom: 5px;">${collector.name}</h3>
-                            <div class="status-indicator ${isTrackingActive ? 'online' : 'offline'}">
-                                <span data-lang-key="${isTrackingActive ? 'online' : 'offline'}"></span>
-                            </div>
-                            ${!isTrackingActive && lastSeenTime ? `
-                                <div class="last-seen-info">
-                                    <i data-lucide="clock" style="width:12px; height:12px;"></i>
-                                    <span data-lang-key="lastSeen"></span> ${lastSeenTime}
-                                </div>` : ''
-                            }
-                        </div>
-                        <div style="margin-left: auto; display: flex; gap: 8px;">
-                            ${collector.whatsapp ? `<a href="https://wa.me/${collector.whatsapp.replace(/\D/g, '')}" target="_blank" class="header-btn" title="Enviar mensagem via WhatsApp"><svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 12c0 1.77.46 3.45 1.28 4.95L2 22l5.25-1.38c1.45.77 3.09 1.23 4.79 1.23h.01c5.46 0 9.91-4.45 9.91-9.91C21.95 6.45 17.5 2 12.04 2M12.04 20.15c-1.49 0-2.92-.39-4.19-1.09l-.3-.18-3.12.82.83-3.04-.2-.31c-.78-1.23-1.19-2.69-1.19-4.2c0-4.4 3.57-7.97 7.97-7.97s7.97 3.57 7.97 7.97-3.57 7.97-7.97 7.97m5.42-6.2c-.28-.14-1.65-.81-1.9-.91c-.25-.1-.44-.14-.62.14c-.18.28-.72.91-.88 1.1c-.16.18-.32.2-.6.07c-.28-.13-1.18-.43-2.25-1.39c-.84-.75-1.4-1.68-1.57-1.96c-.16-.28-.02-.43.12-.57c.13-.13.28-.33.43-.49c.14-.16.19-.28.28-.46c.1-.18.05-.37-.02-.51c-.07-.14-.62-1.5-.85-2.05c-.23-.55-.46-.48-.62-.48c-.16 0-.35-.05-.53-.05c-.18 0-.46.07-.7.35c-.24.28-.92.9-1.12 2.18c-.2 1.28.2 2.53.23 2.7c.03.18 1.14 1.75 2.78 2.45c1.64.7 1.64.47 1.93.44c.28-.03 1.65-.67 1.88-1.32c.23-.65.23-1.2.16-1.32c-.07-.13-.26-.2-.53-.34Z"></path></svg></a>` : `<button class="header-btn" disabled style="opacity: 0.3;"><svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 12c0 1.77.46 3.45 1.28 4.95L2 22l5.25-1.38c1.45.77 3.09 1.23 4.79 1.23h.01c5.46 0 9.91-4.45 9.91-9.91C21.95 6.45 17.5 2 12.04 2M12.04 20.15c-1.49 0-2.92-.39-4.19-1.09l-.3-.18-3.12.82.83-3.04-.2-.31c-.78-1.23-1.19-2.69-1.19-4.2c0-4.4 3.57-7.97 7.97-7.97s7.97 3.57 7.97 7.97-3.57 7.97-7.97 7.97m5.42-6.2c-.28-.14-1.65-.81-1.9-.91c-.25-.1-.44-.14-.62.14c-.18.28-.72.91-.88 1.1c-.16.18-.32.2-.6.07c-.28-.13-1.18-.43-2.25-1.39c-.84-.75-1.4-1.68-1.57-1.96c-.16-.28-.02-.43.12-.57c.13-.13.28-.33.43-.49c.14-.16.19-.28.28-.46c.1-.18.05-.37-.02-.51c-.07-.14-.62-1.5-.85-2.05c-.23-.55-.46-.48-.62-.48c-.16 0-.35-.05-.53-.05c-.18 0-.46.07-.7.35c-.24.28-.92.9-1.12 2.18c-.2 1.28.2 2.53.23 2.7c.03.18 1.14 1.75 2.78 2.45c1.64.7 1.64.47 1.93.44c.28-.03 1.65-.67 1.88-1.32c.23-.65.23-1.2.16-1.32c-.07-.13-.26-.2-.53-.34Z"></path></svg></button>`}
-                            <button class="header-btn collector-map-btn" data-collector-id="${collectorId}" title="Ver no mapa">
-                                <i data-lucide="map-pin" style="width: 24px; height: 24px;"></i>
-                            </button>
-                        </div>
-                    </div>
-
-                    <div class="kpi-card" style="margin-bottom: 20px; text-align: center; border-color: var(--accent-purple); border-width: 2px;">
-                        <h3 class="kpi-title" style="justify-content: center; color: var(--accent-purple);"><i data-lucide="gem"></i> Capital Total (Patrimônio)</h3>
-                        <p class="kpi-value" id="kpi-total-patrimonio" style="color: var(--accent-purple); font-size: 1.8em;">${money(totalPatrimonio)}</p>
-                    </div>
-                    
-                    <div class="kpi-card" style="margin-bottom: 20px; text-align: center; border-color: var(--accent-green); border-width: 2px;">
-                        <h3 class="kpi-title" style="justify-content: center; color: var(--accent-green);" data-lang-key="capitalOnHand"><i data-lucide="banknote"></i></h3>
-                        <p class="kpi-value" id="kpi-capital-total" style="color: var(--accent-green);">${money(capitalOnHand)}</p>
-                    </div>
-
-                    <div class="kpi-card" style="margin-bottom: 20px; text-align: center; border-color: var(--warning-color); border-width: 2px;">
-                        <h3 class="kpi-title" style="justify-content: center; color: var(--warning-color);"><i data-lucide="briefcase"></i> Capital Distribuído</h3>
-                        <p class="kpi-value" id="kpi-distributed-capital" style="color: var(--warning-color);">${money(totalDistributedCapital)}</p>
-                    </div>
-
-                    <section class="kpi-grid" style="grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
-                        <div class="kpi-card">
-                            <h3 class="kpi-title" data-lang-key="status"><i data-lucide="${status.icon}"></i></h3>
-                            <p class="kpi-value" style="color: ${status.color}; font-size: 1.2em;">${translations[currentLang][status.textKey]}</p>
-                        </div>
-                        
-                        <div class="kpi-card">
-                            <h3 class="kpi-title" data-lang-key="activeClients"><i data-lucide="user-check"></i></h3>
-                            <p class="kpi-value">${activeClientsCount}</p>
-                        </div>
-                        
-                        <div class="kpi-card">
-                            <h3 class="kpi-title"><i data-lucide="users"></i> Clientes Registrados</h3>
-                            <p class="kpi-value">${totalClientsCount !== undefined ? totalClientsCount : activeClientsCount}</p>
-                        </div>
-                        
-                        <div class="kpi-card">
-                            <h3 class="kpi-title" data-lang-key="lateClients"><i data-lucide="user-x"></i></h3>
-                            <p class="kpi-value" style="color: var(--danger-color);">${lateClientsCount}</p>
-                        </div>
-                    </section>
-
-                    <section style="display: flex; flex-direction: column; gap: 10px; margin-top: 20px; margin-bottom: 20px;">
-                        <div class="kpi-card" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 15px;">
-                            <h3 class="kpi-title" data-lang-key="collectedToday" style="margin: 0; font-size: 0.95em;"><i data-lucide="sun" style="width: 16px; height: 16px;"></i></h3>
-                            <p class="kpi-value" style="font-size: 1.2em; color: var(--accent-green);">${money(dailyCollected)}</p>
-                        </div>
-                        <div class="kpi-card" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 15px;">
-                            <h3 class="kpi-title" data-lang-key="collectedWeek" style="margin: 0; font-size: 0.95em;"><i data-lucide="calendar" style="width: 16px; height: 16px;"></i></h3>
-                            <p class="kpi-value" style="font-size: 1.2em; color: var(--accent-green);">${money(weeklyCollected)}</p>
-                        </div>
-                        <div class="kpi-card" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 15px;">
-                            <h3 class="kpi-title" data-lang-key="collectedMonth" style="margin: 0; font-size: 0.95em;"><i data-lucide="calendar-days" style="width: 16px; height: 16px;"></i></h3>
-                            <p class="kpi-value" style="font-size: 1.2em; color: var(--accent-green);">${money(monthlyCollected)}</p>
-                        </div>
-                    </section>
-
-                    <h2 class="section-title">Clientes de ${collector.name}</h2>
-                    <div class="item-list">
-                        ${clientsListHtml}
-                    </div>
-
-                    <section style="margin-top: 30px;">
-                    <!-- CORRECCIÓN CLAVE: Título con traducción dinámica -->
-                    <h2 class="section-title" data-lang-key="settlementHistory">Histórico de Liquidações</h2>
-                    <div class="item-list" id="settlements-history-list">
-                    <!-- Las liquidaciones se cargarán aquí -->
-                </div>
-            </section>
-                </div>
-                 <div class="action-buttons">
-                    <button id="download-report-btn" data-collector-id="${collectorId}" class="btn-secondary"><i data-lucide="download"></i> <span data-lang-key="downloadReport"></span></button>
-                    <!-- CORRECCIÓN CLAVE: Botón con traducción dinámica -->
-                    <button id="register-settlement-btn" data-collector-id="${collectorId}" class="btn-primary">
-                    <i data-lucide="arrow-down-circle"></i> <span data-lang-key="registerSettlement">Registrar Retiro</span>
-                    </button>
-                    <button id="add-capital-injection-btn" data-collector-id="${collectorId}" class="btn-primary" style="flex-grow: 1; background-color: var(--accent-green); border-color: var(--accent-green);">
-                        <i data-lucide="arrow-up-circle"></i> <span data-lang-key="aportarCapital"></span>
-                    </button>
-                    <button id="unlock-app-btn" data-collector-id="${collectorId}" class="btn-primary" style="flex-grow: 1; background-color: var(--warning-color); border-color: var(--warning-color); color: white;">
-                        <i data-lucide="lock-open"></i> Desbloquear (30m)
-                    </button></div>
-            `;
-
-            const settlementsListContainer = detailView.querySelector('#settlements-history-list');
-            const collectorSettlements = allSettlements
-                .filter(s => s.collectorId === collectorId)
-                .sort((a, b) => (b.date?.seconds || 0) - (a.date?.seconds || 0)); 
-            if (settlementsListContainer) {
-                if (collectorSettlements.length === 0) {
-                    settlementsListContainer.innerHTML = `<p class="no-items">Nenhuma retirada registrada para este cobrador.</p>`;
-                } else {
-                    settlementsListContainer.innerHTML = collectorSettlements.map(settlement => {
-                        const date = settlement.date?.seconds ? new Date(settlement.date.seconds * 1000) : null;
-                        const dateString = date ? date.toLocaleDateString('pt-BR') : 'Data inválida';
-                        const timeString = date ? date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '';
-                        return `
-                        <div class="payment-history-item" style="cursor: default;">
-                            <div class="payment-history-details">
-                                <h4 class="payment-history-title">${dateString} - ${timeString}</h4>
-                                ${settlement.notes ? `<p class="payment-history-description" style="font-style: italic;">${settlement.notes}</p>` : ''}
-                            </div>
-                            <div class="payment-history-info">
-                                <span class="payment-history-amount" style="color: var(--text-primary); font-size: 1.1em;">${money(settlement.amount)}</span>
-                            </div>
-                        </div>`;
-                    }).join('');
-                }
-            }
-            
-            detailView.classList.add('active');
-            lucide.createIcons({nodes: detailView.querySelectorAll('[data-lucide]')});
-            applyLanguage(currentLang);
-
-            detailView.querySelector('#closeDetailView').addEventListener('click', () => detailView.classList.remove('active'));
-
-            detailView.querySelector('.item-list').addEventListener('click', (e) => {
-                const clientCard = e.target.closest('.client-card');
-                if (clientCard) {
-                    showClientDetails(clientCard.dataset.clientId, parseInt(clientCard.dataset.loanIndex, 10));
-                }
-            });
-            
-            detailView.querySelector('#editCollectorBtn').addEventListener('click', (e) => showCollectorFormModal(e.currentTarget.dataset.collectorId));
-            detailView.querySelector('#download-report-btn').addEventListener('click', (e) => showReportOptionsModal(e.currentTarget.dataset.collectorId));
-            detailView.querySelector('.collector-map-btn').addEventListener('click', (e) => focusOnCollector(e.currentTarget.dataset.collectorId));
-
-            const registerSettlementBtn = detailView.querySelector('#register-settlement-btn');
-            if (registerSettlementBtn) {
-                registerSettlementBtn.addEventListener('click', (e) => {
-                    const collectorId = e.currentTarget.dataset.collectorId;
-                    const collector = allCollectors.find(c => c.id === collectorId);
-                    showSettlementModal(collectorId, collector.name, capitalOnHand); 
-                });
-            }
-
-            const addCapitalBtn = detailView.querySelector('#add-capital-injection-btn');
-            if (addCapitalBtn) {
-                addCapitalBtn.addEventListener('click', (e) => {
-                    const collectorId = e.currentTarget.dataset.collectorId;
-                    const collector = allCollectors.find(c => c.id === collectorId);
-                    showCapitalInjectionModal(collectorId, collector.name);
-                });
-            }
-            const unlockBtn = detailView.querySelector('#unlock-app-btn');
-            if (unlockBtn) {
-                unlockBtn.addEventListener('click', async (e) => {
-                    const cId = e.currentTarget.dataset.collectorId;
-                    
-                    const confirmed = await showConfirmationModal(
-                        'Desbloquear App',
-                        'Isso permitirá que o cobrador acesse o aplicativo por 30 minutos, ignorando horários ou bloqueios. Continuar?',
-                        'Sim, Desbloquear', 'btn-primary'
-                    );
-                    
-                    if (!confirmed) return;
-
-                    try {
-                        const unlockUntil = new Date();
-                        unlockUntil.setMinutes(unlockUntil.getMinutes() + 30); 
-
-                        await updateDoc(doc(db, 'collectors', cId), {
-                            tempUnlockUntil: Timestamp.fromDate(unlockUntil)
-                        });
-                        showToast("App liberada por 30 minutos!", false);
-                    } catch (error) {
-                        console.error("Erro ao desbloquear:", error);
-                        showToast("Erro ao desbloquear app.", true);
-                    }
-                });
-            }
-        }
+    
 
 
         
@@ -5700,16 +5814,18 @@ function updateAdminNotificationsView() {
             const isEditMode = collectorId !== null;
             const collector = isEditMode ? allCollectors.find(c => c.id === collectorId) : {};
 
-            // Variables de control para saber si el usuario pidió borrar las fotos
+            // Variables de control para borrar fotos
             let markProfileForRemoval = false;
             let markDocumentForRemoval = false;
 
             const modalTitleKey = isEditMode ? 'editCollector' : 'addNewCollector';
             const saveButtonKey = isEditMode ? 'saveChanges' : 'saveCollector';
             
+            // Obtenemos las traducciones actuales para usar en el Placeholder
+            const t = translations[currentLang];
+
             const formModal = document.getElementById('collectorFormModal');
             
-            // --- TEMPLATE HTML MEJORADO ---
             formModal.innerHTML = `
                 <header class="modal-header">
                     <button id="closeCollectorForm"><i data-lucide="arrow-left"></i></button>
@@ -5720,7 +5836,7 @@ function updateAdminNotificationsView() {
 
                         <h3 class="section-title" style="margin-top: 10px; border-bottom: none; font-size: 1.1em;">
                         <i data-lucide="user-round" style="width: 18px; height: 18px; margin-right: 8px;"></i>
-                        DADOS PESSOAIS
+                        <span data-lang-key="fullName">DADOS PESSOAIS</span> <!-- Usamos una key genérica o texto fijo si prefieres -->
                         </h3>
                         <hr style="border: 1px solid var(--border-color); margin-top: 10px; margin-bottom: 25px;">
 
@@ -5752,14 +5868,21 @@ function updateAdminNotificationsView() {
                         <div id="collector-verification-results" style="margin-top: 20px; margin-bottom: 20px; display: none;"> 
                         </div>
 
+                        <!-- SECCIÓN NOMBRE DE RUTA (TRADUCIDA) -->
+                        <div class="form-group" style="background-color: var(--bg); padding: 15px; border-radius: 8px; border: 1px dashed var(--border-color); margin-bottom: 30px;">
+                            <label for="collector-route-name" style="color: var(--accent-blue); font-weight: 700;" data-lang-key="routeName">Nome da Rota</label>
+                            <input type="text" id="collector-route-name" value="${collector.routeName || ''}" placeholder="${t.routePlaceholder || 'Ex: Rota Centro...'}" style="font-weight: 600;">
+                            <p style="font-size: 0.8em; color: var(--text-secondary); margin-top: 5px;" data-lang-key="routeNameDesc">Este nome aparecerá no app.</p>
+                        </div>
+
                         <h3 class="section-title" style="margin-top: 30px; border-bottom: none; font-size: 1.1em;">
                         <i data-lucide="smartphone" style="width: 18px; height: 18px; margin-right: 8px;"></i>
-                        ACESSO AO APP DO COBRADOR
+                        ACESSO AO APP
                         </h3>
                         <hr style="border: 1px solid var(--border-color); margin-top: 10px; margin-bottom: 25px;">
 
                         <div class="form-group">
-                            <label for="collector-username">Usuário (para acessar o app)</label>
+                            <label for="collector-username" data-lang-key="username">Usuário</label>
                             <input type="text" id="collector-username" required value="${collector.id || ''}" ${isEditMode ? 'readonly' : ''} autocomplete="off" autocapitalize="none">
                             <div id="username-validation-msg" class="validation-message">
                             </div>
@@ -5773,32 +5896,31 @@ function updateAdminNotificationsView() {
 
                         <h3 class="section-title" style="margin-top: 30px; border-bottom: none; font-size: 1.1em;">
                         <i data-lucide="dollar-sign" style="width: 18px; height: 18px; margin-right: 8px;"></i>
-                        CONFIGURAÇÃO FINANCEIRA
+                        FINANCEIRO
                         </h3>
                         <hr style="border: 1px solid var(--border-color); margin-top: 10px; margin-bottom: 25px;">
 
                         <div class="form-group">
-                        <label for="collector-currency">Moeda de Operação</label>
+                        <label for="collector-currency" data-lang-key="currency">Moeda</label>
                         <select id="collector-currency">
                         </select>
                         </div>
 
                         <div class="form-group">
-                            <label for="collector-capital-on-hand"><span id="capital-currency-symbol" style="font-weight: bold;">(R$)</span> Capital em Mãos (em Caixa)</label>
+                            <label for="collector-capital-on-hand"><span id="capital-currency-symbol" style="font-weight: bold;">(R$)</span> <span data-lang-key="capitalOnHand">Capital em Mãos</span></label>
                             <input type="number" id="collector-capital-on-hand" step="0.01" required value="${collector.startingCapitalOnHand || ''}" placeholder="0.00">
                             <p style="font-size: 0.85em; color: var(--text-secondary); margin: 8px 0 0;">
-                                Insira o dinheiro em espécie (efetivo) que o cobrador tem AGORA para operar (fazer novos empréstimos, pagar gastos, etc.).
+                                Dinheiro físico inicial em posse do cobrador.
                             </p>
                         </div>
 
 
                         <h3 class="section-title" style="margin-top: 30px; border-bottom: none; font-size: 1.1em;">
                         <i data-lucide="file-check" style="width: 18px; height: 18px; margin-right: 8px;"></i>
-                        DOCUMENTAÇÃO E FOTOS
+                        FOTOS
                         </h3>
                         <hr style="border: 1px solid var(--border-color); margin-top: 10px; margin-bottom: 25px;">
 
-                        <!-- SECCIÓN DE FOTOS MEJORADA -->
                         <div class="form-group grid-2">
                             <!-- FOTO DE PERFIL -->
                             <div>
@@ -5813,13 +5935,11 @@ function updateAdminNotificationsView() {
                                             <i data-lucide="upload" style="width: 14px; height: 14px;"></i> Carregar
                                         </label>
                                         
-                                        <!-- Botón Ver (Oculto si no hay foto) -->
-                                        <button type="button" id="btn-view-profile" class="btn-secondary" style="padding: 6px 10px; font-size: 0.8em; display: none;" title="Ver / Baixar">
+                                        <button type="button" id="btn-view-profile" class="btn-secondary" style="padding: 6px 10px; font-size: 0.8em; display: none;" title="Ver">
                                             <i data-lucide="eye" style="width: 14px; height: 14px;"></i>
                                         </button>
                                         
-                                        <!-- Botón Remover (Oculto si no hay foto) -->
-                                        <button type="button" id="btn-remove-profile" class="btn-danger" style="padding: 6px 10px; font-size: 0.8em; display: none; background-color: transparent; border-color: var(--danger-color); color: var(--danger-color);" title="Remover Foto">
+                                        <button type="button" id="btn-remove-profile" class="btn-danger" style="padding: 6px 10px; font-size: 0.8em; display: none; background-color: transparent; border-color: var(--danger-color); color: var(--danger-color);" title="Remover">
                                             <i data-lucide="trash-2" style="width: 14px; height: 14px;"></i>
                                         </button>
                                     </div>
@@ -5829,7 +5949,7 @@ function updateAdminNotificationsView() {
 
                             <!-- FOTO DE DOCUMENTO -->
                             <div>
-                                <label for="collector-document-pic">Foto do Documento</label>
+                                <label for="collector-document-pic">Foto Doc.</label>
                                 <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 8px;">
                                     <div style="position: relative; width: 120px; height: 80px;">
                                         <img id="document-preview" src="https://placehold.co/120x80/0f172a/FFFFFF?text=DOC" alt="Preview" style="width: 100%; height: 100%; border-radius: 8px; object-fit: cover; border: 1px solid var(--border-color);">
@@ -5840,13 +5960,11 @@ function updateAdminNotificationsView() {
                                             <i data-lucide="upload" style="width: 14px; height: 14px;"></i> Carregar
                                         </label>
                                         
-                                        <!-- Botón Ver -->
-                                        <button type="button" id="btn-view-doc" class="btn-secondary" style="padding: 6px 10px; font-size: 0.8em; display: none;" title="Ver / Baixar">
+                                        <button type="button" id="btn-view-doc" class="btn-secondary" style="padding: 6px 10px; font-size: 0.8em; display: none;" title="Ver">
                                             <i data-lucide="eye" style="width: 14px; height: 14px;"></i>
                                         </button>
 
-                                        <!-- Botón Remover -->
-                                        <button type="button" id="btn-remove-doc" class="btn-danger" style="padding: 6px 10px; font-size: 0.8em; display: none; background-color: transparent; border-color: var(--danger-color); color: var(--danger-color);" title="Remover Foto">
+                                        <button type="button" id="btn-remove-doc" class="btn-danger" style="padding: 6px 10px; font-size: 0.8em; display: none; background-color: transparent; border-color: var(--danger-color); color: var(--danger-color);" title="Remover">
                                             <i data-lucide="trash-2" style="width: 14px; height: 14px;"></i>
                                         </button>
                                     </div>
@@ -5860,7 +5978,7 @@ function updateAdminNotificationsView() {
                 <div class="action-buttons">
                     ${isEditMode ? `
                     <button id="deleteCollectorBtn" class="btn-danger" style="background-color: var(--danger-color); border-color: var(--danger-color); color: white; flex-grow: 1;">
-                        <i data-lucide="trash-2"></i> Eliminar Cobrador
+                        <i data-lucide="trash-2"></i> Excluir
                     </button>
                     <button id="reportCollectorBtn" class="btn-danger" style="background-color: transparent; border-color: var(--danger-color); color: var(--danger-color); flex-grow: 1;">
                         <i data-lucide="alert-octagon"></i> Reportar
@@ -5884,14 +6002,13 @@ function updateAdminNotificationsView() {
             const btnViewDoc = formModal.querySelector('#btn-view-doc');
             const btnRemoveDoc = formModal.querySelector('#btn-remove-doc');
 
-            // --- LÓGICA DE FOTOS: MOSTRAR/OCULTAR BOTONES ---
+            // --- LÓGICA DE FOTOS ---
             const updatePhotoUI = () => {
                 // Perfil
                 const hasProfile = (isEditMode && collector.profilePictureUrl && !markProfileForRemoval) || (profileInput.files && profileInput.files[0]);
                 if (hasProfile) {
                     btnViewProfile.style.display = 'inline-flex';
                     btnRemoveProfile.style.display = 'inline-flex';
-                    // Si es un archivo nuevo, el botón ver no funciona (a menos que usemos blob), lo ocultamos por simplicidad o lo dejamos
                     if (profileInput.files && profileInput.files[0]) btnViewProfile.style.display = 'none'; 
                 } else {
                     btnViewProfile.style.display = 'none';
@@ -5912,15 +6029,13 @@ function updateAdminNotificationsView() {
                 }
             };
 
-            // --- LISTENERS FOTOS ---
-            
-            // 1. Inputs Change (Cargar nueva foto)
+            // Listeners Fotos
             if (profileInput) {
                 profileInput.addEventListener('change', (e) => {
                     const file = e.target.files[0];
                     if (file) {
                         profilePreview.src = URL.createObjectURL(file);
-                        markProfileForRemoval = false; // Ya no está marcado para borrar, porque subimos una nueva
+                        markProfileForRemoval = false;
                         updatePhotoUI();
                     }
                 });
@@ -5936,31 +6051,16 @@ function updateAdminNotificationsView() {
                 });
             }
 
-            // 2. Botones Remover
-            btnRemoveProfile.addEventListener('click', () => {
-                markProfileForRemoval = true;
-                profileInput.value = ''; // Limpiar input file
-                updatePhotoUI();
-            });
-            btnRemoveDoc.addEventListener('click', () => {
-                markDocumentForRemoval = true;
-                documentInput.value = ''; // Limpiar input file
-                updatePhotoUI();
-            });
+            btnRemoveProfile.addEventListener('click', () => { markProfileForRemoval = true; profileInput.value = ''; updatePhotoUI(); });
+            btnRemoveDoc.addEventListener('click', () => { markDocumentForRemoval = true; documentInput.value = ''; updatePhotoUI(); });
 
-            // 3. Botones Ver (Abrir en nueva pestaña)
             btnViewProfile.addEventListener('click', () => {
-                if (collector.profilePictureUrl && !markProfileForRemoval) {
-                    window.open(collector.profilePictureUrl, '_blank');
-                }
+                if (collector.profilePictureUrl && !markProfileForRemoval) window.open(collector.profilePictureUrl, '_blank');
             });
             btnViewDoc.addEventListener('click', () => {
-                if (collector.documentPictureUrl && !markDocumentForRemoval) {
-                    window.open(collector.documentPictureUrl, '_blank');
-                }
+                if (collector.documentPictureUrl && !markDocumentForRemoval) window.open(collector.documentPictureUrl, '_blank');
             });
 
-            // Inicializar UI de fotos
             if (isEditMode) {
                 if (collector.profilePictureUrl) profilePreview.src = collector.profilePictureUrl;
                 if (collector.documentPictureUrl) documentPreview.src = collector.documentPictureUrl;
@@ -5968,7 +6068,7 @@ function updateAdminNotificationsView() {
             updatePhotoUI();
 
 
-            // --- Lógica de Moeda ---
+            // --- Lógica de Moneda ---
             const currencySelect = formModal.querySelector('#collector-currency');
             const capitalSymbolSpan = formModal.querySelector('#capital-currency-symbol');
 
@@ -6038,11 +6138,11 @@ function updateAdminNotificationsView() {
                     
                     if (docSnap.exists()) {
                         usernameMsg.className = 'validation-message invalid';
-                        usernameMsg.innerHTML = `<i data-lucide="x-circle"></i> Usuário já existe no sistema.`;
+                        usernameMsg.innerHTML = `<i data-lucide="x-circle"></i> Usuário já existe.`;
                         isUsernameGloballyAvailable = false;
                     } else {
                         usernameMsg.className = 'validation-message valid';
-                        usernameMsg.innerHTML = `<i data-lucide="check-circle"></i> Nome de usuário disponível!`;
+                        usernameMsg.innerHTML = `<i data-lucide="check-circle"></i> Disponível!`;
                         isUsernameGloballyAvailable = true;
                     }
                 } catch (error) {
@@ -6065,7 +6165,7 @@ function updateAdminNotificationsView() {
                 });
             }
             
-            // --- GUARDAR COBRADOR (Actualizado con lógica de borrado de fotos) ---
+            // --- GUARDAR COBRADOR ---
             formModal.querySelector('#saveCollectorBtn').addEventListener('click', async (e) => {
                 const saveBtn = e.currentTarget;
                 const originalBtnHTML = saveBtn.innerHTML;
@@ -6077,9 +6177,12 @@ function updateAdminNotificationsView() {
                 const documentFile = document.getElementById('collector-document-pic')?.files[0];
                 const username = document.getElementById('collector-username').value.trim(); 
                 const name = document.getElementById('collector-name').value.trim();
+                
+                // GUARDAR EL NOMBRE DE LA RUTA
+                const routeName = document.getElementById('collector-route-name').value.trim();
+
                 const email = `${username}@gmail.com`; 
                 const password = document.getElementById('collector-password').value.trim();
-                
                 const capitalOnHand = parseFloat(document.getElementById('collector-capital-on-hand').value);
 
                 if (!isEditMode && !isUsernameGloballyAvailable) {
@@ -6101,7 +6204,7 @@ function updateAdminNotificationsView() {
                 }
 
                  if (!emailRegex.test(email)) {
-                    showToast("O nome de usuário não pode ser usado para criar um email válido (evite caracteres especiais ou espaços).", true);
+                    showToast("Nome de usuário inválido para email.", true);
                     saveBtn.disabled = false;
                     saveBtn.innerHTML = originalBtnHTML;
                     lucide.createIcons({ nodes: [saveBtn.querySelector('i')] });
@@ -6109,15 +6212,12 @@ function updateAdminNotificationsView() {
                 }
                 
                 try {
-                    // LÓGICA DE FOTOS: Mantiene la actual, la borra o sube nueva
                     let profilePicUrl = collector.profilePictureUrl || ''; 
                     let documentPicUrl = collector.documentPictureUrl || ''; 
 
-                    // 1. Borrado explícito
                     if (markProfileForRemoval) profilePicUrl = '';
                     if (markDocumentForRemoval) documentPicUrl = '';
 
-                    // 2. Subida de nuevos archivos (Sobrescribe lo anterior)
                     if (profileFile) {
                         showToast("Subindo foto de perfil...", false);
                         const profileStorageRef = ref(storage, `companies/${currentCompanyId}/collectors/${username}/profile.jpg`);
@@ -6136,6 +6236,7 @@ function updateAdminNotificationsView() {
                         companyId: currentCompanyId, 
                         username: username,
                         name,
+                        routeName: routeName, // <-- GUARDAR DATO
                         email: email,
                         documentNumber: document.getElementById('collector-document').value.trim(),
                         address: document.getElementById('collector-address').value,
@@ -6155,35 +6256,20 @@ function updateAdminNotificationsView() {
                         const { username: id, email: emailToUpdate, ...dataToUpdate } = collectorData; 
 
                         if (password) {
-                            console.log(`[ADMIN] Solicitando alteração de senha para o cobrador: ${collectorId}...`);
+                            console.log(`[ADMIN] Alterando senha cobrador: ${collectorId}...`);
                             showToast("Atualizando senha...", false);
                             
-                            if (!auth.currentUser) throw new Error("Admin não está autenticado.");
+                            if (!auth.currentUser) throw new Error("Admin não autenticado.");
                             const idToken = await auth.currentUser.getIdToken(true);
 
                             const functionUrl = "https://us-central1-lumix-financas-app.cloudfunctions.net/updateCollectorAuth";
                             const response = await fetch(functionUrl, {
                                 method: 'POST',
-                                headers: {
-                                    'Content-Type': 'application/json',
-                                    'Authorization': `Bearer ${idToken}`
-                                },
-                                body: JSON.stringify({ 
-                                    data: {
-                                        collectorUsername: collectorId,
-                                        newPassword: password
-                                    }
-                                })
+                                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
+                                body: JSON.stringify({ data: { collectorUsername: collectorId, newPassword: password } })
                             });
 
-                            if (!response.ok) {
-                                const errorData = await response.json().catch(() => ({}));
-                                if (response.status === 404) {
-                                    throw new Error("Função 'updateCollectorAuth' não encontrada.");
-                                }
-                                throw new Error(errorData.error?.message || `Error HTTP ${response.status} ao alterar senha.`);
-                            }
-                            
+                            if (!response.ok) throw new Error("Erro ao alterar senha.");
                             showToast("Senha alterada com sucesso!");
                         }
                         
@@ -6192,38 +6278,21 @@ function updateAdminNotificationsView() {
                         formModal.classList.remove('active');
 
                     } else {
-                        if (!auth.currentUser) throw new Error("Admin não está autenticado.");
+                        if (!auth.currentUser) throw new Error("Admin não autenticado.");
                         const idToken = await auth.currentUser.getIdToken(true);
 
-                        const dataToSend = {
-                            collectorEmail: email,
-                            collectorPassword: password,
-                            collectorData: collectorData
-                        };
-
+                        const dataToSend = { collectorEmail: email, collectorPassword: password, collectorData: collectorData };
                         const functionUrl = "https://us-central1-lumix-financas-app.cloudfunctions.net/createCollector";
                         const response = await fetch(functionUrl, {
                             method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'Authorization': `Bearer ${idToken}`
-                            },
+                            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
                             body: JSON.stringify({ data: dataToSend })
                         });
 
                         if (!response.ok) {
                             const errorData = await response.json().catch(() => ({}));
-                            const errorCode = errorData.error?.code;
-                            const errorMessage = errorData.error?.message || `Error HTTP ${response.status}`;
-                            
-                            if (response.status === 409 && errorCode === 'auth/email-already-in-use') {
-                                 throw new Error(`Erro: O email '${email}' já está em uso.`);
-                            } else if (response.status === 409 && errorCode === 'firestore/already-exists') {
-                                 throw new Error(`Erro: O nome de usuário '${username}' já existe.`);
-                            }
-                            else {
-                                throw new Error(errorMessage);
-                            }
+                            if (response.status === 409) throw new Error("Email ou usuário já existe.");
+                            else throw new Error(errorData.error?.message || "Erro ao criar cobrador.");
                         }
 
                         showToast(translations[currentLang].collectorAdded);
@@ -6231,9 +6300,8 @@ function updateAdminNotificationsView() {
                     }
 
                 } catch (error) {
-                    console.error("ERRO DETALHADO AO SALVAR COBRADOR: ", error);
+                    console.error("ERRO:", error);
                     showToast(error.message || translations[currentLang].errorSaving, true);
-
                 } finally {
                     saveBtn.disabled = false;
                     saveBtn.innerHTML = originalBtnHTML;
