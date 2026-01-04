@@ -268,7 +268,6 @@
     .btn-secondary { background-color: transparent; color: var(--accent-blue); border: 2px solid var(--accent-blue); }
     .btn-danger { background-color: var(--danger-color); color: white; }
     .action-buttons button:disabled { background-color: var(--text-secondary); cursor: not-allowed; opacity: 0.7; }
-Con esto, los botones "Aportar Capital" y "Desbloquear" se podrán deslizar hacia los lados con el dedo si no caben en la pantalla, y se verán perfectos.
     .fab { position: fixed; bottom: 90px; right: 20px; width: 60px; height: 60px; background-color: var(--accent-blue); color: white; border-radius: 50%; border: none; box-shadow: 0 5px 15px rgba(0,0,0,0.2); display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 160; }
     .view { display: none; }
     .view.active { display: block; }
@@ -426,7 +425,25 @@ Con esto, los botones "Aportar Capital" y "Desbloquear" se podrán deslizar haci
     .photo-comparison-container { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px; }
     .photo-comparison-item { text-align: center; }
     .photo-comparison-item label { font-weight: 600; font-size: 0.9em; color: var(--text-secondary); margin-bottom: 8px; display: block; }
-    .photo-comparison-item img { width: 100%; height: auto; aspect-ratio: 1 / 1; object-fit: cover; border-radius: 8px; border: 2px solid var(--border-color); background-color: var(--bg); }  width: 100%; padding: 12px 12px 12px 40px; font-size: 1em; border-radius: 8px; border: 1px solid var(--border-color); background-color: var(--surface); color: var(--text-primary); }
+         .photo-comparison-item img { 
+            width: 100%; 
+            height: auto; 
+            aspect-ratio: 1 / 1; 
+            object-fit: cover; 
+            border-radius: 8px; 
+            border: 2px solid var(--border-color); 
+            background-color: var(--bg); 
+        }
+
+        .search-bar-wrapper input { 
+            width: 100%; 
+            padding: 12px 12px 12px 40px; 
+            font-size: 1em; 
+            border-radius: 8px; 
+            border: 1px solid var(--border-color); 
+            background-color: var(--surface); 
+            color: var(--text-primary); 
+        }
         .search-bar-wrapper .icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-secondary); }
         #toast-container { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 1000; }
         .toast { background-color: #333; color: white; padding: 12px 20px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); font-size: 0.9em; opacity: 0; transform: translateY(-20px); transition: opacity 0.3s, transform 0.3s; }
