@@ -216,7 +216,7 @@
     .nav-item { display: flex; flex-direction: column; align-items: center; gap: 5px; color: var(--text-secondary); text-decoration: none; font-size: 0.8em; padding: 5px 15px; cursor: pointer; }
     .nav-item.active { color: var(--accent-blue); }
     
-    .modal-view, .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 200; }
+    .modal-view, .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 9999; }
     .modal-view { background-color: var(--bg); transform: translateX(100%); transition: transform 0.3s ease-in-out; display: flex; flex-direction: column; }
     .modal-view.active { transform: translateX(0); }
     .modal-overlay { z-index: 300; background-color: rgba(0,0,0,0.5); backdrop-filter: blur(4px); display: none; justify-content: center; align-items: center; }
@@ -2470,6 +2470,19 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
 
         
         function showView(viewName) {
+            // Guardamos la ubicación para que al volver atrás (cerrar modal) el sistema sepa dónde estábamos
+            if (viewName !== 'dashboard') {
+                location.hash = viewName;
+            } else {
+                // INTENTO SEGURO: Limpiamos el hash si es dashboard
+                try {
+                    // Usamos try-catch para evitar que la app se rompa si el navegador bloquea esto
+                    history.replaceState(null, null, window.location.pathname);
+                } catch (e) {
+                    console.warn("Aviso: No se pudo limpiar la URL (Error cosmético ignorado para evitar bloqueo).");
+                }
+            }
+
             document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
             
             document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
@@ -2485,8 +2498,8 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
             }
 
             if (viewName === 'profile') {
-            updateProfileView();
-            updateSettingsForm(globalSettings); // Carga los ajustes en el formulario
+                updateProfileView();
+                updateSettingsForm(globalSettings); 
             }
 
             if (viewName === 'map') {
@@ -2496,26 +2509,18 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
                 }, 50);
             }
             
-            // --- [INICIO DE LA CORRECCIÓN CRÍTICA] ---
-            // RESTAURAMOS la llamada automática.
-            // Esto es lo que carga el reporte la PRIMERA VEZ que
-            // el usuario hace clic en la pestaña "Relatórios".
             if (viewName === 'reports') {
                 console.log("[ADMIN-APP] Abriendo pestaña 'Relatórios'. Llamando a updateReportsView().");
                 updateReportsView();
             }
-            // --- [FIN DE LA CORRECCIÓN CRÍTICA] ---
 
             if (viewName === 'notifications') {
                 updateAdminNotificationsView(); 
             }
 
             if (viewName === 'community') {
-                // Esta función ya existe, solo la estamos llamando.
                 renderCommunityView(); 
             }
-            
-
         }
 
 
@@ -3634,9 +3639,9 @@ async function submitCollectorReport(collectorId) {
             // --- 1. COBRADORES (Icono de Moto) ---
             const collectorIcon = L.icon({
                 iconUrl: 'https://firebasestorage.googleapis.com/v0/b/lumix-financas-app.firebasestorage.app/o/MotoIcono.png?alt=media&token=e8add7cd-e8d3-424d-8f05-5d04e0d10ec1',
-                iconSize: [40, 40],
-                iconAnchor: [20, 40],
-                popupAnchor: [0, -40]
+                iconSize: [36, 36],
+                iconAnchor: [18, 36],
+                popupAnchor: [0, -36]
             });
 
             allCollectors.forEach(collector => {
@@ -3646,30 +3651,32 @@ async function submitCollectorReport(collectorId) {
                     const { latitude, longitude } = collector.lastLocation;
                     const isTrackingActive = collector.isRealtimeTrackingActive;
                     const lastSeenTime = formatTimestamp(collector.lastLocationUpdate);
-                    
-                    const collectorClients = allClients.filter(c => c.collectorId === collector.id);
                     const metrics = calculatedCollectorMetrics.get(collector.id) || {};
                     const capitalOnHand = metrics.capitalOnHand || 0;
 
+                    // Popup del Cobrador (Mantenemos el estilo oscuro/tema actual para el cobrador)
                     const popupContent = `
-                        <div class="map-popup-card">
-                            <div class="popup-header">
-                                <img src="${collector.profilePictureUrl || `https://placehold.co/96x96/0f172a/FFFFFF?text=${(collector.name || 'C').charAt(0)}`}" class="popup-avatar">
-                                <div class="popup-info">
-                                    <div class="popup-name">${collector.name}</div>
-                                    <div class="item-status-tag" style="background-color: ${isTrackingActive ? 'var(--accent-green)' : 'var(--text-secondary)'}20; color: ${isTrackingActive ? 'var(--accent-green)' : 'var(--text-secondary)'};">
-                                        <i data-lucide="${isTrackingActive ? 'wifi' : 'wifi-off'}" style="width:12px; height:12px;"></i>
-                                        ${isTrackingActive ? (translations[currentLang]?.online || 'Online') : (translations[currentLang]?.offline || 'Offline')}
-                                        ${!isTrackingActive && lastSeenTime ? ` (${lastSeenTime})` : ''}
+                        <div class="map-popup-card" style="font-size: 0.9em; min-width: 160px;">
+                            <div class="popup-header" style="padding: 8px; display:flex; justify-content:space-between;">
+                                <div style="display:flex; align-items:center;">
+                                    <img src="${collector.profilePictureUrl || `https://placehold.co/96x96/0f172a/FFFFFF?text=${(collector.name || 'C').charAt(0)}`}" class="popup-avatar" style="width: 32px; height: 32px;">
+                                    <div class="popup-info" style="margin-left: 8px;">
+                                        <div class="popup-name" style="font-size: 1em;">${collector.name}</div>
+                                        <div style="font-size: 0.75em; color: ${isTrackingActive ? 'var(--accent-green)' : 'var(--text-secondary)'};">
+                                            ${isTrackingActive ? 'Online' : 'Offline'}
+                                        </div>
                                     </div>
                                 </div>
+                                <button onclick="mapInstance.closePopup()" style="background:none; border:none; color:#64748b; font-size:1.4em; cursor:pointer; line-height:1;">&times;</button>
                             </div>
-                            <div class="popup-stats">
-                                <div><span class="stat-label">Clientes</span><span class="stat-value">${collectorClients.length}</span></div>
-                                <div><span class="stat-label">Em Mãos</span><span class="stat-value">${money(capitalOnHand)}</span></div>
+                            <div class="popup-stats" style="padding: 8px; grid-template-columns: 1fr;">
+                                <div style="flex-direction: row; justify-content: space-between;">
+                                    <span class="stat-label">Em Mãos:</span>
+                                    <span class="stat-value" style="color: var(--accent-green);">${money(capitalOnHand)}</span>
+                                </div>
                             </div>
-                            <div class="popup-actions">
-                                <a class="popup-action-link" style="cursor: pointer;" onclick="showCollectorDetails('${collector.id}')"><i data-lucide="user"></i> Ver Perfil</a>
+                            <div class="popup-actions" style="padding: 6px;">
+                                <a class="popup-action-link" style="cursor: pointer; font-size: 0.85em;" onclick="showCollectorDetails('${collector.id}')">Ver Perfil</a>
                             </div>
                         </div>
                     `;
@@ -3678,7 +3685,9 @@ async function submitCollectorReport(collectorId) {
                         marker.setLatLng([latitude, longitude]);
                         marker.getPopup().setContent(popupContent);
                     } else {
-                        const newMarker = L.marker([latitude, longitude], { icon: collectorIcon }).addTo(mapInstance).bindPopup(popupContent);
+                        const newMarker = L.marker([latitude, longitude], { icon: collectorIcon })
+                            .addTo(mapInstance)
+                            .bindPopup(popupContent, { closeButton: false, offset: [0, -5] });
                         collectorMarkers[collector.id] = newMarker;
                     }
                 } else {
@@ -3689,13 +3698,13 @@ async function submitCollectorReport(collectorId) {
                 }
             });
 
-            // --- 2. CLIENTES (Icono Azul - TRADUCTOR DE ENLACES) ---
-            window.clientMarkers = window.clientMarkers || {}; // Almacén global
+            // --- 2. CLIENTES (Icono Azul Clásico) ---
+            window.clientMarkers = window.clientMarkers || {}; 
 
             const clientIcon = L.icon({
-                iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
+                iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-blue.png',
                 shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
-                iconSize: [25, 41],
+                iconSize: [25, 41], 
                 iconAnchor: [12, 41],
                 popupAnchor: [1, -34],
                 shadowSize: [41, 41]
@@ -3704,15 +3713,10 @@ async function submitCollectorReport(collectorId) {
             allClients.forEach(client => {
                 let lat = null, lng = null;
 
-                // A. Si ya tiene coordenadas numéricas (Futuro)
                 if (client.latitude && client.longitude) {
                     lat = parseFloat(client.latitude);
                     lng = parseFloat(client.longitude);
-                } 
-                // B. TRADUCCIÓN: Leer el enlace de Google Maps (Lo que tienes ahora)
-                else if (client.location && typeof client.location === 'string') {
-                    // El enlace es tipo: https://.../?api=1&query=-16.6845,-49.2566
-                    // Buscamos lo que está después de "query="
+                } else if (client.location && typeof client.location === 'string') {
                     const match = client.location.match(/query=([-0-9.]+),([-0-9.]+)/);
                     if (match && match.length === 3) {
                         lat = parseFloat(match[1]);
@@ -3723,24 +3727,65 @@ async function submitCollectorReport(collectorId) {
                 const cMarker = window.clientMarkers[client.id];
 
                 if (lat && lng && !isNaN(lat) && !isNaN(lng)) {
-                    // Si encontramos coordenadas válidas...
-                    
-                    const activeLoan = (client.loans || []).find(l => l.status !== 'finished') || {};
-                    const status = activeLoan.status || 'pending';
-                    // Colores según estado: Rojo (Atrasado), Verde (Al día), Naranja (Pendiente)
-                    const statusColor = status === 'late' ? '#ef4444' : (status === 'paid' ? '#22c55e' : '#f59e0b');
-                    const statusText = translations[currentLang] && translations[currentLang][status] ? translations[currentLang][status] : status;
+                    let activeLoan = (client.loans || []).find(l => l.status !== 'finished');
+                    if (!activeLoan && client.loans && client.loans.length > 0) activeLoan = client.loans[client.loans.length - 1];
 
+                    let financialInfoHtml = '';
+                    let statusLabel = 'SEM DADOS';
+                    let statusColor = '#94a3b8';
+
+                    if (activeLoan) {
+                        const details = calculateLoanDetails(activeLoan);
+                        const status = details.status;
+                        
+                        if (status === 'paid') { statusLabel = 'EM DIA'; statusColor = '#22c55e'; }
+                        else if (status === 'late') { statusLabel = 'ATRASADO'; statusColor = '#ef4444'; }
+                        else if (status === 'pending') { statusLabel = 'PENDENTE'; statusColor = '#f59e0b'; }
+                        else if (status === 'finished') { statusLabel = 'FINALIZADO'; statusColor = '#3b82f6'; }
+
+                        const historyPaid = (activeLoan.history || [])
+                            .filter(h => h.status !== 'pending_verification' && h.status !== 'rejected' && h.status !== 'postponed' && h.method !== 'migration')
+                            .reduce((sum, h) => sum + (parseFloat(h.amount) || 0), 0);
+                        
+                        const totalPaid = (activeLoan.initialMigratedAmount || 0) + historyPaid;
+                        const totalDebt = (parseFloat(activeLoan.totalLoan) || 0) + (details.lateFeesAccumulated || 0);
+                        const remaining = Math.max(0, totalDebt - totalPaid);
+
+                        // INFO FINANCIERA (Diseño Vertical)
+                        financialInfoHtml = `
+                            <div style="font-size: 0.8em; color: #334155; display: flex; flex-direction: column; gap: 3px; margin-top: 5px;">
+                                <div style="display: flex; justify-content: space-between;">
+                                    <span>Total:</span> <strong style="color: #0f172a;">${money(totalDebt)}</strong>
+                                </div>
+                                <div style="display: flex; justify-content: space-between;">
+                                    <span>Pago:</span> <strong style="color: #22c55e;">${money(totalPaid)}</strong>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; border-top: 1px dashed #e2e8f0; padding-top: 2px; margin-top: 1px;">
+                                    <span style="font-weight: 600;">Resta:</span> <strong style="color: #ef4444;">${money(remaining)}</strong>
+                                </div>
+                            </div>
+                        `;
+                    }
+
+                    // POPUP COMPACTO BLANCO
                     const popupContent = `
-                        <div style="font-family: 'Inter', sans-serif; text-align: center; min-width: 150px;">
-                            <strong style="font-size: 1.1em; display: block; margin-bottom: 4px; color: #0f172a;">${client.name}</strong>
-                            <span style="color: #64748b; font-size: 0.9em;">${client.address || 'Sem endereço'}</span>
-                            <br>
-                            <span style="display: inline-block; margin-top: 5px; padding: 2px 8px; border-radius: 10px; background-color: ${statusColor}20; color: ${statusColor}; font-size: 0.8em; font-weight: 700;">
-                                ${statusText.toUpperCase()}
-                            </span>
-                            <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 8px 0;">
-                            <button onclick="window.showClientDetails('${client.id}')" style="background: #3b82f6; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.9em; display: inline-flex; align-items: center; gap: 5px;">
+                        <div style="font-family: 'Inter', sans-serif; min-width: 170px; background-color: #ffffff; color: #1e293b; padding: 2px; border-radius: 8px;">
+                            <!-- CABECERA: NOMBRE (Izq) - ESTADO + X (Der) -->
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px;">
+                                <strong style="font-size: 0.95em; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 55%;" title="${client.name}">${client.name}</strong>
+                                
+                                <div style="display: flex; align-items: center; gap: 6px;">
+                                    <span style="background-color: ${statusColor}; color: white; padding: 1px 6px; border-radius: 4px; font-size: 0.65em; font-weight: 700; text-transform: uppercase;">
+                                        ${statusLabel}
+                                    </span>
+                                    <button onclick="mapInstance.closePopup()" style="background:none; border:none; color:#94a3b8; font-size: 1.4em; cursor:pointer; line-height: 0.8; padding: 0;">&times;</button>
+                                </div>
+                            </div>
+
+                            ${financialInfoHtml}
+
+                            <!-- BOTÓN VER FICHA -->
+                            <button onclick="window.showClientDetails('${client.id}')" style="margin-top: 8px; width: 100%; background-color: #3b82f6; color: white; border: none; padding: 5px; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 0.8em;">
                                 Ver Ficha
                             </button>
                         </div>
@@ -3752,11 +3797,10 @@ async function submitCollectorReport(collectorId) {
                     } else {
                         const newMarker = L.marker([lat, lng], { icon: clientIcon })
                             .addTo(mapInstance)
-                            .bindPopup(popupContent);
+                            .bindPopup(popupContent, { closeButton: false, offset: [0, -25] }); // Quitamos la X por defecto
                         window.clientMarkers[client.id] = newMarker;
                     }
                 } else {
-                    // Si no tiene ubicación válida, borramos el marcador si existía
                     if (cMarker) {
                         cMarker.remove();
                         delete window.clientMarkers[client.id];
@@ -7425,9 +7469,10 @@ async function showRefinanceVerificationModal(clientId) {
     // --- FIN DEL GRAN CAMBIO ---
 }
 
-
+        // --- HACER FUNCIONES ACCESIBLES DESDE EL MAPA ---
+        window.showClientDetails = showClientDetails;
+        window.showCollectorDetails = showCollectorDetails;
         init();
     </script>
 </body>
     </html>
-
