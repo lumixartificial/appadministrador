@@ -1562,76 +1562,48 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
 
             
             function checkAndRunGlobalUpdate() {
-            // Esta función se asegura de que TODAS las colecciones de
-            // datos (cobradores, clientes, gastos, etc.) se hayan
-            // cargado al menos una vez ANTES de intentar calcular la contabilidad.
-            
             if (collectorsReady && clientsReady && expensesReady && settlementsReady && capitalInjectionsReady) {
-                console.log("[ADMIN-APP] ¡Todas las colecciones están listas! Ejecutando refactorización contable...");
+                console.log("[ADMIN-APP] Datos listos. Actualizando todo...");
                 
-                // --- ¡AQUÍ ESTÁ LA MAGIA! ---
-                // 1. Calculamos las métricas para CADA cobrador
-                calculatedCollectorMetrics.clear(); // Limpiamos los cálculos antiguos
+                calculatedCollectorMetrics.clear(); 
                 
-                // --- [INICIO MODIFICACIÓN: SUMAS GLOBALES (CORREGIDO)] ---
                 let sumGlobalDistributed = 0;
                 let sumGlobalPatrimonio = 0;
-                let sumGlobalCapitalOnHand = 0; // <-- AÑADIDO: Capital en Cajas
-                // --- [FIN MODIFICACIÓN: SUMAS GLOBALES (CORREGIDO)] ---
+                let sumGlobalCapitalOnHand = 0; 
 
                 allCollectors.forEach(collector => {
                     const metrics = calculateCollectorMetrics(
-                        collector.id,
-                        collector, // Pasamos el objeto cobrador
-                        allClients,
-                        allExpenses,
-                        allSettlements,
-                        allCapitalInjections
+                        collector.id, collector, allClients, allExpenses, allSettlements, allCapitalInjections
                     );
                     calculatedCollectorMetrics.set(collector.id, metrics);
 
-                    // --- [INICIO MODIFICACIÓN: SUMAS GLOBALES (CORREGIDO)] ---
-                    // Sumamos los valores de cada cobrador
                     sumGlobalDistributed += (metrics.totalDistributedCapital || 0);
                     sumGlobalPatrimonio += (metrics.totalPatrimonio || 0);
-                    sumGlobalCapitalOnHand += (metrics.capitalOnHand || 0); // <-- AÑADIDO
-                    // --- [FIN MODIFICACIÓN: SUMAS GLOBALES (CORREGIDO)] ---
+                    sumGlobalCapitalOnHand += (metrics.capitalOnHand || 0); 
                 });
 
-                // 2. Calculamos las métricas GLOBALES
                 calculatedGlobalMetrics = calculateGlobalMetrics(
-                    allCollectors,
-                    allClients,
-                    allExpenses,
-                    allSettlements,
-                    allCapitalInjections
+                    allCollectors, allClients, allExpenses, allSettlements, allCapitalInjections
                 );
                 
-                // --- [INICIO MODIFICACIÓN: SUMAS GLOBALES (CORREGIDO)] ---
-                // Añadimos las nuevas sumas al objeto de métricas globales
                 calculatedGlobalMetrics.sumGlobalDistributed = sumGlobalDistributed;
                 calculatedGlobalMetrics.sumGlobalPatrimonio = sumGlobalPatrimonio;
-                calculatedGlobalMetrics.sumGlobalCapitalOnHand = sumGlobalCapitalOnHand; // <-- AÑADIDO
-                // --- [FIN MODIFICACIÓN: SUMAS GLOBALES (CORREGIDO)] ---
+                calculatedGlobalMetrics.sumGlobalCapitalOnHand = sumGlobalCapitalOnHand; 
                 
-                // 3. Ahora (y solo ahora) es seguro actualizar la UI
-                // Las funciones de UI ya no calcularán nada, solo "leerán" los resultados.
-                console.log("[ADMIN-APP] Cálculos completados. Actualizando UI...");
                 updateDashboard();
                 updateProfileView();
-
                 updateAdminNotificationsView();
                 
-                // --- [INICIO DE LA CORRECCIÓN CRÍTICA] ---
-                // RESTAURAMOS la llamada automática.
-                // Esto asegura que si los datos terminan de cargarse MIENTRAS
-                // el usuario está en la pestaña de reportes, esta se actualice.
+                // --- NUEVO: ACTUALIZAR EL MAPA TAMBIÉN ---
+                // Esto asegura que en cuanto carguen los clientes, aparezcan en el mapa
+                if (mapInstance) {
+                    updateCollectorMarkers();
+                }
+                // -----------------------------------------
+                
                 if (document.getElementById('reports-view') && document.getElementById('reports-view').classList.contains('active')) {
-                    console.log("[ADMIN-APP] Actualizando 'Relatórios' automáticamente (los datos terminaron de cargar).");
                     updateReportsView();
                 }
-                // --- [FIN DE LA CORRECCIÓN CRÍTICA] ---
-
             } 
         }
 
@@ -3659,6 +3631,7 @@ async function submitCollectorReport(collectorId) {
         function updateCollectorMarkers() {
             if (!mapInstance) return;
 
+            // --- 1. COBRADORES (Icono de Moto) ---
             const collectorIcon = L.icon({
                 iconUrl: 'https://firebasestorage.googleapis.com/v0/b/lumix-financas-app.firebasestorage.app/o/MotoIcono.png?alt=media&token=e8add7cd-e8d3-424d-8f05-5d04e0d10ec1',
                 iconSize: [40, 40],
@@ -3669,21 +3642,14 @@ async function submitCollectorReport(collectorId) {
             allCollectors.forEach(collector => {
                 const marker = collectorMarkers[collector.id];
 
-                // Muestra un marcador si el cobrador tiene CUALQUIER ubicación registrada.
                 if (collector.lastLocation && collector.lastLocation.latitude && collector.lastLocation.longitude) {
                     const { latitude, longitude } = collector.lastLocation;
-                    const status = calculateCollectorStatus(collector.id);
                     const isTrackingActive = collector.isRealtimeTrackingActive;
                     const lastSeenTime = formatTimestamp(collector.lastLocationUpdate);
                     
-                    // Lógica para calcular el capital en mano (evita re-cálculos)
                     const collectorClients = allClients.filter(c => c.collectorId === collector.id);
-                    const totalPaidByCollector = collectorClients.reduce((sum, c) => (sum + (c.paid || 0)), 0);
-                    const totalPrincipalLoanedByCollector = collectorClients.reduce((sum, c) => {
-                        const interestRate = c.interestRate || globalSettings.defaultInterest || 20;
-                        return sum + ((c.totalLoan || 0) / (1 + interestRate/100));
-                    }, 0);
-                    const capitalOnHand = (collector.startingCapital || 0) + totalPaidByCollector - totalPrincipalLoanedByCollector;
+                    const metrics = calculatedCollectorMetrics.get(collector.id) || {};
+                    const capitalOnHand = metrics.capitalOnHand || 0;
 
                     const popupContent = `
                         <div class="map-popup-card">
@@ -3693,17 +3659,17 @@ async function submitCollectorReport(collectorId) {
                                     <div class="popup-name">${collector.name}</div>
                                     <div class="item-status-tag" style="background-color: ${isTrackingActive ? 'var(--accent-green)' : 'var(--text-secondary)'}20; color: ${isTrackingActive ? 'var(--accent-green)' : 'var(--text-secondary)'};">
                                         <i data-lucide="${isTrackingActive ? 'wifi' : 'wifi-off'}" style="width:12px; height:12px;"></i>
-                                        ${isTrackingActive ? translations[currentLang].online : translations[currentLang].offline}
+                                        ${isTrackingActive ? (translations[currentLang]?.online || 'Online') : (translations[currentLang]?.offline || 'Offline')}
                                         ${!isTrackingActive && lastSeenTime ? ` (${lastSeenTime})` : ''}
                                     </div>
                                 </div>
                             </div>
                             <div class="popup-stats">
-                                <div><span class="stat-label" data-lang-key="clients"></span><span class="stat-value">${collectorClients.length}</span></div>
-                                <div><span class="stat-label" data-lang-key="capitalOnHand"></span><span class="stat-value">${money(capitalOnHand)}</span></div>
+                                <div><span class="stat-label">Clientes</span><span class="stat-value">${collectorClients.length}</span></div>
+                                <div><span class="stat-label">Em Mãos</span><span class="stat-value">${money(capitalOnHand)}</span></div>
                             </div>
                             <div class="popup-actions">
-                                <a class="popup-action-link" data-collector-id="${collector.id}"><i data-lucide="user"></i> <span data-lang-key="viewProfile"></span></a>
+                                <a class="popup-action-link" style="cursor: pointer;" onclick="showCollectorDetails('${collector.id}')"><i data-lucide="user"></i> Ver Perfil</a>
                             </div>
                         </div>
                     `;
@@ -3716,22 +3682,90 @@ async function submitCollectorReport(collectorId) {
                         collectorMarkers[collector.id] = newMarker;
                     }
                 } else {
-                    // Si no hay ubicación, elimina el marcador si existe.
                     if (marker) {
                         marker.remove();
                         delete collectorMarkers[collector.id];
                     }
                 }
             });
+
+            // --- 2. CLIENTES (Icono Azul - TRADUCTOR DE ENLACES) ---
+            window.clientMarkers = window.clientMarkers || {}; // Almacén global
+
+            const clientIcon = L.icon({
+                iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
+                shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+                iconSize: [25, 41],
+                iconAnchor: [12, 41],
+                popupAnchor: [1, -34],
+                shadowSize: [41, 41]
+            });
+
+            allClients.forEach(client => {
+                let lat = null, lng = null;
+
+                // A. Si ya tiene coordenadas numéricas (Futuro)
+                if (client.latitude && client.longitude) {
+                    lat = parseFloat(client.latitude);
+                    lng = parseFloat(client.longitude);
+                } 
+                // B. TRADUCCIÓN: Leer el enlace de Google Maps (Lo que tienes ahora)
+                else if (client.location && typeof client.location === 'string') {
+                    // El enlace es tipo: https://.../?api=1&query=-16.6845,-49.2566
+                    // Buscamos lo que está después de "query="
+                    const match = client.location.match(/query=([-0-9.]+),([-0-9.]+)/);
+                    if (match && match.length === 3) {
+                        lat = parseFloat(match[1]);
+                        lng = parseFloat(match[2]);
+                    }
+                }
+
+                const cMarker = window.clientMarkers[client.id];
+
+                if (lat && lng && !isNaN(lat) && !isNaN(lng)) {
+                    // Si encontramos coordenadas válidas...
+                    
+                    const activeLoan = (client.loans || []).find(l => l.status !== 'finished') || {};
+                    const status = activeLoan.status || 'pending';
+                    // Colores según estado: Rojo (Atrasado), Verde (Al día), Naranja (Pendiente)
+                    const statusColor = status === 'late' ? '#ef4444' : (status === 'paid' ? '#22c55e' : '#f59e0b');
+                    const statusText = translations[currentLang] && translations[currentLang][status] ? translations[currentLang][status] : status;
+
+                    const popupContent = `
+                        <div style="font-family: 'Inter', sans-serif; text-align: center; min-width: 150px;">
+                            <strong style="font-size: 1.1em; display: block; margin-bottom: 4px; color: #0f172a;">${client.name}</strong>
+                            <span style="color: #64748b; font-size: 0.9em;">${client.address || 'Sem endereço'}</span>
+                            <br>
+                            <span style="display: inline-block; margin-top: 5px; padding: 2px 8px; border-radius: 10px; background-color: ${statusColor}20; color: ${statusColor}; font-size: 0.8em; font-weight: 700;">
+                                ${statusText.toUpperCase()}
+                            </span>
+                            <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 8px 0;">
+                            <button onclick="window.showClientDetails('${client.id}')" style="background: #3b82f6; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.9em; display: inline-flex; align-items: center; gap: 5px;">
+                                Ver Ficha
+                            </button>
+                        </div>
+                    `;
+
+                    if (cMarker) {
+                        cMarker.setLatLng([lat, lng]);
+                        cMarker.getPopup().setContent(popupContent);
+                    } else {
+                        const newMarker = L.marker([lat, lng], { icon: clientIcon })
+                            .addTo(mapInstance)
+                            .bindPopup(popupContent);
+                        window.clientMarkers[client.id] = newMarker;
+                    }
+                } else {
+                    // Si no tiene ubicación válida, borramos el marcador si existía
+                    if (cMarker) {
+                        cMarker.remove();
+                        delete window.clientMarkers[client.id];
+                    }
+                }
+            });
+
             lucide.createIcons();
             applyLanguage(currentLang);
-
-            document.querySelectorAll('.popup-action-link').forEach(link => {
-                link.addEventListener('click', (e) => {
-                    const collectorId = e.currentTarget.dataset.collectorId;
-                    showCollectorDetails(collectorId);
-                });
-            });
         }
 
         function focusOnCollector(collectorId) {
@@ -5229,7 +5263,8 @@ async function submitCollectorReport(collectorId) {
         // REEMPLAZA ESTA FUNCIÓN COMPLETA (BLOQUE 5)
         function showClientDetails(clientId, loanIndex = 0) { 
             const client = allClients.find(c => c.id === clientId);
-            
+            // Hacemos esta función global para que el Mapa la pueda llamar
+            window.showClientDetails = showClientDetails;
             if (!client) {
                 showToast('Erro: Cliente não encontrado.', true);
                 return;
@@ -7395,3 +7430,4 @@ async function showRefinanceVerificationModal(clientId) {
     </script>
 </body>
     </html>
+
