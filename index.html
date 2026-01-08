@@ -216,17 +216,39 @@
     .nav-item { display: flex; flex-direction: column; align-items: center; gap: 5px; color: var(--text-secondary); text-decoration: none; font-size: 0.8em; padding: 5px 15px; cursor: pointer; }
     .nav-item.active { color: var(--accent-blue); }
     
-    .modal-view, .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 9999; }
-    .modal-view { background-color: var(--bg); transform: translateX(100%); transition: transform 0.3s ease-in-out; display: flex; flex-direction: column; }
+     /* --- CORRECCIÓN DE CAPAS (Z-INDEX) --- */
+    
+    /* Base para ambos */
+    .modal-view, .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; }
+
+    /* 1. Paneles Deslizantes (Perfil Cobrador/Cliente) -> Nivel 9990 */
+    .modal-view { 
+        z-index: 9990; 
+        background-color: var(--bg); 
+        transform: translateX(100%); 
+        transition: transform 0.3s ease-in-out; 
+        display: flex; 
+        flex-direction: column; 
+    }
     .modal-view.active { transform: translateX(0); }
-    .modal-overlay { z-index: 300; background-color: rgba(0,0,0,0.5); backdrop-filter: blur(4px); display: none; justify-content: center; align-items: center; }
+
+    /* 2. Cuadros Flotantes (Retirada, Alertas) -> Nivel 10000 (SIEMPRE ENCIMA) */
+    .modal-overlay { 
+        z-index: 10000 !important; 
+        background-color: rgba(0,0,0,0.6); 
+        backdrop-filter: blur(4px); 
+        display: none; 
+        justify-content: center; 
+        align-items: center; 
+    }
     .modal-overlay.active { display: flex; }
     .modal-content { background-color: var(--surface); padding: 20px; border-radius: 12px; width: 90%; max-width: 500px; }
     .modal-header { display: flex; align-items: center; padding: 15px 20px; background-color: var(--surface); border-bottom: 1px solid var(--border-color); flex-shrink: 0; }
     .modal-header button { background: none; border: none; color: var(--text-primary); cursor: pointer; margin-right: 15px; }
     .modal-title { font-size: 1.2em; font-weight: 600; flex-grow: 1; }
     .modal-content-wrapper { flex-grow: 1; overflow-y: auto; }
-     .action-buttons { 
+     /* CORRECCIÓN: BOTONES SIEMPRE VISIBLES Y CLICKABLES */
+    .action-buttons { 
         background-color: var(--surface); 
         border-top: 1px solid var(--border-color); 
         padding: 15px 20px; 
@@ -236,12 +258,38 @@
         position: sticky; 
         bottom: 0; 
         flex-shrink: 0;
+        z-index: 1000; /* PRIORIDAD MÁXIMA: Evita que la lista los tape */
+        box-shadow: 0 -5px 20px rgba(0,0,0,0.1); /* Sombra para separar visualmente */
         
-        /* Habilitar deslizamiento con el dedo */
+        /* Habilitar deslizamiento */
         overflow-x: auto; 
         white-space: nowrap;
         -webkit-overflow-scrolling: touch; 
-        scrollbar-width: none; /* Ocultar barra en Firefox */
+        scrollbar-width: none; 
+    }
+    
+    .action-buttons::-webkit-scrollbar { display: none; }
+
+    .action-buttons button { 
+        flex-grow: 1; 
+        flex-shrink: 0; 
+        min-width: fit-content; 
+        padding: 15px; 
+        font-size: 1em; 
+        font-weight: 600; 
+        border: none; 
+        border-radius: 8px; 
+        cursor: pointer; 
+        display: flex; 
+        align-items: center; 
+        justify-content: center; 
+        gap: 8px; 
+        transition: transform 0.1s ease, background-color 0.2s; /* Animación suave */
+    }
+
+    /* EFECTO DE CLIC: EL BOTÓN BAJA */
+    .action-buttons button:active {
+        transform: translateY(3px) scale(0.98); 
     }
     
     /* Ocultar barra de scroll en Chrome/Safari */
@@ -1185,6 +1233,7 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
         let allCommunityPosts = [];
         let allSettlements = [];
         let allCapitalInjections = [];
+        let allInsuranceWithdrawals = []; // Memoria para los retiros de seguro
 
         let collectorsReady = false;
         let clientsReady = false;
@@ -1236,6 +1285,14 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
         // ... código existente ...
     const translations = {
         pt: {
+            microInsurance: 'Micro Seguro',
+            microInsuranceFund: 'Micro Seguro (Fundo)',
+            microInsuranceLabel: 'Micro Seguro (Valor a Descontar)',
+            mapTotal: 'Total',
+            mapPaid: 'Pago',
+            mapRemaining: 'Resta',
+            viewDetails: 'Ver Ficha',
+            clientLabel: 'CLIENTE',
             editData: 'Editar Dados', // <--- AGREGAR ESTA LÍNEA
             routeName: 'Nome da Rota (Visível no App)',
             routeNameDesc: 'Este nome aparecerá de forma profissional no topo do aplicativo do cobrador.',
@@ -1345,6 +1402,14 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
         },
 
         es: {
+            microInsurance: 'Micro Seguro',
+            microInsuranceFund: 'Micro Seguro (Fondo)',
+            microInsuranceLabel: 'Micro Seguro (Valor a Descontar)',
+            mapTotal: 'Total',
+            mapPaid: 'Pagado',
+            mapRemaining: 'Resta',
+            viewDetails: 'Ver Ficha',
+            clientLabel: 'CLIENTE',
             editData: 'Editar Datos', // <--- AGREGAR ESTA LÍNEA
             routeName: 'Nombre de la Ruta (Visible en App)',
             routeNameDesc: 'Este nombre aparecerá de forma profesional en la parte superior de la app del cobrador.',
@@ -1452,6 +1517,14 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             chartCenterBalance: 'SALDO (CAJA)' 
         },
         en: {
+            microInsurance: 'Micro Insurance',
+            microInsuranceFund: 'Micro Insurance (Fund)',
+            microInsuranceLabel: 'Micro Insurance (Deductible)',
+            mapTotal: 'Total',
+            mapPaid: 'Paid',
+            mapRemaining: 'Balance',
+            viewDetails: 'View Details',
+            clientLabel: 'CLIENT',
             editData: 'Edit Data', // <--- AGREGAR ESTA LÍNEA
             routeName: 'Route Name (Visible in App)',
             routeNameDesc: 'This name will appear professionally at the top of the collector app.',
@@ -1609,11 +1682,12 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
 
 
 
-            function calculateGlobalMetrics(collectors, clients, expenses, settlements, capitalInjections) {
+               function calculateGlobalMetrics(collectors, clients, expenses, settlements, capitalInjections) {
             let totalStartingCapital = 0;
             let totalPaidFromHistory = 0;
             let totalPrincipalFromLoans = 0;
             let totalLateFeesGlobal = 0;
+            let totalMicroInsuranceGlobal = 0; 
             let expectedToday = 0;
             const today = new Date();
             const dayOfWeek = today.getDay();
@@ -1625,7 +1699,11 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
 
             clients.forEach(client => {
                 (client.loans || []).forEach(loan => {
-                    // --- Cálculo de Principal ---
+                    const insuranceVal = parseFloat(loan.microInsurance);
+                    if (!isNaN(insuranceVal)) {
+                        totalMicroInsuranceGlobal += insuranceVal;
+                    }
+
                     let principal = 0;
                     if (loan.principalAmount) {
                         principal = loan.principalAmount;
@@ -1634,17 +1712,14 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                     }
                     totalPrincipalFromLoans += principal;
 
-                    // --- Cálculo de Pagos (Filtrados) ---
                     (loan.history || []).forEach(h => {
-                         if (h.status !== 'pending_verification' && h.status !== 'rejected' && h.status !== 'postponed') {
+                         if (h.status !== 'pending_verification' && h.status !== 'rejected' && h.status !== 'postponed' && h.method !== 'migration') {
                             totalPaidFromHistory += (h.amount || 0);
                         }
                     });
 
-                    // --- Cálculo de Mora (leído de la pre-calculada) ---
                     totalLateFeesGlobal += (loan.lateFeesAccumulated || 0);
 
-                    // --- Cálculo de Esperado Hoy ---
                     if (loan.status === 'pending' || loan.status === 'late') {
                         let isPaymentDay = false;
                         const frequency = loan.paymentFrequency || 'daily';
@@ -1660,21 +1735,29 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             });
 
             const totalExpensesGlobal = expenses.reduce((sum, expense) => sum + (expense.value || 0), 0);
-            const totalSettlementsGlobal = settlements.filter(s => s.status === 'approved').reduce((sum, s) => sum + (s.amount || 0), 0);
+            
+            // Filtramos retiros de capital (para el balance general)
+            const totalSettlementsGlobal = settlements
+                .filter(s => s.status === 'approved' && s.type !== 'insurance')
+                .reduce((sum, s) => sum + (s.amount || 0), 0);
+            
             const totalInjectionsGlobal = capitalInjections.filter(i => i.status === 'approved').reduce((sum, i) => sum + (i.amount || 0), 0);
             
-            // --- Fórmulas Contables Globales (Net Worth de la Empresa) ---
+            // --- CORRECCIÓN MAESTRA: SINCRONIZACIÓN DE SEGURO ---
+            // Ahora calculamos los retiros de seguro usando 'settlements' (lo visible), 
+            // igual que hacen los perfiles individuales. Así garantizamos que sumen igual.
+            const totalInsuranceWithdrawn = settlements
+                .filter(s => s.status === 'approved' && s.type === 'insurance')
+                .reduce((sum, s) => sum + (s.amount || 0), 0);
             
-            // Capital Total (Net Worth) = Capital + Aportes + Pagado - Principal - Gastos - Liquidaciones + MORA
+            // Disponible Global
+            const availableInsuranceFund = Math.max(0, totalMicroInsuranceGlobal - totalInsuranceWithdrawn);
+
+            // Fórmulas Contables
             const totalCapital = totalStartingCapital + totalInjectionsGlobal + totalPaidFromHistory - totalPrincipalFromLoans - totalExpensesGlobal - totalSettlementsGlobal + totalLateFeesGlobal;
-
-            // Valor en Campo (Cuánto dinero está "prestado" activamente, incluyendo mora)
-            const fieldValue = (totalPrincipalFromLoans + totalLateFeesGlobal) - totalPaidFromHistory;
-
-            // Beneficio Bruto (Ganancia antes de gastos, incluyendo mora)
-            const grossProfitBeforeExpenses = (totalPaidFromHistory + totalLateFeesGlobal) - totalPrincipalFromLoans;
             
-            // Beneficio Neto (Ganancia real después de gastos)
+            const fieldValue = (totalPrincipalFromLoans + totalLateFeesGlobal) - totalPaidFromHistory;
+            const grossProfitBeforeExpenses = (totalPaidFromHistory + totalLateFeesGlobal) - totalPrincipalFromLoans;
             const grossProfit = grossProfitBeforeExpenses - totalExpensesGlobal; 
             
             const activeClientsCount = clients.filter(c => (c.loans || []).some(l => l.status !== 'finished')).length;
@@ -1683,40 +1766,57 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                 totalCapital,
                 activeCollectorsCount: collectors.length,
                 activeClientsCount,
-                totalStartingCapital, // Capital distribuido
+                totalStartingCapital, 
                 expectedToday,
                 fieldValue,
                 grossProfit,
                 totalExpensesGlobal,
                 totalSettlementsGlobal,
-                totalInjectionsGlobal
+                totalInjectionsGlobal,
+                totalMicroInsuranceGlobal, 
+                totalInsuranceWithdrawn,   
+                availableInsuranceFund     
             };
         }
+        
 
         // --- FUNCIÓN MAESTRA 2: MÉTRICAS DE COBRADOR (CAPITAL EN MANOS) ---
         
 
         
 
-        function calculateCollectorMetrics(collectorId, collector, allClients, allExpenses, allSettlements, allCapitalInjections) {
+              function calculateCollectorMetrics(collectorId, collector, allClients, allExpenses, allSettlements, allCapitalInjections) {
             
             const collectorClients = allClients.filter(c => c.collectorId === collectorId);
             const collectorExpenses = allExpenses.filter(e => e.collectorId === collectorId);
-            const collectorSettlements = allSettlements.filter(s => s.collectorId === collectorId && s.status === 'approved');
+            
+            // 1. RETIROS DE CAPITAL (Para restar de la Caja en Manos)
+            const collectorSettlementsCapital = allSettlements.filter(s => 
+                s.collectorId === collectorId && 
+                s.status === 'approved' && 
+                s.type !== 'insurance' 
+            );
+
+            // 2. RETIROS DE SEGURO (Para restar de la Tarjeta de Seguro de este cobrador)
+            const collectorSettlementsInsurance = allSettlements.filter(s => 
+                s.collectorId === collectorId && 
+                s.status === 'approved' && 
+                s.type === 'insurance' 
+            );
+            // Sumamos cuánto ha retirado este cobrador de seguro
+            const totalInsuranceWithdrawn = collectorSettlementsInsurance.reduce((sum, s) => sum + (s.amount || 0), 0);
+
             const collectorInjections = allCapitalInjections.filter(i => i.collectorId === collectorId && i.status === 'approved');
 
-            // --- [INICIO FASE 3 (ADMIN): NUEVOS VALORES] ---
-            let totalPaid = 0; // Pagos NO-MIGRADOS (para Capital em Mãos)
-            let totalPrincipal = 0; // Principal de préstamos NO-MIGRADOS (para Capital em Mãos)
-            
-            // --- [INICIO DE LA CORRECCIÓN CONTABLE (ADMIN)] ---
-            // Renombramos la variable para mayor claridad (igual que en app cobrador)
+            let totalPaid = 0; 
+            let totalPrincipal = 0; 
             let totalDistributedCapital_Outstanding = 0; 
-            // --- [FIN DE LA CORRECCIÓN CONTABLE (ADMIN)] ---
-            
             let totalLateFees = 0;
             let dailyCollected = 0, weeklyCollected = 0, monthlyCollected = 0;
             
+            // Acumulador de Seguro (Bruto generado por sus clientes)
+            let collectorTotalInsuranceGenerated = 0; 
+
             const now = new Date();
             const todayStart = new Date(new Date().setHours(0, 0, 0, 0));
             const weekStart = new Date(todayStart);
@@ -1727,16 +1827,11 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             const lateClientIds = new Set(); 
 
             collectorClients.forEach(c => { 
-                
                 let isClientActive = false; 
-
                 (c.loans || []).forEach(loan => {
-                    
                     const loanDetails = calculateLoanDetails(loan);
                     const currentStatus = loanDetails.status;
 
-                    // --- Lógica para 'Capital em Mãos' (SIN CAMBIOS) ---
-                    // Esta lógica calcula el flujo de caja y está correcta.
                     if (!loan.migrationDate) {
                         if (loan.principalAmount) {
                             totalPrincipal += loan.principalAmount;
@@ -1744,6 +1839,10 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                             totalPrincipal += (loan.totalLoan / (1 + (c.interestRate / 100)));
                         }
                     }
+
+                    // Sumamos lo generado (Bruto)
+                    collectorTotalInsuranceGenerated += (parseFloat(loan.microInsurance) || 0);
+
                     (loan.history || []).forEach(h => {
                         if (h.date?.seconds && h.status !== 'pending_verification' && h.status !== 'rejected' && h.status !== 'postponed' && h.method !== 'migration') {
                             const paymentAmount = h.amount || 0;
@@ -1754,67 +1853,43 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                             if (paymentDate >= monthStart) monthlyCollected += paymentAmount;
                         }
                     });
-                    // --- FIN Lógica 'Capital em Mãos' ---
                     
-                    
-                    // --- [INICIO DE LA CORRECCIÓN CONTABLE (ADMIN)] ---
-                    // Esta es la nueva lógica para 'Capital Distribuido' (Saldo Pendiente)
-                    
-                    // 4. Usamos el 'currentStatus' recalculado
                     if (currentStatus !== 'finished') {
-                        
-                        // 5. Calcular el Total Pagado para ESTE préstamo (incluye migración y pagos normales)
-                        //    (Esto es idéntico a la app del cobrador)
                         const totalPaidForThisLoan = (loan.history || [])
                             .filter(h => h.status !== 'pending_verification' && h.status !== 'rejected' && h.status !== 'postponed')
                             .reduce((sum, h) => sum + (h.amount || 0), 0);
-                        
-                        // 6. Calcular el Saldo Pendiente (Total del Préstamo - Total Pagado)
                         const outstandingBalance = (loan.totalLoan || 0) - totalPaidForThisLoan;
-                        
-                        // 7. Sumar solo el saldo pendiente al total distribuido
                         totalDistributedCapital_Outstanding += outstandingBalance;
-                        
-                        isClientActive = true; // Si CUALQUIER préstamo está activo, el cliente está activo
+                        isClientActive = true; 
                     }
-                    // === [FIN DE LA CORRECCIÓN CONTABLE (ADMIN)] ---
-                    
-                    // --- Mora (para estado) ---
+
                     totalLateFees += (loanDetails.lateFeesAccumulated || 0);
                     if (currentStatus === 'late') {
                         lateClientIds.add(c.id); 
                     }
                 });
-
                 if (isClientActive) {
                     activeClientsCount++;
                 }
             });
 
             const totalExpenses = collectorExpenses.reduce((sum, e) => sum + (e.value || 0), 0);
-            const totalSettled = collectorSettlements.reduce((sum, s) => sum + (s.amount || 0), 0);
+            const totalSettledCapital = collectorSettlementsCapital.reduce((sum, s) => sum + (s.amount || 0), 0);
             const totalInjected = collectorInjections.reduce((sum, i) => sum + (i.amount || 0), 0);
 
-            // --- [INICIO FASE 3 (ADMIN): LÓGICA DE CAPITAL (RECTIFICACIÓN)] ---
             const currentStartingCapital = (collector && collector.startingCapitalOnHand !== undefined) 
                 ? collector.startingCapitalOnHand 
                 : (collector && collector.startingCapital) || 0; 
             
-            // KPI 1: Capital em Mãos (El efectivo en caja) - (SIN CAMBIOS, ya era correcto)
-            const capitalOnHand = currentStartingCapital + totalInjected + totalPaid - totalPrincipal - totalExpenses - totalSettled;
-            
-            // --- [INICIO DE LA CORRECCIÓN CONTABLE (ADMIN)] ---
-            // KPI 3: Capital Total (Patrimônio)
-            // (Patrimônio = Lo que tengo en efectivo + Lo que me deben en la calle)
+            const capitalOnHand = currentStartingCapital + totalInjected + totalPaid - totalPrincipal - totalExpenses - totalSettledCapital;
             const totalPatrimonio = capitalOnHand + totalDistributedCapital_Outstanding;
-            // --- [FIN DE LA CORRECCIÓN CONTABLE (ADMIN)] ---
-            // --- [FIN FASE 3 (ADMIN)] ---
 
-            // --- Conteo de Clientes (SIN CAMBIOS) ---
             const totalClientsCount = collectorClients.length;
             const lateClientsCount = lateClientIds.size;
             
-            // --- Estado (Reputación) (SIN CAMBIOS) ---
+            // --- CÁLCULO FINAL: Seguro Neto del Cobrador ---
+            const collectorNetInsurance = Math.max(0, collectorTotalInsuranceGenerated - totalInsuranceWithdrawn);
+
             let statusKey = 'inOrder';
             let statusColor = 'var(--accent-green)';
             let statusIcon = 'check-circle';
@@ -1828,15 +1903,11 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                 }
             }
 
-            // --- [INICIO FASE 3 (ADMIN): DEVOLVER NUEVOS VALORES] ---
             return {
-                capitalOnHand, // KPI 1 (Correcto)
-                
-                // --- [INICIO DE LA CORRECCIÓN CONTABLE (ADMIN)] ---
-                totalDistributedCapital: totalDistributedCapital_Outstanding, // KPI 2 (Corregido)
-                totalPatrimonio, // KPI 3 (Corregido)
-                // --- [FIN DE LA CORRECCIÓN CONTABLE (ADMIN)] ---
-                
+                capitalOnHand, 
+                totalDistributedCapital: totalDistributedCapital_Outstanding,
+                totalPatrimonio, 
+                collectorTotalInsurance: collectorNetInsurance, // <--- AHORA RESTA SUS PROPIOS RETIROS
                 totalClientsCount, 
                 activeClientsCount, 
                 lateClientsCount, 
@@ -1847,7 +1918,7 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                 totalPrincipal,
                 totalLateFees,
                 totalExpenses,
-                totalSettled,
+                totalSettled: totalSettledCapital,
                 totalInjected,
                 status: {
                     textKey: statusKey,
@@ -1855,7 +1926,6 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                     icon: statusIcon
                 }
             };
-            // --- [FIN FASE 3 (ADMIN)] ---
         }
 
 
@@ -1937,6 +2007,14 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                     if (collectorId) showCollectorDetails(collectorId); 
                 }
             });
+                
+                 // --- NUEVO: ESCUCHAR RETIROS DE MICRO SEGURO (FALTABA ESTO) ---
+            onSnapshot(collection(db, 'companies', currentCompanyId, 'insuranceWithdrawals'), snapshot => {
+                allInsuranceWithdrawals = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                // Forzamos el recálculo para que la tarjeta azul se actualice
+                if (collectorsReady && clientsReady) checkAndRunGlobalUpdate(); 
+            });
+
 
             onSnapshot(collection(db, 'companies', currentCompanyId, 'capitalInjections'), snapshot => {
                 allCapitalInjections = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -1979,12 +2057,13 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             const detailView = document.getElementById('collectorDetailView');
             const collector = allCollectors.find(c => c.id === collectorId);
             const clients = allClients.filter(c => c.collectorId === collectorId); 
+            
             if (!collector) return;
 
             const mapView = document.getElementById('map-view');
             if (mapView && mapView.classList.contains('active')) {
-                mapView.classList.remove('active');
-                document.getElementById('dashboard-view').classList.add('active');
+                // Si venimos del mapa, no tocamos la navegación
+            } else {
                 document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
                 const dashboardNavItem = document.querySelector('.nav-item[data-view="dashboard"]');
                 if (dashboardNavItem) dashboardNavItem.classList.add('active');
@@ -1994,26 +2073,20 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             const isTrackingActive = collector.isRealtimeTrackingActive;
             const lastSeenTime = formatTimestamp(collector.lastLocationUpdate);
 
-            const metrics = calculatedCollectorMetrics.get(collectorId);
-            
-            if (!metrics) {
-                console.warn(`Métricas para ${collectorId} aún no calculadas.`);
-                detailView.innerHTML = `<header class="modal-header">...</header><div class="modal-content-wrapper container"><p>Calculando dados...</p></div>`;
-            }
+            const metrics = calculatedCollectorMetrics.get(collectorId) || {};
             
             const {
                 capitalOnHand = 0, 
-                totalDistributedCapital = 0, 
-                totalPatrimonio = 0, 
+                collectorTotalInsurance = 0, // DATO CLAVE: Seguro de este cobrador
                 status = { textKey: 'inOrder', color: 'var(--accent-green)', icon: 'check-circle' },
                 totalClientsCount, 
                 activeClientsCount = 0, 
                 lateClientsCount = 0,
                 dailyCollected = 0,
-                weeklyCollected = 0,
-                monthlyCollected = 0
-            } = metrics || {}; 
+                weeklyCollected = 0
+            } = metrics; 
 
+            // Generar lista de clientes
             let clientsListHtml = '';
             if (clients.length > 0) {
                 const clientsWithDisplayLoan = clients.map(client => {
@@ -2022,9 +2095,6 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                         return { ...loan, status: details.status, lateDays: details.lateDays, originalIndex: index };
                     });
                     
-                    const activeLoans = loansWithStatus.filter(l => l.status !== 'finished');
-                    const hasMultipleActive = activeLoans.length > 1;
-
                     let displayLoan = loansWithStatus.find(l => l.status === 'late') || 
                                       loansWithStatus.find(l => l.status === 'pending') || 
                                       loansWithStatus.find(l => l.status === 'paid') || 
@@ -2034,15 +2104,17 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                          displayLoan = { amount: 0, status: 'n/a', lateDays: 0, originalIndex: 0 };
                     }
 
-                    return { client, displayLoan, hasMultipleActive, activeLoansCount: activeLoans.length };
+                    const activeLoansCount = loansWithStatus.filter(l => l.status !== 'finished').length;
+                    const hasMultipleActive = activeLoansCount > 1;
+
+                    return { client, displayLoan, hasMultipleActive, activeLoansCount };
                 }).sort((a, b) => a.client.name.localeCompare(b.client.name));
 
                 clientsListHtml = clientsWithDisplayLoan.map(({ client, displayLoan, hasMultipleActive, activeLoansCount }) => {
                     const statusClass = `status-${displayLoan.status}`;
                     const statusText = (translations[currentLang] && translations[currentLang][displayLoan.status]) || displayLoan.status;
                     const nameInitial = (client.name || 'C').charAt(0).toUpperCase();
-                    const placeholderUrl = `https://placehold.co/80x80/3b82f6/FFFFFF?text=${nameInitial}`;
-                    const photoUrl = client.profilePictureUrl || placeholderUrl;
+                    const photoUrl = client.profilePictureUrl || `https://placehold.co/80x80/3b82f6/FFFFFF?text=${nameInitial}`;
                     
                     const lateDays = displayLoan.lateDays || 0;
                     const reputationScore = Math.max(0, 10 - lateDays);
@@ -2058,7 +2130,7 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                     return `
                         <div class="client-card" data-client-id="${client.id}" data-loan-index="${displayLoan.originalIndex}">
                             <div class="item-avatar">
-                                <img src="${photoUrl}" alt="Foto do Cliente" style="width: 40px; height: 40px;">
+                                <img src="${photoUrl}" alt="Foto do Cliente" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover;">
                             </div>
                             <div class="item-info">
                                 <h4 class="item-name" style="font-size: 0.95em;">${client.name}${multipleLoansIndicator}</h4>
@@ -2067,7 +2139,7 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                             <div class="item-details" style="text-align: right;">
                                 <span class="item-detail-value" style="font-size: 1em;">${money(displayLoan.amount)}</span>
                                 <div style="display: flex; gap: 8px; align-items: center; margin-top: 5px;">
-                                   <span class="reputation-score ${repClass}" style="font-size: 0.75em;"><i data-lucide="star" style="width: 12px; height: 12px;"></i> ${reputationScore}/10</span>
+                                   <span class="reputation-score ${repClass}" style="font-size: 0.75em;">★ ${reputationScore}/10</span>
                                    <span class="payment-status ${statusClass}" style="font-size: 0.75em;">${statusText}</span> 
                                 </div>
                             </div>
@@ -2075,7 +2147,7 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                     `;
                 }).join('');
             } else {
-                clientsListHtml = '<p>Nenhum cliente para este cobrador.</p>';
+                clientsListHtml = '<p style="padding: 20px; text-align: center; color: var(--text-secondary);">Nenhum cliente para este cobrador.</p>';
             }
 
             detailView.innerHTML = `
@@ -2083,13 +2155,12 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                     <button id="closeDetailView"><i data-lucide="arrow-left"></i></button>
                     <span class="modal-title">${collector.name}</span>
                     
-                    <!-- BOTÓN MEJORADO: GRANDE, FUERTE Y TRADUCIDO -->
-                    <button id="editCollectorBtn" class="btn-secondary" style="padding: 8px 16px; font-size: 1em; font-weight: 700; display: flex; align-items: center; gap: 8px; border-radius: 8px; border-width: 2px;" data-collector-id="${collectorId}">
-                        <i data-lucide="edit-3" style="width: 18px; height: 18px;"></i> 
-                        <span data-lang-key="editData">Editar Dados</span>
+                    <button id="editCollectorBtn" class="btn-secondary" style="padding: 8px 16px; font-size: 0.9em; font-weight: 600; display: flex; align-items: center; gap: 6px; border-radius: 8px;" data-collector-id="${collectorId}">
+                        <i data-lucide="edit-3" style="width: 16px; height: 16px;"></i> 
+                        <span data-lang-key="editData">Editar</span>
                     </button>
-
                 </header>
+                
                 <div class="modal-content-wrapper container">
                     <div class="collector-detail-header">
                         <img src="${collector.profilePictureUrl || placeholderUrl}" alt="Foto do Cobrador">
@@ -2106,109 +2177,103 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                             }
                         </div>
                         <div style="margin-left: auto; display: flex; gap: 8px;">
-                            ${collector.whatsapp ? `<a href="https://wa.me/${collector.whatsapp.replace(/\D/g, '')}" target="_blank" class="header-btn" title="Enviar mensagem via WhatsApp"><svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 12c0 1.77.46 3.45 1.28 4.95L2 22l5.25-1.38c1.45.77 3.09 1.23 4.79 1.23h.01c5.46 0 9.91-4.45 9.91-9.91C21.95 6.45 17.5 2 12.04 2M12.04 20.15c-1.49 0-2.92-.39-4.19-1.09l-.3-.18-3.12.82.83-3.04-.2-.31c-.78-1.23-1.19-2.69-1.19-4.2c0-4.4 3.57-7.97 7.97-7.97s7.97 3.57 7.97 7.97-3.57 7.97-7.97 7.97m5.42-6.2c-.28-.14-1.65-.81-1.9-.91c-.25-.1-.44-.14-.62.14c-.18.28-.72.91-.88 1.1c-.16.18-.32.2-.6.07c-.28-.13-1.18-.43-2.25-1.39c-.84-.75-1.4-1.68-1.57-1.96c-.16-.28-.02-.43.12-.57c.13-.13.28-.33.43-.49c.14-.16.19-.28.28-.46c.1-.18.05-.37-.02-.51c-.07-.14-.62-1.5-.85-2.05c-.23-.55-.46-.48-.62-.48c-.16 0-.35-.05-.53-.05c-.18 0-.46.07-.7.35c-.24.28-.92.9-1.12 2.18c-.2 1.28.2 2.53.23 2.7c.03.18 1.14 1.75 2.78 2.45c1.64.7 1.64.47 1.93.44c.28-.03 1.65-.67 1.88-1.32c.23-.65.23-1.2.16-1.32c-.07-.13-.26-.2-.53-.34Z"></path></svg></a>` : `<button class="header-btn" disabled style="opacity: 0.3;"><svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 12c0 1.77.46 3.45 1.28 4.95L2 22l5.25-1.38c1.45.77 3.09 1.23 4.79 1.23h.01c5.46 0 9.91-4.45 9.91-9.91C21.95 6.45 17.5 2 12.04 2M12.04 20.15c-1.49 0-2.92-.39-4.19-1.09l-.3-.18-3.12.82.83-3.04-.2-.31c-.78-1.23-1.19-2.69-1.19-4.2c0-4.4 3.57-7.97 7.97-7.97s7.97 3.57 7.97 7.97-3.57 7.97-7.97 7.97m5.42-6.2c-.28-.14-1.65-.81-1.9-.91c-.25-.1-.44-.14-.62.14c-.18.28-.72.91-.88 1.1c-.16.18-.32.2-.6.07c-.28-.13-1.18-.43-2.25-1.39c-.84-.75-1.4-1.68-1.57-1.96c-.16-.28-.02-.43.12-.57c.13-.13.28-.33.43-.49c.14-.16.19-.28.28-.46c.1-.18.05-.37-.02-.51c-.07-.14-.62-1.5-.85-2.05c-.23-.55-.46-.48-.62-.48c-.16 0-.35-.05-.53-.05c-.18 0-.46.07-.7.35c-.24.28-.92.9-1.12 2.18c-.2 1.28.2 2.53.23 2.7c.03.18 1.14 1.75 2.78 2.45c1.64.7 1.64.47 1.93.44c.28-.03 1.65-.67 1.88-1.32c.23-.65.23-1.2.16-1.32c-.07-.13-.26-.2-.53-.34Z"></path></svg></button>`}
+                            ${collector.whatsapp ? `<a href="https://wa.me/${collector.whatsapp.replace(/\D/g, '')}" target="_blank" class="header-btn" title="WhatsApp"><i data-lucide="message-circle" style="width: 24px; height: 24px;"></i></a>` : ''}
                             <button class="header-btn collector-map-btn" data-collector-id="${collectorId}" title="Ver no mapa">
                                 <i data-lucide="map-pin" style="width: 24px; height: 24px;"></i>
                             </button>
                         </div>
                     </div>
 
-                    <div class="kpi-card" style="margin-bottom: 20px; text-align: center; border-color: var(--accent-purple); border-width: 2px;">
-                        <h3 class="kpi-title" style="justify-content: center; color: var(--accent-purple);"><i data-lucide="gem"></i> Capital Total (Patrimônio)</h3>
-                        <p class="kpi-value" id="kpi-total-patrimonio" style="color: var(--accent-purple); font-size: 1.8em;">${money(totalPatrimonio)}</p>
-                    </div>
-                    
                     <div class="kpi-card" style="margin-bottom: 20px; text-align: center; border-color: var(--accent-green); border-width: 2px;">
                         <h3 class="kpi-title" style="justify-content: center; color: var(--accent-green);" data-lang-key="capitalOnHand"><i data-lucide="banknote"></i></h3>
-                        <p class="kpi-value" id="kpi-capital-total" style="color: var(--accent-green);">${money(capitalOnHand)}</p>
+                        <p class="kpi-value" id="kpi-capital-total" style="color: var(--accent-green); font-size: 2em;">${money(capitalOnHand)}</p>
                     </div>
 
-                    <div class="kpi-card" style="margin-bottom: 20px; text-align: center; border-color: var(--warning-color); border-width: 2px;">
-                        <h3 class="kpi-title" style="justify-content: center; color: var(--warning-color);"><i data-lucide="briefcase"></i> Capital Distribuído</h3>
-                        <p class="kpi-value" id="kpi-distributed-capital" style="color: var(--warning-color);">${money(totalDistributedCapital)}</p>
-                    </div>
-
+                    <!-- ESTADÍSTICAS (Cuadrícula 2x2) -->
                     <section class="kpi-grid" style="grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
                         <div class="kpi-card">
-                            <h3 class="kpi-title" data-lang-key="status"><i data-lucide="${status.icon}"></i></h3>
-                            <p class="kpi-value" style="color: ${status.color}; font-size: 1.2em;">${translations[currentLang][status.textKey]}</p>
+                            <h3 class="kpi-title" style="font-size: 0.8em;" data-lang-key="collectedToday">Hoje</h3>
+                            <p class="kpi-value" style="color: var(--accent-green); font-size: 1.2em;">${money(dailyCollected)}</p>
                         </div>
-                        
                         <div class="kpi-card">
-                            <h3 class="kpi-title" data-lang-key="activeClients"><i data-lucide="user-check"></i></h3>
-                            <p class="kpi-value">${activeClientsCount}</p>
+                            <h3 class="kpi-title" style="font-size: 0.8em;" data-lang-key="collectedWeek">Semana</h3>
+                            <p class="kpi-value" style="color: var(--accent-green); font-size: 1.2em;">${money(weeklyCollected)}</p>
                         </div>
-                        
                         <div class="kpi-card">
-                            <h3 class="kpi-title"><i data-lucide="users"></i> Clientes Registrados</h3>
+                            <h3 class="kpi-title" style="font-size: 0.8em;">Clientes</h3>
                             <p class="kpi-value">${totalClientsCount !== undefined ? totalClientsCount : activeClientsCount}</p>
                         </div>
                         
+                        <!-- TARJETA MICRO SEGURO (Reemplaza a "Clientes Atrasados") -->
                         <div class="kpi-card">
-                            <h3 class="kpi-title" data-lang-key="lateClients"><i data-lucide="user-x"></i></h3>
-                            <p class="kpi-value" style="color: var(--danger-color);">${lateClientsCount}</p>
+                            <h3 class="kpi-title" style="font-size: 0.8em; color: #0ea5e9;">
+                                <i data-lucide="shield-check" style="width: 14px; height: 14px; margin-right: 5px;"></i>
+                                <span data-lang-key="microInsurance">Micro Seguro</span>
+                            </h3>
+                            <p class="kpi-value" style="color: #0ea5e9;">${money(collectorTotalInsurance)}</p>
                         </div>
+                        <!-- FIN TARJETA -->
+
                     </section>
 
-                    <section style="display: flex; flex-direction: column; gap: 10px; margin-top: 20px; margin-bottom: 20px;">
-                        <div class="kpi-card" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 15px;">
-                            <h3 class="kpi-title" data-lang-key="collectedToday" style="margin: 0; font-size: 0.95em;"><i data-lucide="sun" style="width: 16px; height: 16px;"></i></h3>
-                            <p class="kpi-value" style="font-size: 1.2em; color: var(--accent-green);">${money(dailyCollected)}</p>
-                        </div>
-                        <div class="kpi-card" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 15px;">
-                            <h3 class="kpi-title" data-lang-key="collectedWeek" style="margin: 0; font-size: 0.95em;"><i data-lucide="calendar" style="width: 16px; height: 16px;"></i></h3>
-                            <p class="kpi-value" style="font-size: 1.2em; color: var(--accent-green);">${money(weeklyCollected)}</p>
-                        </div>
-                        <div class="kpi-card" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 15px;">
-                            <h3 class="kpi-title" data-lang-key="collectedMonth" style="margin: 0; font-size: 0.95em;"><i data-lucide="calendar-days" style="width: 16px; height: 16px;"></i></h3>
-                            <p class="kpi-value" style="font-size: 1.2em; color: var(--accent-green);">${money(monthlyCollected)}</p>
-                        </div>
-                    </section>
-
-                    <h2 class="section-title">Clientes de ${collector.name}</h2>
+                    <h2 class="section-title">Clientes</h2>
                     <div class="item-list">
                         ${clientsListHtml}
                     </div>
 
                     <section style="margin-top: 30px;">
-                    <h2 class="section-title" data-lang-key="settlementHistory">Histórico de Liquidações</h2>
-                    <div class="item-list" id="settlements-history-list">
+                        <h2 class="section-title" data-lang-key="settlementHistory">Histórico de Retiradas</h2>
+                        <div class="item-list" id="settlements-history-list"></div>
+                    </section>
                 </div>
-            </section>
-                </div>
-                 <div class="action-buttons">
-                    <button id="download-report-btn" data-collector-id="${collectorId}" class="btn-secondary"><i data-lucide="download"></i> <span data-lang-key="downloadReport"></span></button>
+
+                <div class="action-buttons">
+                    <button id="download-report-btn" data-collector-id="${collectorId}" class="btn-secondary">
+                        <i data-lucide="file-text"></i> <span data-lang-key="downloadReport">Relatório</span>
+                    </button>
+                    
                     <button id="register-settlement-btn" data-collector-id="${collectorId}" class="btn-primary">
-                    <i data-lucide="arrow-down-circle"></i> <span data-lang-key="registerSettlement">Registrar Retiro</span>
+                        <i data-lucide="arrow-down-circle"></i> <span data-lang-key="registerSettlement">Retirada</span>
                     </button>
-                    <button id="add-capital-injection-btn" data-collector-id="${collectorId}" class="btn-primary" style="flex-grow: 1; background-color: var(--accent-green); border-color: var(--accent-green);">
-                        <i data-lucide="arrow-up-circle"></i> <span data-lang-key="aportarCapital"></span>
+                    
+                    <button id="add-capital-injection-btn" data-collector-id="${collectorId}" class="btn-primary" style="background-color: var(--accent-green); border-color: var(--accent-green);">
+                        <i data-lucide="arrow-up-circle"></i> <span data-lang-key="aportarCapital">Aporte</span>
                     </button>
-                    <button id="unlock-app-btn" data-collector-id="${collectorId}" class="btn-primary" style="flex-grow: 1; background-color: var(--warning-color); border-color: var(--warning-color); color: white;">
-                        <i data-lucide="lock-open"></i> Desbloquear (30m)
-                    </button></div>
+                    
+                    <button id="unlock-app-btn" data-collector-id="${collectorId}" class="btn-primary" style="background-color: var(--warning-color); border-color: var(--warning-color); color: #000;">
+                        <i data-lucide="lock-open"></i> 30m
+                    </button>
+                </div>
             `;
 
+            // Llenar historial de retiros
             const settlementsListContainer = detailView.querySelector('#settlements-history-list');
             const collectorSettlements = allSettlements
                 .filter(s => s.collectorId === collectorId)
                 .sort((a, b) => (b.date?.seconds || 0) - (a.date?.seconds || 0)); 
+            
             if (settlementsListContainer) {
                 if (collectorSettlements.length === 0) {
-                    settlementsListContainer.innerHTML = `<p class="no-items">Nenhuma retirada registrada para este cobrador.</p>`;
+                    settlementsListContainer.innerHTML = `<p class="no-items" style="text-align: center; color: var(--text-secondary);">Nenhuma retirada registrada.</p>`;
                 } else {
                     settlementsListContainer.innerHTML = collectorSettlements.map(settlement => {
                         const date = settlement.date?.seconds ? new Date(settlement.date.seconds * 1000) : null;
-                        const dateString = date ? date.toLocaleDateString('pt-BR') : 'Data inválida';
+                        const dateString = date ? date.toLocaleDateString('pt-BR') : '--/--';
                         const timeString = date ? date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '';
+                        
+                        // Etiqueta si es retiro de Seguro
+                        const isInsurance = settlement.type === 'insurance';
+                        const typeLabel = isInsurance ? '<span style="color: #0ea5e9; font-weight: bold; font-size: 0.8em; display: block;">MICRO SEGURO</span>' : '';
+
                         return `
                         <div class="payment-history-item" style="cursor: default;">
                             <div class="payment-history-details">
                                 <h4 class="payment-history-title">${dateString} - ${timeString}</h4>
+                                ${typeLabel}
                                 ${settlement.notes ? `<p class="payment-history-description" style="font-style: italic;">${settlement.notes}</p>` : ''}
                             </div>
                             <div class="payment-history-info">
-                                <span class="payment-history-amount" style="color: var(--text-primary); font-size: 1.1em;">${money(settlement.amount)}</span>
+                                <span class="payment-history-amount" style="color: ${isInsurance ? '#0ea5e9' : 'var(--text-primary)'}; font-size: 1.1em; font-weight: 700;">${money(settlement.amount)}</span>
                             </div>
                         </div>`;
                     }).join('');
@@ -2228,35 +2293,43 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                 }
             });
             
-            detailView.querySelector('#editCollectorBtn').addEventListener('click', (e) => showCollectorFormModal(e.currentTarget.dataset.collectorId));
-            detailView.querySelector('#download-report-btn').addEventListener('click', (e) => showReportOptionsModal(e.currentTarget.dataset.collectorId));
-            detailView.querySelector('.collector-map-btn').addEventListener('click', (e) => focusOnCollector(e.currentTarget.dataset.collectorId));
+            const editBtn = detailView.querySelector('#editCollectorBtn');
+            if (editBtn) editBtn.addEventListener('click', (e) => showCollectorFormModal(e.currentTarget.dataset.collectorId));
+            
+            const mapBtn = detailView.querySelector('.collector-map-btn');
+            if (mapBtn) mapBtn.addEventListener('click', (e) => focusOnCollector(e.currentTarget.dataset.collectorId));
 
-            const registerSettlementBtn = detailView.querySelector('#register-settlement-btn');
-            if (registerSettlementBtn) {
-                registerSettlementBtn.addEventListener('click', (e) => {
-                    const collectorId = e.currentTarget.dataset.collectorId;
-                    const collector = allCollectors.find(c => c.id === collectorId);
-                    showSettlementModal(collectorId, collector.name, capitalOnHand); 
+            const reportBtn = detailView.querySelector('#download-report-btn');
+            if (reportBtn) {
+                reportBtn.addEventListener('click', (e) => showReportOptionsModal(e.currentTarget.dataset.collectorId));
+            }
+
+            const settlementBtn = detailView.querySelector('#register-settlement-btn');
+            if (settlementBtn) {
+                settlementBtn.addEventListener('click', (e) => {
+                    const cId = e.currentTarget.dataset.collectorId;
+                    const cObj = allCollectors.find(c => c.id === cId);
+                    // Llama al modal de retiro (que ya tiene la opción de seguro)
+                    showSettlementModal(cId, cObj.name, capitalOnHand); 
                 });
             }
 
-            const addCapitalBtn = detailView.querySelector('#add-capital-injection-btn');
-            if (addCapitalBtn) {
-                addCapitalBtn.addEventListener('click', (e) => {
-                    const collectorId = e.currentTarget.dataset.collectorId;
-                    const collector = allCollectors.find(c => c.id === collectorId);
-                    showCapitalInjectionModal(collectorId, collector.name);
+            const injectionBtn = detailView.querySelector('#add-capital-injection-btn');
+            if (injectionBtn) {
+                injectionBtn.addEventListener('click', (e) => {
+                    const cId = e.currentTarget.dataset.collectorId;
+                    const cObj = allCollectors.find(c => c.id === cId);
+                    showCapitalInjectionModal(cId, cObj.name);
                 });
             }
+
             const unlockBtn = detailView.querySelector('#unlock-app-btn');
             if (unlockBtn) {
                 unlockBtn.addEventListener('click', async (e) => {
                     const cId = e.currentTarget.dataset.collectorId;
-                    
                     const confirmed = await showConfirmationModal(
                         'Desbloquear App',
-                        'Isso permitirá que o cobrador acesse o aplicativo por 30 minutos, ignorando horários ou bloqueios. Continuar?',
+                        'Isso permitirá que o cobrador acesse o aplicativo por 30 minutos, ignorando horários. Continuar?',
                         'Sim, Desbloquear', 'btn-primary'
                     );
                     
@@ -2265,7 +2338,6 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                     try {
                         const unlockUntil = new Date();
                         unlockUntil.setMinutes(unlockUntil.getMinutes() + 30); 
-
                         await updateDoc(doc(db, 'collectors', cId), {
                             tempUnlockUntil: Timestamp.fromDate(unlockUntil)
                         });
@@ -2534,7 +2606,6 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
                     </div>
                     <div class="header-controls">
                         <div style="position: relative;">
-                            <!-- BOTÓN IDIOMA (GRANDE CON TEXTO) -->
                             <button class="header-btn" id="lang-toggle" title="Mudar idioma" style="flex-direction: column; border-radius: 8px; width: auto; height: auto; padding: 4px 8px;">
                                 <i data-lucide="globe" style="width: 24px; height: 24px;"></i>
                                 <span style="font-size: 0.85em; font-weight: 700; margin-top: 2px;">Idioma</span>
@@ -2545,23 +2616,18 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
                                 <button data-lang="en">English</button>
                             </div>
                         </div>
-                        
-                        <!-- BOTÓN TEMA (GRANDE CON TEXTO) -->
                         <button class="header-btn" id="theme-toggle" title="Mudar tema" style="flex-direction: column; border-radius: 8px; width: auto; height: auto; padding: 4px 8px;">
                             <i data-lucide="moon" style="width: 24px; height: 24px;"></i>
                             <span style="font-size: 0.85em; font-weight: 700; margin-top: 2px;">Tema</span>
                         </button>
-
                         <div class="profile" id="header-profile-link" style="cursor: pointer;"><img src="https://placehold.co/80x80/3b82f6/FFFFFF?text=A" alt="Foto do Admin"></div>
                     </div>
                 </header>
                 <main>
                     <div id="dashboard-view" class="view active container">
                         
-                        <!-- KPIs GLOBALES - ESTRUCTURA FUTURISTA (Corregida para Móvil) -->
                         <section class="kpi-grid">
-                            
-                            <!-- KPI 1: PATRIMONIO (Tarjeta Principal) -->
+                            <!-- KPI 1: PATRIMONIO (RESTAURADO) -->
                             <div class="kpi-card" style="grid-column: 1 / -1; border-left: 4px solid var(--accent-purple);">
                                 <h3 class="kpi-title" style="color: var(--accent-purple);">
                                     <i data-lucide="gem" style="filter: drop-shadow(0 0 5px var(--accent-purple));"></i> 
@@ -2588,7 +2654,16 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
                                 <p class="kpi-value" id="kpi-global-capital-on-hand" style="color: var(--text-primary);"></p>
                             </div>
 
-                            <!-- KPI 4 & 5 (Más compactos) -->
+                            <!-- KPI 4: MICRO SEGURO (NUEVA TARJETA - POSICIÓN CORRECTA) -->
+                            <div class="kpi-card" style="border-top: 4px solid #0ea5e9; background-color: color-mix(in srgb, #0ea5e9 5%, var(--card-bg));">
+                                <h3 class="kpi-title" style="color: #0ea5e9;">
+                                    <i data-lucide="shield-check" style="filter: drop-shadow(0 0 5px #0ea5e9);"></i> 
+                                    <span data-lang-key="microInsuranceFund">Micro Seguro (Fundo)</span>
+                                </h3>
+                                <p class="kpi-value" id="kpi-global-micro-insurance" style="color: var(--text-primary);"></p>
+                            </div>
+
+                            <!-- KPI 5 & 6: CONTADORES -->
                             <div class="kpi-card">
                                 <h3 class="kpi-title" data-lang-key="activeCollectors"><i data-lucide="users"></i></h3>
                                 <p class="kpi-value" id="kpi-active-collectors"></p>
@@ -2623,10 +2698,8 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
                         <div id="map-container" style="height:100%; width:100%;"></div>
                     </div>
                     
-                    
                     <div id="reports-view" class="view container" style="padding-bottom: 50px;">
                         <h1 class="section-title" data-lang-key="reports"></h1>
-                        
                         <div class="kpi-card" style="margin-bottom: 20px;">
                             <h3 class="kpi-title" style="margin: 0 0 15px; font-size: 1.1em; color: var(--text-primary);">
                                 <i data-lucide="filter"></i> <span data-lang-key="reportFilters">Filtros do Relatório</span>
@@ -2649,14 +2722,12 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
                                 <i data-lucide="bar-chart-3"></i> <span data-lang-key="generateReport">Gerar Relatório</span>
                             </button>
                         </div>
-
                         <div id="report-results"></div>
                     </div>
                     
                     <div id="notifications-view" class="view container">
                         <h1 class="section-title" data-lang-key="notifications"></h1>
-                        <div class="item-list" id="admin-notifications-list">
-                        </div>
+                        <div class="item-list" id="admin-notifications-list"></div>
                     </div>
                         
                     </div>
@@ -2676,22 +2747,10 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
                                 Plano Atual
                             </h2>
                             <div class="info-grid" style="grid-template-columns: 1fr 1fr; gap: 15px; background: none; padding: 0; border: none;">
-                                <div>
-                                    <label>Tipo de Plano</label>
-                                    <p id="plan-info-type">--</p>
-                                </div>
-                                <div>
-                                    <label>Cobradores Utilizados</label>
-                                    <p id="plan-info-collectors">-- / --</p>
-                                </div>
-                                <div>
-                                    <label>Data de Início</label>
-                                    <p id="plan-info-start-date">--</p>
-                                </div>
-                                <div>
-                                    <label>Data de Vencimento</label>
-                                    <p id="plan-info-end-date">--</p>
-                                </div>
+                                <div><label>Tipo de Plano</label><p id="plan-info-type">--</p></div>
+                                <div><label>Cobradores Utilizados</label><p id="plan-info-collectors">-- / --</p></div>
+                                <div><label>Data de Início</label><p id="plan-info-start-date">--</p></div>
+                                <div><label>Data de Vencimento</label><p id="plan-info-end-date">--</p></div>
                             </div>
                         </div>
                         
@@ -2766,7 +2825,6 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
 
                     <div id="community-view" class="view container">
                             <h1 class="section-title" data-lang-key="community"></h1>
-
                             <div class="community-post-creator">
                             <textarea id="post-text-input" placeholder="O que você está pensando, Administrador?"></textarea>
                             <img id="post-image-preview" class="community-post-image-preview" style="display: none;">
@@ -2778,7 +2836,6 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
                                 <button id="submit-post-btn" class="btn-primary" disabled><i data-lucide="send"></i> Publicar</button>
                             </div>
                         </div>
-
                             <div id="community-posts-list">
                                 <p style="text-align: center; color: var(--text-secondary); padding: 20px;">Carregando publicações...</p>
                             </div>
@@ -2790,13 +2847,11 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
                     <a class="nav-item" data-view="map"><i data-lucide="map"></i><span data-lang-key="map"></span></a>
                     <a class="nav-item" data-view="reports"><i data-lucide="file-text"></i><span data-lang-key="reports"></span></a>
                     <a class="nav-item" data-view="community"><i data-lucide="users"></i><span data-lang-key="community"></span></a>
-
                     <a class="nav-item" data-view="notifications">
                         <i data-lucide="bell"></i>
                         <span data-lang-key="notifications"></span>
                         <span class="notification-badge" id="admin-notification-badge" style="display:none;">0</span>
                     </a>
-
                 </nav>
                 <button class="fab" id="addCollectorBtn" title="Adicionar Cobrador"><i data-lucide="plus"></i></button>
             `;
@@ -2946,42 +3001,39 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
 
         
     function updateDashboard() {
-            // --- [INICIO MODIFICACIÓN: LEER NUEVOS KPIs] ---
-            
-            // Leemos los elementos que AHORA existen en el Dashboard
             const kpiActiveCollectors = document.getElementById('kpi-active-collectors');
             const kpiActiveClients = document.getElementById('kpi-active-clients');
             const kpiGlobalPatrimonio = document.getElementById('kpi-global-patrimonio');
             const kpiGlobalDistributed = document.getElementById('kpi-global-distributed');
             const kpiGlobalCapitalOnHand = document.getElementById('kpi-global-capital-on-hand');
+            const kpiGlobalMicroInsurance = document.getElementById('kpi-global-micro-insurance');
 
-            // Verificación para asegurar que la vista está activa
             if(!kpiActiveCollectors) return; 
             
-            // 1. LEER Métricas Globales (incluyendo las nuevas sumas)
+            // LEER Métricas Globales
             const {
                 activeCollectorsCount = 0,
                 activeClientsCount = 0,
                 sumGlobalDistributed = 0,
                 sumGlobalPatrimonio = 0,
-                sumGlobalCapitalOnHand = 0 // <-- NUEVO
+                sumGlobalCapitalOnHand = 0,
+                availableInsuranceFund = 0 // <--- USAMOS EL DISPONIBLE CALCULADO
             } = calculatedGlobalMetrics;
 
-            // 2. Actualizar KPIs Globales (en el nuevo orden)
-            // (Eliminamos la referencia al kpi-total-capital que ya no existe)
             if (kpiGlobalPatrimonio) kpiGlobalPatrimonio.textContent = money(sumGlobalPatrimonio);
             if (kpiGlobalDistributed) kpiGlobalDistributed.textContent = money(sumGlobalDistributed);
-            if (kpiGlobalCapitalOnHand) kpiGlobalCapitalOnHand.textContent = money(sumGlobalCapitalOnHand); // <-- NUEVO
+            if (kpiGlobalCapitalOnHand) kpiGlobalCapitalOnHand.textContent = money(sumGlobalCapitalOnHand);
+            
+            // Aquí mostramos el valor en la tarjeta azul
+            if (kpiGlobalMicroInsurance) kpiGlobalMicroInsurance.textContent = money(availableInsuranceFund);
             
             kpiActiveCollectors.textContent = activeCollectorsCount;
             kpiActiveClients.textContent = activeClientsCount;
-            // --- [FIN MODIFICACIÓN: LEER NUEVOS KPIs] ---
 
-
+            // Lista de Cobradores
             const listContainer = document.getElementById('collectors-list');
             if(!listContainer) return;
 
-            // 3. Filtros y Ordenación (Sin cambios)
             const searchInput = document.getElementById('collector-search-input');
             const searchTerm = searchInput ? searchInput.value.toLowerCase() : '';
             const activeStatusFilter = document.querySelector('#dashboard-view .filter-btn[data-filter].active');
@@ -2993,7 +3045,6 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
                 collector.name.toLowerCase().includes(searchTerm)
             );
             
-            // 4. Aplicar Filtros (Sin cambios)
             if (statusFilter !== 'all') {
                 if (statusFilter === 'trackingUnavailable') {
                     filteredCollectors = filteredCollectors.filter(collector => !collector.isRealtimeTrackingActive);
@@ -3005,37 +3056,27 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
                 }
             }
             
-            // === [INICIO DE LA CORRECCIÓN 1/3] ===
-            // 5. Mapear datos para la UI (MODIFICADO)
             let collectorsWithData = filteredCollectors.map(collector => {
-                // Pedimos 'totalPatrimonio' además de los otros datos
                 const metrics = calculatedCollectorMetrics.get(collector.id) || { capitalOnHand: 0, totalClientsCount: 0, activeClientsCount: 0, totalPatrimonio: 0 };
-                
                 return { 
                     ...collector, 
                     capitalOnHand: metrics.capitalOnHand,
-                    totalPatrimonio: metrics.totalPatrimonio, // <-- AÑADIDO
+                    totalPatrimonio: metrics.totalPatrimonio,
                     clientCount: metrics.activeClientsCount !== undefined ? metrics.activeClientsCount : metrics.totalClientsCount
                 };
             });
-            // === [FIN DE LA CORRECCIÓN 1/3] ===
             
-            // === [INICIO DE LA CORRECCIÓN 2/3] ===
-            // 6. Ordenar (MODIFICADO)
             if (sortBy === 'capital') {
-                // Ahora ordena por 'totalPatrimonio' ya que es el valor visible
                 collectorsWithData.sort((a, b) => b.totalPatrimonio - a.totalPatrimonio);
             }
-            // === [FIN DE LA CORRECCIÓN 2/3] ===
 
             if (collectorsWithData.length === 0) {
                 listContainer.innerHTML = `<p>Nenhum cobrador encontrado.</p>`;
                 return;
             }
 
-            // 7. RENDERIZADO (MODIFICADO)
             listContainer.innerHTML = collectorsWithData.map(collector => {
-                const placeholderUrl = `https:/*placehold.co/96x96/0f172a/FFFFFF?text=${(collector.name || 'C').charAt(0)}`;
+                const placeholderUrl = `https://placehold.co/96x96/0f172a/FFFFFF?text=${(collector.name || 'C').charAt(0)}`;
                 const status = calculateCollectorStatus(collector.id); 
                 const isTrackingActive = collector.isRealtimeTrackingActive;
 
@@ -3050,15 +3091,10 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
                                     <h4 class="item-name">${collector.name}</h4>
                                     <p class="item-subtext">${collector.clientCount} <span data-lang-key="activeClients"></span></p>
                                 </div>
-                                
-                                <!-- === [INICIO DE LA CORRECCIÓN 3/3] === -->
-                                <!-- Cambiado 'capitalOnHand' por 'totalPatrimonio' y añadido icono y color -->
                                 <div class="item-details" style="display: flex; align-items: center; gap: 6px; color: var(--accent-purple);">
                                     <i data-lucide="gem" style="width: 16px; height: 16px;"></i>
                                     <span class="item-detail-value" style="color: var(--accent-purple);">${money(collector.totalPatrimonio)}</span>
                                 </div>
-                                <!-- === [FIN DE LA CORRECCIÓN 3/3] === -->
-
                             </div>
                             <div class="item-tags">
                                 <div class="item-status-tag" style="background-color: ${status.color}20; color: ${status.color};">
@@ -3075,7 +3111,6 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
                 `;
             }).join('');
             lucide.createIcons({nodes: listContainer.querySelectorAll('[data-lucide]')});
-
             applyLanguage(currentLang);
         }
 
@@ -3872,16 +3907,12 @@ async function submitCollectorReport(collectorId) {
                 collectorFilter.value = currentSelectedCollector || 'all';
             }
 
-            // --- CORRECCIÓN DE FECHAS: POR DEFECTO "DESDE EL INICIO" ---
+            // Fechas por defecto
             const today = new Date();
-            
-            // Establecemos una fecha muy antigua como inicio predeterminado (ej: 01/01/2023)
-            // para que el reporte coincida con el Panel Principal (que muestra TODO el historial).
             const beginningOfTime = '2023-01-01'; 
 
             if (!dateStartInput.value) dateStartInput.value = beginningOfTime;
             if (!dateEndInput.value) dateEndInput.value = today.toISOString().split('T')[0];
-            // -----------------------------------------------------------
 
             resultsContainer.innerHTML = `<div class="loading" style="padding: 80px; text-align: center;"><i data-lucide="aperture" style="animation: spin 3s linear infinite; width: 60px; height: 60px; color: #00f2ff;"></i><p style="margin-top:20px; color: #00f2ff; font-family: monospace; letter-spacing: 3px; font-size: 1.2em;">${t.calculatingFlow}</p></div>`;
             lucide.createIcons({nodes: resultsContainer.querySelectorAll('[data-lucide]')});
@@ -3889,14 +3920,13 @@ async function submitCollectorReport(collectorId) {
 
             const selectedCollectorId = collectorFilter.value;
             
-            // Corrección de fechas para cubrir todo el día (00:00 a 23:59)
             const startParts = dateStartInput.value.split('-');
             const endParts = dateEndInput.value.split('-');
             
             const startDate = new Date(startParts[0], startParts[1] - 1, startParts[2], 0, 0, 0, 0);
             const endDate = new Date(endParts[0], endParts[1] - 1, endParts[2], 23, 59, 59, 999);
 
-            // 2. Filtrado de Datos (Modo "Tiempo Real" Aggresivo)
+            // 2. Filtrado de Datos
             const filteredPayments = [];
             const filteredNewLoans = [];
             let valInitial = 0;
@@ -3943,12 +3973,7 @@ async function submitCollectorReport(collectorId) {
             // C. Gastos
             const filteredExpenses = allExpenses.filter(e => {
                 if (selectedCollectorId !== 'all' && e.collectorId !== selectedCollectorId) return false;
-                
-                let d = new Date(); 
-                if (e.date && e.date.seconds) {
-                    d = new Date(e.date.seconds * 1000);
-                }
-                
+                let d = e.date && e.date.seconds ? new Date(e.date.seconds * 1000) : new Date();
                 return d >= startDate && d <= endDate;
             });
 
@@ -3956,29 +3981,26 @@ async function submitCollectorReport(collectorId) {
             const filteredInjections = allCapitalInjections.filter(i => {
                 if (selectedCollectorId !== 'all' && i.collectorId !== selectedCollectorId) return false;
                 if (i.status !== 'approved') return false;
-                
-                let d = new Date();
-                if (i.date && i.date.seconds) {
-                    d = new Date(i.date.seconds * 1000);
-                }
+                let d = i.date && i.date.seconds ? new Date(i.date.seconds * 1000) : new Date();
                 return d >= startDate && d <= endDate;
             });
 
-            // E. Retiros
+            // E. Retiros (TODOS)
             const filteredSettlements = allSettlements.filter(s => {
                 if (selectedCollectorId !== 'all' && s.collectorId !== selectedCollectorId) return false;
                 if (s.status === 'rejected') return false;
-                
-                let d = new Date();
-                if (s.date && s.date.seconds) {
-                    d = new Date(s.date.seconds * 1000);
-                }
+                let d = s.date && s.date.seconds ? new Date(s.date.seconds * 1000) : new Date();
                 return d >= startDate && d <= endDate;
             });
+
+            // --- SEPARACIÓN DE RETIROS (Capital vs Seguro) ---
+            const settlementsInsurance = filteredSettlements.filter(s => s.type === 'insurance');
+            const settlementsCapital = filteredSettlements.filter(s => s.type !== 'insurance');
 
             // 3. Cálculos
             const valCollected = filteredPayments.reduce((s, i) => s + (Number(i.amount)||0), 0);
             const valInjected = filteredInjections.reduce((s, i) => s + (Number(i.amount)||0), 0);
+            
             const valDeployed = filteredNewLoans.reduce((s, l) => {
                 let principal = Number(l.principalAmount);
                 if (!principal && l.totalLoan) {
@@ -3986,7 +4008,16 @@ async function submitCollectorReport(collectorId) {
                 }
                 return s + (principal || 0);
             }, 0);
-            const valSettled = filteredSettlements.reduce((s, i) => s + (Number(i.amount)||0), 0);
+
+            // Seguro Recaudado
+            const valMicroInsurance = filteredNewLoans.reduce((s, l) => s + (Number(l.microInsurance) || 0), 0);
+
+            // Retiros separados
+            const valSettledCapital = settlementsCapital.reduce((s, i) => s + (Number(i.amount)||0), 0);
+            const valSettledInsurance = settlementsInsurance.reduce((s, i) => s + (Number(i.amount)||0), 0);
+            
+            // CORRECCIÓN: Definimos 'valSettledTotal'
+            const valSettledTotal = valSettledCapital + valSettledInsurance;
 
             const expensesByCategory = {};
             let valExpensesTotal = 0;
@@ -3999,8 +4030,10 @@ async function submitCollectorReport(collectorId) {
 
             const valInflows = valCollected + valInjected;
             const totalInflow = valInitial + valInflows;
-            const totalOutflow = valExpensesTotal + valDeployed + valSettled;
-            const netBalance = totalInflow - totalOutflow;
+            
+            // Balance Final (incluye seguro como entrada y retiros totales como salida)
+            const totalOutflow = valExpensesTotal + valDeployed + valSettledTotal;
+            const netBalance = (totalInflow + valMicroInsurance) - totalOutflow;
 
             // 4. Preparar Datos Gráfico
             const chartLabels = [];
@@ -4010,11 +4043,20 @@ async function submitCollectorReport(collectorId) {
             const neonColors = {
                 'initial': '#94a3b8', 'inflows': '#00ff9d', 'salary': '#facc15', 'fuel': '#f97316', 'rent': '#ec4899',
                 'mechanics': '#ef4444', 'food': '#8b5cf6', 'other': '#64748b', 'loans': '#00f2ff',
-                'settlements': '#a855f7', 'balance': '#3b82f6'
+                'settlements': '#a855f7', 'settlements_insurance': '#0ea5e9', 'balance': '#3b82f6', 
+                'microInsurance': '#0ea5e9'
             };
 
             if (valInitial > 0) { chartLabels.push(t.initialCapitalLabel.toUpperCase()); chartData.push(valInitial); chartColors.push(neonColors['initial']); }
             if (valInflows > 0) { chartLabels.push(t.inflowLabel.toUpperCase()); chartData.push(valInflows); chartColors.push(neonColors['inflows']); }
+            
+            // Entrada Seguro
+            if (valMicroInsurance > 0) { 
+                chartLabels.push(t.microInsurance.toUpperCase()); 
+                chartData.push(valMicroInsurance); 
+                chartColors.push(neonColors['microInsurance']); 
+            }
+
             Object.keys(expensesByCategory).forEach(cat => {
                 if (expensesByCategory[cat] > 0) {
                     chartLabels.push((t[cat] || cat).toUpperCase());
@@ -4023,12 +4065,24 @@ async function submitCollectorReport(collectorId) {
                 }
             });
             if (valDeployed > 0) { chartLabels.push(t.newLoans.toUpperCase()); chartData.push(valDeployed); chartColors.push(neonColors['loans']); }
-            if (valSettled > 0) { chartLabels.push(t.settlements.toUpperCase()); chartData.push(valSettled); chartColors.push(neonColors['settlements']); }
+            
+            // Salida Retiros (Capital)
+            if (valSettledCapital > 0) { 
+                chartLabels.push("RETIRADAS (CAPITAL)"); 
+                chartData.push(valSettledCapital); 
+                chartColors.push(neonColors['settlements']); 
+            }
+            // Salida Retiros (Seguro)
+            if (valSettledInsurance > 0) { 
+                chartLabels.push("RETIRADAS (SEGURO)"); 
+                chartData.push(valSettledInsurance); 
+                chartColors.push(neonColors['settlements_insurance']); 
+            }
+
             if (netBalance > 0) { chartLabels.push(t.cashBalance.toUpperCase()); chartData.push(netBalance); chartColors.push(neonColors['balance']); }
 
             if (chartData.length === 0) { chartLabels.push(t.noData); chartData.push(1); chartColors.push('#1e293b'); }
 
-            // 5. Diagnóstico
             let diagColor = netBalance >= 0 ? "#00ff9d" : "#ff0055";
             let diagTitle = netBalance >= 0 ? t.diagProfitTitle : t.diagDeficitTitle;
             let balanceText = netBalance >= 0 ? t.netBalancePos : t.netBalanceNeg;
@@ -4058,7 +4112,6 @@ async function submitCollectorReport(collectorId) {
                 ? `${t.maxExpenseLabel} ${(t[maxExpenseEntry[0]] || maxExpenseEntry[0]).toUpperCase()} (${money(maxExpenseEntry[1])})` 
                 : t.noSignificantExpense;
 
-            // 6. Construcción HTML
             resultsContainer.innerHTML = `
                 <div style="display: flex; justify-content: flex-end; margin-bottom: 15px;">
                     <button id="download-graphic-pdf-btn" class="btn-secondary" style="background-color: var(--surface); color: var(--accent-blue); border-color: var(--accent-blue); padding: 8px 16px; font-size: 0.9em; display: flex; align-items: center; gap: 8px;">
@@ -4096,7 +4149,7 @@ async function submitCollectorReport(collectorId) {
                                 pointer-events: none; z-index: 5;
                             ">
                                 <p style="font-size: 0.65em; color: #94a3b8; margin: 0; letter-spacing: 1px;">${t.capitalGiro}</p>
-                                <p style="font-size: 1.05em; color: #fff; font-weight: 700; margin: 2px 0;">${money(totalInflow)}</p>
+                                <p style="font-size: 1.05em; color: #fff; font-weight: 700; margin: 2px 0;">${money(totalInflow + valMicroInsurance)}</p>
                                 <div style="width: 80%; height: 1px; background: #334155; margin: 6px auto;"></div>
                                 <p style="font-size: 0.65em; color: #94a3b8; margin: 0; letter-spacing: 1px;">${t.totalOutflow}</p>
                                 <p style="font-size: 1.05em; color: #ef4444; font-weight: 700; margin: 2px 0;">-${money(totalOutflow)}</p>
@@ -4115,6 +4168,7 @@ async function submitCollectorReport(collectorId) {
                             <p style="margin: 10px 0 0; color: #94a3b8; font-size: 0.85em; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 8px;">${maxExpenseMsg}</p>
                         </div>
                         <div style="display: flex; flex-direction: column; gap: 12px; max-height: 350px; overflow-y: auto; padding-right: 10px;">
+                            
                             <div style="display: flex; align-items: center; justify-content: space-between; font-size: 0.9em; padding: 8px 12px; background: ${balanceValueColor}10; border-radius: 8px; border: 1px solid ${balanceValueColor}30;">
                                 <div style="display: flex; align-items: center; gap: 12px;">
                                     <div style="width: 12px; height: 12px; background: ${balanceValueColor}; border-radius: 3px; box-shadow: 0 0 8px ${balanceValueColor};"></div>
@@ -4126,7 +4180,7 @@ async function submitCollectorReport(collectorId) {
                             ${chartLabels.map((label, i) => {
                                 if (label === t.noData || label === t.cashBalance.toUpperCase()) return '';
                                 const val = chartData[i];
-                                const percent = totalInflow > 0 ? Math.round((val / totalInflow) * 100) : 0;
+                                const percent = (totalInflow + valMicroInsurance) > 0 ? Math.round((val / (totalInflow + valMicroInsurance)) * 100) : 0;
                                 return `
                                 <div style="padding: 0 5px;">
                                     <div style="display: flex; align-items: center; justify-content: space-between; font-size: 0.9em; margin-bottom: 4px;">
@@ -4156,9 +4210,17 @@ async function submitCollectorReport(collectorId) {
                         <div id="report-details-lists" style="margin-top: 0; padding: 0 15px 15px; display: flex; flex-direction: column; gap: 10px;">
                              ${valInitial > 0 ? `<div class="payment-history-item" style="padding: 10px; background-color: var(--bg); border: 1px dashed var(--text-secondary);"><span style="font-weight: 600;">${t.initialCapitalLabel}</span><span style="font-weight: 700; color: var(--text-primary);">${money(valInitial)}</span></div>` : ''}
                              ${generateDetailListHTML(t.inflowLabel, 'arrow-up-circle', '#00ff9d', [...filteredPayments, ...filteredInjections], (item) => `<span>${item.clientName || 'Aporte'}</span><span style="color:var(--accent-green); font-weight:700;">${money(item.amount)}</span>`)}
+                             
+                             ${generateDetailListHTML(t.microInsurance, 'shield-check', '#0ea5e9', filteredNewLoans.filter(l => l.microInsurance > 0), (l) => `<span>${l.clientName} (Seguro Retido)</span><span style="color:#0ea5e9; font-weight:700;">${money(l.microInsurance)}</span>`)}
+                             
                              ${generateDetailListHTML(t.outflowLoansLabel, 'briefcase', '#00f2ff', filteredNewLoans, (l) => `<span>${l.clientName}</span><span style="color:#3b82f6; font-weight:700;">${money(l.principalAmount || l.totalLoan/1.2)}</span>`)}
                              ${generateDetailListHTML(t.outflowExpensesLabel, 'shopping-cart', '#ff0055', filteredExpenses, (e) => `<span>${t[e.category]||e.category} ${(!e.date || !e.date.seconds) ? '(Pendente)' : ''}</span><span style="color:var(--danger-color); font-weight:700;">${money(e.value)}</span>`)}
-                             ${generateDetailListHTML(t.outflowSettlementsLabel, 'archive', '#a855f7', filteredSettlements, (s) => `<span>${t.withdrawal}</span><span style="color:#a855f7; font-weight:700;">${money(s.amount)}</span>`)}
+                             
+                             <!-- LISTA DE RETIROS DE CAPITAL -->
+                             ${generateDetailListHTML("Saídas (Retiradas de Capital)", 'archive', '#a855f7', settlementsCapital, (s) => `<span>${s.collectorName || 'Cobrador'}</span><span style="color:#a855f7; font-weight:700;">${money(s.amount)}</span>`)}
+                             
+                             <!-- LISTA DE RETIROS DE SEGURO -->
+                             ${generateDetailListHTML("Saídas (Retiradas de Micro Seguro)", 'shield-off', '#0ea5e9', settlementsInsurance, (s) => `<span>${s.collectorName || 'Cobrador'}</span><span style="color:#0ea5e9; font-weight:700;">${money(s.amount)}</span>`)}
                         </div>
                     </details>
                 </div>
@@ -4313,10 +4375,13 @@ async function submitCollectorReport(collectorId) {
                         financials: {
                             initial: valInitial,
                             inflow: valInflows,
+                            microInsurance: valMicroInsurance,
                             totalIn: totalInflow,
                             expenses: valExpensesTotal,
                             loans: valDeployed,
-                            settlements: valSettled,
+                            settlements: valSettledTotal, // <--- CORRECCIÓN APLICADA: valSettledTotal
+                            settlementsCapital: valSettledCapital,
+                            settlementsInsurance: valSettledInsurance,
                             totalOut: totalOutflow,
                             balance: netBalance
                         },
@@ -4799,7 +4864,7 @@ async function submitCollectorReport(collectorId) {
             const doc = new jsPDF();
             const { period, collector, financials, breakdown } = reportData;
             const t = translations[currentLang];
-            const primaryColor = '#0f172a'; // Dark Blue
+            const primaryColor = '#0f172a'; 
 
             // 1. TÍTULO Y FECHA
             let y = 20;
@@ -4824,24 +4889,23 @@ async function submitCollectorReport(collectorId) {
                 const canvas = document.getElementById('ultra-chart');
                 if (canvas) {
                     y += 10;
-                    // Creamos un fondo blanco temporal para el gráfico si es transparente
                     const chartImgData = canvas.toDataURL('image/png', 1.0);
                     
-                    // Centrar imagen (tamaño 80x80 mm)
                     doc.addImage(chartImgData, 'PNG', 65, y, 80, 80);
                     
-                    // Simular el texto central (porque la imagen del canvas no tiene el HTML del centro)
+                    // Círculo central simulado
                     doc.setFillColor(255, 255, 255);
-                    doc.circle(105, y + 40, 15, 'F'); // Círculo blanco para tapar agujero
+                    doc.circle(105, y + 40, 15, 'F'); 
                     
                     doc.setFontSize(8);
                     doc.setTextColor(100);
                     doc.text(t.capitalGiro, 105, y + 35, { align: 'center' });
                     
+                    // Sumamos el Seguro a la entrada visual en el PDF también para consistencia
                     doc.setFontSize(11);
                     doc.setTextColor(0);
                     doc.setFont(undefined, 'bold');
-                    doc.text(money(financials.totalIn), 105, y + 40, { align: 'center' });
+                    doc.text(money(financials.totalIn + (financials.microInsurance||0)), 105, y + 40, { align: 'center' });
                     
                     doc.setFontSize(8);
                     doc.setTextColor(100);
@@ -4853,11 +4917,11 @@ async function submitCollectorReport(collectorId) {
                     doc.setFont(undefined, 'bold');
                     doc.text(`-${money(financials.totalOut)}`, 105, y + 51, { align: 'center' });
 
-                    y += 85; // Espacio después del gráfico
+                    y += 85; 
                 }
             }
 
-            // 3. TABLA DE RESUMEN (ESTILO MODERNO)
+            // 3. TABLA DE RESUMEN
             doc.setDrawColor(200);
             doc.setLineWidth(0.1);
             doc.line(20, y, 190, y);
@@ -4866,7 +4930,7 @@ async function submitCollectorReport(collectorId) {
             const addRow = (label, value, color = '#000000', isBold = false) => {
                 doc.setFontSize(11);
                 doc.setFont(undefined, isBold ? 'bold' : 'normal');
-                doc.setTextColor(100); // Label gris
+                doc.setTextColor(100); 
                 doc.text(label, 20, y);
                 
                 doc.setTextColor(color);
@@ -4874,7 +4938,7 @@ async function submitCollectorReport(collectorId) {
                 y += 8;
             };
 
-            // Capital Inicial (Si existe)
+            // Capital Inicial
             if (financials.initial > 0) {
                 addRow(t.initialCapitalLabel, financials.initial, '#64748b');
             }
@@ -4882,10 +4946,22 @@ async function submitCollectorReport(collectorId) {
             // Entradas
             addRow(t.inflowLabel, financials.inflow, '#22c55e', true);
             
+            // --- MICRO SEGURO (ENTRADA) ---
+            if (financials.microInsurance > 0) {
+                addRow(t.microInsurance, financials.microInsurance, '#0ea5e9', true); // Azul Celeste
+            }
+            
             // Salidas
             addRow(t.outflowLoansLabel, financials.loans, '#3b82f6');
             addRow(t.outflowExpensesLabel, financials.expenses, '#ef4444');
-            addRow(t.outflowSettlementsLabel, financials.settlements, '#a855f7');
+            
+            // --- RETIROS DESGLOSADOS ---
+            if (financials.settlementsCapital > 0) {
+                 addRow("Saídas (Retiradas Capital)", financials.settlementsCapital, '#a855f7');
+            }
+            if (financials.settlementsInsurance > 0) {
+                 addRow("Saídas (Retiradas Seguro)", financials.settlementsInsurance, '#0ea5e9');
+            }
             
             y += 2;
             doc.line(20, y, 190, y);
@@ -4903,12 +4979,12 @@ async function submitCollectorReport(collectorId) {
             
             y += 15;
             
-            // 4. DESGLOSE DE GASTOS (SI HAY)
+            // 4. DESGLOSE DE GASTOS
             const expenseKeys = Object.keys(breakdown).filter(k => breakdown[k] > 0);
             if (expenseKeys.length > 0) {
                 doc.setFontSize(12);
                 doc.setTextColor(primaryColor);
-                doc.text(t.maxExpenseLabel.replace(':', ''), 20, y); // "Mayor Gasto" como título
+                doc.text(t.maxExpenseLabel.replace(':', ''), 20, y); 
                 y += 8;
 
                 expenseKeys.forEach(cat => {
@@ -4934,85 +5010,157 @@ async function submitCollectorReport(collectorId) {
         }
 
 
-        function showSettlementModal(collectorId, collectorName, currentCapitalOnHand) {
-    const modal = document.getElementById('reportOptionsModal');
-    modal.classList.add('active'); 
+         function showSettlementModal(collectorId, collectorName, currentCapitalOnHand) {
+            const modal = document.getElementById('reportOptionsModal');
+            modal.classList.add('active'); 
 
-    // CORRECCIÓN: Título dinámico desde 'translations'
-    const t = translations[currentLang];
-    
-    modal.innerHTML = `
-    <div class="modal-content" style="max-width: 400px;">
-        <button class="close-modal-btn" style="position: absolute; top: 10px; right: 10px; background: none; border: none; font-size: 24px; color: var(--text-secondary);">&times;</button>
+            const t = translations[currentLang];
+            
+            // Calculamos el fondo de seguro disponible (GLOBAL)
+            const availableInsurance = calculatedGlobalMetrics.availableInsuranceFund || 0;
 
-        <h3 style="margin-bottom: 15px; text-align: center;">${t.registerSettlement}</h3>
-        <p style="text-align: center; color: var(--text-secondary); margin-bottom: 25px;">
-            Para: <strong>${collectorName}</strong><br>
-            (Capital em Mãos Atual: ${money(currentCapitalOnHand)})
-        </p>
+            modal.innerHTML = `
+            <div class="modal-content" style="max-width: 400px;">
+                <button class="close-modal-btn" style="position: absolute; top: 10px; right: 10px; background: none; border: none; font-size: 24px; color: var(--text-secondary);">&times;</button>
 
-        <div class="form-group">
-            <label for="settlement-amount">Valor Recebido do Cobrador:</label>
-            <input type="number" id="settlement-amount" step="0.01" placeholder="0.00" required style="font-size: 1.5em; text-align: center; padding: 15px;">
-        </div>
+                <h3 style="margin-bottom: 15px; text-align: center;">${t.registerSettlement}</h3>
+                
+                <!-- SELECTOR DE TIPO DE RETIRO -->
+                <div style="background-color: var(--bg); padding: 10px; border-radius: 8px; margin-bottom: 20px; display: flex; gap: 10px;">
+                    <label style="flex: 1; cursor: pointer;">
+                        <input type="radio" name="settlement-type" value="capital" checked style="display: none;">
+                        <div class="type-btn active" style="text-align: center; padding: 10px; border-radius: 6px; border: 1px solid var(--accent-green); color: var(--accent-green); font-weight: 600;">
+                            Capital em Mãos
+                            <div style="font-size: 0.8em; margin-top: 2px;">${money(currentCapitalOnHand)}</div>
+                        </div>
+                    </label>
+                    <label style="flex: 1; cursor: pointer;">
+                        <input type="radio" name="settlement-type" value="insurance" style="display: none;">
+                        <div class="type-btn" style="text-align: center; padding: 10px; border-radius: 6px; border: 1px solid var(--border-color); color: var(--text-secondary);">
+                            Micro Seguro
+                            <div style="font-size: 0.8em; margin-top: 2px;">${money(availableInsurance)}</div>
+                        </div>
+                    </label>
+                </div>
 
-        <div class="form-group">
-            <label for="settlement-notes">Observações (Opcional):</label>
-            <textarea id="settlement-notes" rows="2" placeholder="Ex: Referente à cobrança de hoje..."></textarea>
-        </div>
+                <div class="form-group">
+                    <label for="settlement-amount">Valor a Retirar:</label>
+                    <input type="number" id="settlement-amount" step="0.01" placeholder="0.00" required style="font-size: 1.5em; text-align: center; padding: 15px;">
+                </div>
 
-        <div style="display: flex; gap: 10px; justify-content: center; margin-top: 25px;">
-            <button class="btn-secondary" id="cancel-settlement-btn" style="flex-grow: 1;">Cancelar</button>
-            <button class="btn-primary" id="confirm-settlement-btn" style="flex-grow: 1;">Confirmar Registro</button>
-        </div>
-    </div>
-    `;
+                <div class="form-group">
+                    <label for="settlement-notes">Observações (Opcional):</label>
+                    <textarea id="settlement-notes" rows="2" placeholder="Ex: Referente à cobrança de hoje..."></textarea>
+                </div>
 
-    const confirmBtn = modal.querySelector('#confirm-settlement-btn');
-    const cancelBtn = modal.querySelector('#cancel-settlement-btn');
-    const closeModalBtn = modal.querySelector('.close-modal-btn');
-    const amountInput = modal.querySelector('#settlement-amount');
-    const notesInput = modal.querySelector('#settlement-notes');
+                <div style="display: flex; gap: 10px; justify-content: center; margin-top: 25px;">
+                    <button class="btn-secondary" id="cancel-settlement-btn" style="flex-grow: 1;">Cancelar</button>
+                    <button class="btn-primary" id="confirm-settlement-btn" style="flex-grow: 1;">Confirmar Registro</button>
+                </div>
+            </div>
+            `;
 
-    const closeModal = () => modal.classList.remove('active');
-    cancelBtn.addEventListener('click', closeModal);
-    closeModalBtn.addEventListener('click', closeModal);
+            // Lógica visual del selector
+            const radioBtns = modal.querySelectorAll('input[name="settlement-type"]');
+            const typeDivs = modal.querySelectorAll('.type-btn');
+            
+            radioBtns.forEach((radio, index) => {
+                radio.addEventListener('change', () => {
+                    typeDivs.forEach(div => {
+                        div.style.borderColor = 'var(--border-color)';
+                        div.style.color = 'var(--text-secondary)';
+                        div.classList.remove('active');
+                    });
+                    
+                    const selectedDiv = typeDivs[index];
+                    if (radio.value === 'capital') {
+                        selectedDiv.style.borderColor = 'var(--accent-green)';
+                        selectedDiv.style.color = 'var(--accent-green)';
+                    } else {
+                        selectedDiv.style.borderColor = '#0ea5e9';
+                        selectedDiv.style.color = '#0ea5e9';
+                    }
+                    selectedDiv.classList.add('active');
+                });
+            });
 
-    confirmBtn.addEventListener('click', async () => {
-        const amount = parseFloat(amountInput.value);
-        if (isNaN(amount) || amount <= 0) {
-            showToast('Por favor, insira um valor válido.', true);
-            amountInput.style.borderColor = 'var(--danger-color)';
-            setTimeout(() => { amountInput.style.borderColor = ''; }, 2000);
-            return;
+            const confirmBtn = modal.querySelector('#confirm-settlement-btn');
+            const cancelBtn = modal.querySelector('#cancel-settlement-btn');
+            const closeModalBtn = modal.querySelector('.close-modal-btn');
+            const amountInput = modal.querySelector('#settlement-amount');
+            const notesInput = modal.querySelector('#settlement-notes');
+
+            const closeModal = () => modal.classList.remove('active');
+            cancelBtn.addEventListener('click', closeModal);
+            closeModalBtn.addEventListener('click', closeModal);
+
+            confirmBtn.addEventListener('click', async () => {
+                const amount = parseFloat(amountInput.value);
+                const type = document.querySelector('input[name="settlement-type"]:checked').value;
+                
+                if (isNaN(amount) || amount <= 0) {
+                    showToast('Por favor, insira um valor válido.', true);
+                    return;
+                }
+                
+                confirmBtn.disabled = true;
+                confirmBtn.innerHTML = `<i data-lucide="loader-circle" style="animation: spin 1s linear infinite;"></i> Registrando...`;
+                lucide.createIcons({ nodes: [confirmBtn.querySelector('i')] });
+
+                try {
+                    // Datos comunes para ambos casos
+                    const noteText = notesInput.value.trim();
+                    const adminUserId = auth.currentUser ? auth.currentUser.uid : 'admin_manual';
+
+                    if (type === 'capital') {
+                        // === 1. RETIRO NORMAL ===
+                        await addDoc(collection(db, 'companies', currentCompanyId, 'settlements'), {
+                            collectorId: collectorId,
+                            collectorName: collectorName, 
+                            amount: amount,
+                            notes: noteText,
+                            date: serverTimestamp(), 
+                            adminId: adminUserId, 
+                            status: 'approved',
+                            type: 'capital' // Tipo Capital
+                        });
+                    
+                    } else {
+                        // === 2. RETIRO DE SEGURO ===
+                        // A) Guardar en la colección especial de seguros (Para restar del saldo disponible)
+                        await addDoc(collection(db, 'companies', currentCompanyId, 'insuranceWithdrawals'), {
+                            collectorId: collectorId,
+                            amount: amount,
+                            date: serverTimestamp(),
+                            adminId: adminUserId,
+                            note: `Retirada via ${collectorName} - ${noteText}`,
+                            type: 'insurance'
+                        });
+                        
+                        // B) Guardar en 'settlements' (Para que salga en el historial visual)
+                        // IMPORTANTE: type: 'insurance' hace que la función 'calculateCollectorMetrics' lo ignore
+                        await addDoc(collection(db, 'companies', currentCompanyId, 'settlements'), {
+                            collectorId: collectorId,
+                            collectorName: collectorName,
+                            amount: amount,
+                            notes: `[MICRO SEGURO] ${noteText}`,
+                            date: serverTimestamp(),
+                            adminId: adminUserId,
+                            status: 'approved',
+                            type: 'insurance' // Tipo Insurance
+                        });
+                    }
+
+                    showToast('Retirada registrada com sucesso!');
+                    closeModal();
+                } catch (error) {
+                    console.error("Erro ao registrar retirada:", error);
+                    showToast('Erro ao salvar a retirada.', true);
+                    confirmBtn.disabled = false;
+                    confirmBtn.innerHTML = `Confirmar Registro`;
+                }
+            });
         }
-
-        confirmBtn.disabled = true;
-        confirmBtn.innerHTML = `<i data-lucide="loader-circle" style="animation: spin 1s linear infinite;"></i> Registrando...`;
-        lucide.createIcons({ nodes: [confirmBtn.querySelector('i')] });
-
-        const settlementData = {
-            collectorId: collectorId,
-            collectorName: collectorName, 
-            amount: amount,
-            notes: notesInput.value.trim(),
-            date: serverTimestamp(), 
-            adminId: auth.currentUser ? auth.currentUser.uid : 'admin_manual', 
-            status: 'approved' 
-        };
-
-        try {
-            await addDoc(collection(db, 'companies', currentCompanyId, 'settlements'), settlementData);
-            showToast(t.settlementApproved);
-            closeModal();
-        } catch (error) {
-            console.error("Erro ao registrar retirada:", error);
-            showToast('Erro ao salvar a retirada.', true);
-            confirmBtn.disabled = false;
-            confirmBtn.innerHTML = `Confirmar Registro`;
-        }
-    });
-}
 
 
         function showCapitalInjectionModal(collectorId, collectorName) {
@@ -5305,6 +5453,7 @@ async function submitCollectorReport(collectorId) {
 
         
         // REEMPLAZA ESTA FUNCIÓN COMPLETA (BLOQUE 5)
+        // REEMPLAZA ESTA FUNCIÓN COMPLETA (BLOQUE 5 - Con Traducción Micro Seguro)
         function showClientDetails(clientId, loanIndex = 0) { 
             const client = allClients.find(c => c.id === clientId);
             // Hacemos esta función global para que el Mapa la pueda llamar
@@ -5346,6 +5495,10 @@ async function submitCollectorReport(collectorId) {
             const statusClass = `status-${currentStatus}`;
             const statusText = (translations[currentLang] && translations[currentLang][currentStatus]) || currentStatus;
 
+            // --- LÓGICA DE VISUALIZACIÓN MICRO SEGURO ---
+            // Si está finalizado, mostramos 0 visualmente (como pediste). Si está activo, mostramos el valor real.
+            const displayMicroInsurance = currentStatus === 'finished' ? 0 : (loan.microInsurance || 0);
+
             // --- HISTORIAL DE PAGOS ---
             const historyHtml = (loan.history && loan.history.length > 0) ? 
                 [...loan.history].sort((a,b) => (b.date?.seconds || 0) - (a.date?.seconds || 0)).map((p) => {
@@ -5362,12 +5515,11 @@ async function submitCollectorReport(collectorId) {
                     `
                 }).join('') : '<p style="color: var(--text-secondary); padding: 10px;">Nenhum histórico de pagamento.</p>';
             
-            // --- NUEVA GALERÍA VISUAL DE DOCUMENTOS (CON PREVISUALIZACIÓN) ---
+            // --- GALERÍA DE DOCUMENTOS ---
             const docsHtml = (client.documents && client.documents.length > 0) ? `
                 <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 12px; margin-top: 10px;">
                     ${client.documents.map(doc => {
                         const isImage = doc.name.toLowerCase().match(/\.(jpeg|jpg|gif|png|webp)$/) || doc.url.includes('alt=media');
-                        // Usamos una clase especial 'doc-preview-trigger' para detectar el clic
                         return `
                             <div class="kpi-card doc-preview-trigger" data-doc-url="${doc.url}" data-doc-name="${doc.name}" style="padding: 10px; height: 100%; display: flex; flex-direction: column; align-items: center; text-align: center; border: 1px solid var(--border-color); transition: transform 0.2s; cursor: pointer;">
                                 <div style="width: 100%; height: 80px; background-color: var(--bg); border-radius: 6px; margin-bottom: 8px; display: flex; align-items: center; justify-content: center; overflow: hidden;">
@@ -5386,6 +5538,16 @@ async function submitCollectorReport(collectorId) {
                 </div>
             ` : '<div style="padding: 20px; text-align: center; border: 1px dashed var(--border-color); border-radius: 8px; color: var(--text-secondary); background-color: var(--bg);"><i data-lucide="folder-open" style="width: 24px; height: 24px; margin-bottom: 5px; opacity: 0.5;"></i><p style="margin: 0;">Nenhum documento anexado.</p></div>';
             
+            // --- VALOR DE CUOTA Y PICO ---
+            let picoValue = 0;
+            const instVal = loan.originalInstallmentAmount || 0;
+            if (instVal > 0 && paidAmount > 0) {
+                const remainder = paidAmount % instVal;
+                if (remainder > 0.05 && (instVal - remainder) > 0.05) {
+                    picoValue = remainder;
+                }
+            }
+
             detailModal.innerHTML = `
                 <header class="modal-header">
                     <button id="closeClientDetail"><i data-lucide="arrow-left"></i></button>
@@ -5416,11 +5578,25 @@ async function submitCollectorReport(collectorId) {
                         </span>
                     </div>
                     
-                    <section class="loan-summary">
-                        <div class="kpi-card"><h3 class="kpi-title">Total</h3><p class="kpi-value">${money(totalAmount)}</p></div>
-                        <div class="kpi-card"><h3 class="kpi-title">Pago</h3><p class="kpi-value green">${money(paidAmount)}</p></div>
-                        <div class="kpi-card"><h3 class="kpi-title">Restante</h3><p class="kpi-value" style="color: var(--danger-color);">${money(remainingAmount)}</p></div>
-                        <div class="kpi-card"><h3 class="kpi-title">Parcela</h3><p class="kpi-value purple">${money(loan.originalInstallmentAmount)}</p></div>
+                    <section class="kpi-grid-profile" style="margin-bottom: 30px;">
+                        <div class="kpi-card"><h3 class="kpi-title"><i data-lucide="coins"></i> <span data-lang-key="totalValue">Valor Total</span></h3><p class="kpi-value">${money(totalAmount)}</p></div>
+                        <div class="kpi-card"><h3 class="kpi-title"><i data-lucide="receipt"></i> <span data-lang-key="installmentValue">Valor da Parcela</span></h3><p class="kpi-value" style="color: var(--accent-purple);">${money(loan.originalInstallmentAmount)}</p></div>
+                        <div class="kpi-card" style="border-color: var(--accent-orange); border-width: 1px;">
+                            <h3 class="kpi-title"><i data-lucide="trending-up" style="color: var(--accent-orange);"></i> Pico</h3>
+                            <p class="kpi-value" style="color: var(--accent-orange);">${money(picoValue)}</p>
+                        </div>
+                        <div class="kpi-card"><h3 class="kpi-title"><i data-lucide="trending-up"></i> <span data-lang-key="totalPaid">Pago</span></h3><p class="kpi-value green">${money(paidAmount)}</p></div>
+                       
+                        <!-- TARJETA MICRO SEGURO (Muestra 0 si finalizado, pero siempre visible) -->
+                        <div class="kpi-card" style="background-color: color-mix(in srgb, #0ea5e9 10%, var(--surface)); border-color: #0ea5e9;">
+                           <h3 class="kpi-title"><i data-lucide="shield-check" style="color: #0ea5e9;"></i> <span data-lang-key="microInsurance">Micro Seguro</span></h3>
+                           <p class="kpi-value" style="color: #0ea5e9;">${money(displayMicroInsurance)}</p>
+                        </div>
+
+                       <div class="kpi-card" style="border-color: var(--danger-color);">
+                           <h3 class="kpi-title"><i data-lucide="receipt-text"></i> <span data-lang-key="remainingBalance">Total Devido Agora</span></h3>
+                           <p class="kpi-value" style="color: var(--danger-color); font-size: 1.4em;">${money(remainingAmount)}</p>
+                       </div>
                     </section>
                     
                     <section style="margin-top: 20px;">
@@ -5440,11 +5616,8 @@ async function submitCollectorReport(collectorId) {
             history.pushState({ modal: 'clientDetailView', clientId: clientId, loanIndex: currentLoanIndex }, `Details for ${client.name}`, `#client/${clientId}/${currentLoanIndex}`);
             detailModal.classList.add('active');
             lucide.createIcons({ nodes: detailModal.querySelectorAll('[data-lucide]') });
+            applyLanguage(currentLang);
 
-            // --- LISTENERS ---
-
-            // *** MAGIA AQUÍ: LÓGICA DEL VISOR DE IMÁGENES INTEGRADA ***
-            // Esto detecta el clic en la foto y abre la pantalla negra ajustada al celular
             detailModal.querySelectorAll('.doc-preview-trigger').forEach(trigger => {
                 trigger.addEventListener('click', () => {
                     const url = trigger.dataset.docUrl;
@@ -5452,10 +5625,7 @@ async function submitCollectorReport(collectorId) {
                     const isImage = name.toLowerCase().match(/\.(jpeg|jpg|gif|png|webp)$/) || url.includes('alt=media');
 
                     if (isImage) {
-                        // 1. Verificamos si el visor ya existe en el HTML
                         let viewer = document.getElementById('image-viewer-overlay');
-                        
-                        // 2. Si no existe, lo creamos ahora mismo
                         if (!viewer) {
                             viewer = document.createElement('div');
                             viewer.id = 'image-viewer-overlay';
@@ -5474,7 +5644,6 @@ async function submitCollectorReport(collectorId) {
                             `;
                             document.body.appendChild(viewer);
                             
-                            // Lógica para cerrar
                             const closeAction = () => {
                                 viewer.style.opacity = '0';
                                 setTimeout(() => viewer.style.display = 'none', 300);
@@ -5485,7 +5654,6 @@ async function submitCollectorReport(collectorId) {
                             });
                         }
 
-                        // 3. Abrimos el visor con la foto seleccionada
                         const img = viewer.querySelector('#viewer-img');
                         const caption = viewer.querySelector('#viewer-caption');
                         img.src = url;
@@ -5495,18 +5663,13 @@ async function submitCollectorReport(collectorId) {
                         setTimeout(() => { viewer.style.opacity = '1'; }, 10);
 
                     } else {
-                        // Si es PDF u otro archivo, abrir en pestaña nueva
                         window.open(url, '_blank');
                     }
                 });
             });
 
             detailModal.querySelector('#closeClientDetail').addEventListener('click', () => window.history.back());
-            
-            detailModal.querySelector('#editClientBtn').addEventListener('click', (e) => {
-                showClientFormModal(e.currentTarget.dataset.clientId, false, parseInt(e.currentTarget.dataset.loanIndex, 10));
-            });
-
+            detailModal.querySelector('#editClientBtn').addEventListener('click', (e) => { showClientFormModal(e.currentTarget.dataset.clientId); });
             const historyList = detailModal.querySelector('#client-payment-history-list');
             if (historyList) {
                 historyList.addEventListener('click', (e) => {
@@ -5519,7 +5682,6 @@ async function submitCollectorReport(collectorId) {
                     }
                 });
             }
-
             if (hasMultipleDisplayable) {
                 detailModal.querySelectorAll('.loan-tab').forEach(tab => {
                     tab.addEventListener('click', (e) => {
@@ -6515,6 +6677,16 @@ function updateAdminNotificationsView() {
                 return;
             }
 
+            // Obtenemos el préstamo activo o el último para mostrar los datos actuales
+            // Esto es importante para ver el Micro Seguro actual
+            let loanIndex = 0;
+            if (client.loans && client.loans.length > 0) {
+                // Buscamos si hay uno activo
+                const activeIdx = client.loans.findIndex(l => l.status !== 'finished');
+                loanIndex = activeIdx !== -1 ? activeIdx : (client.loans.length - 1);
+            }
+            const loan = (client.loans && client.loans[loanIndex]) ? client.loans[loanIndex] : {};
+
             const formModal = document.getElementById('clientFormModal');
             const collectorOptions = allCollectors.map(c =>
                 `<option value="${c.id}" ${c.id === client.collectorId ? 'selected' : ''}>${c.name}</option>`
@@ -6557,6 +6729,20 @@ function updateAdminNotificationsView() {
                             <div><label>Valor do Empréstimo</label><input type="number" id="client-loan-amount" required value="${(client.totalLoan && client.interestRate) ? (client.totalLoan / (1 + client.interestRate/100)).toFixed(2) : ''}"></div>
                             <div><label>Juros (%)</label><input type="number" id="client-interest" required value="${client.interestRate || '20'}"></div>
                         </div>
+
+                        <!-- NUEVO CAMPO: MICRO SEGURO (Agregado para el Admin) -->
+                        <div class="form-group">
+                            <label style="color: #0ea5e9; font-weight: 700;">
+                                <i data-lucide="shield-check" style="width: 14px; height: 14px; vertical-align: middle;"></i> 
+                                <span data-lang-key="microInsuranceLabel">Micro Seguro</span>
+                            </label>
+                            <input type="number" id="client-micro-insurance" step="0.01" 
+                                   value="${loan.microInsurance || '0'}" 
+                                   placeholder="0.00"
+                                   style="border-color: #0ea5e9;">
+                        </div>
+                        <!-- FIN NUEVO CAMPO -->
+
                         <div class="form-group"><label>Valor Total a Pagar</label><input type="text" id="client-total-to-pay" readonly></div>
                         <div class="form-group grid-2">
                              <div><label>Número de Parcelas</label><input type="number" id="client-installments" required value="${client.installments ? client.installments.split('/')[1] : ''}"></div>
@@ -6590,7 +6776,7 @@ function updateAdminNotificationsView() {
             const totalToPayInput = formModal.querySelector('#client-total-to-pay');
             const installmentValueInput = formModal.querySelector('#client-installment-value');
 
-            function calculateLoanDetails() {
+            function calculateLoanValues() {
                 const loanAmount = parseFloat(loanAmountInput.value) || 0;
                 const interest = parseFloat(interestInput.value) || 0;
                 const installments = parseInt(installmentsInput.value) || 0;
@@ -6599,8 +6785,8 @@ function updateAdminNotificationsView() {
                 totalToPayInput.value = money(totalToPay);
                 installmentValueInput.value = money(installmentValue);
             }
-            [loanAmountInput, interestInput, installmentsInput].forEach(input => input.addEventListener('input', calculateLoanDetails));
-            calculateLoanDetails();
+            [loanAmountInput, interestInput, installmentsInput].forEach(input => input.addEventListener('input', calculateLoanValues));
+            calculateLoanValues();
             
             formModal.querySelector('#closeClientForm').addEventListener('click', () => formModal.classList.remove('active'));
             
@@ -6608,20 +6794,44 @@ function updateAdminNotificationsView() {
                  const loanAmount = parseFloat(loanAmountInput.value);
                  const interest = parseFloat(interestInput.value);
                  const installments = parseInt(installmentsInput.value);
+                 
+                 // Capturamos el nuevo valor del seguro
+                 const microInsurance = parseFloat(document.getElementById('client-micro-insurance').value) || 0;
+
                  const totalToPay = loanAmount * (1 + (interest / 100));
                  const installmentValue = installments > 0 ? totalToPay / installments : 0;
                  
+                 // Preparar actualización de préstamos
+                 // (En este modo admin simple, asumimos que editamos el préstamo actual/último)
+                 let updatedLoans = [...(client.loans || [])];
+                 if (updatedLoans.length > 0) {
+                     // Actualizamos el préstamo seleccionado con los nuevos valores
+                     updatedLoans[loanIndex] = {
+                         ...updatedLoans[loanIndex],
+                         microInsurance: microInsurance, // GUARDAMOS EL SEGURO
+                         totalLoan: totalToPay,
+                         amount: installmentValue,
+                         originalInstallmentAmount: installmentValue,
+                         installments: `${(updatedLoans[loanIndex].installments || '0/0').split('/')[0]}/${installments}`,
+                     };
+                 }
+
                  const updatedData = {
                     name: document.getElementById('client-name').value,
                     address: document.getElementById('client-address').value,
                     whatsapp: document.getElementById('client-whatsapp').value,
                     phone: document.getElementById('client-phone').value,
                     collectorId: document.getElementById('client-collector').value,
+                    
+                    // Datos generales
                     totalLoan: totalToPay,
                     amount: installmentValue,
-                    installments: `${client.installments.split('/')[0]}/${installments}`,
+                    installments: `${(client.installments || '0/0').split('/')[0]}/${installments}`,
                     interestRate: interest,
                     paymentDays: Array.from(document.querySelectorAll('#clientFormModal .day-selector input:checked')).map(el => parseInt(el.value)),
+                    
+                    // Actualizamos el array de préstamos completo
+                    loans: updatedLoans
                  };
 
                 try {
@@ -7476,3 +7686,4 @@ async function showRefinanceVerificationModal(clientId) {
     </script>
 </body>
     </html>
+
