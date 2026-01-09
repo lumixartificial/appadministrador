@@ -4503,535 +4503,566 @@ async function submitCollectorReport(collectorId) {
         
         
          async function generatePDFReport(collectorId, period) {
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF();
-            const now = new Date();
-            
-            // --- 0. TRADUCCIONES ---
-            const textData = {
-                pt: {
-                    title: 'Relatório de Cobrança',
-                    subtitle: 'Relatório Detalhado',
-                    periodLabel: 'Período',
-                    collector: 'COBRADOR',
-                    summaryTitle: 'Resumo Contábil do Período',
-                    received: '(+) Total Recebido',
-                    cash: '... em Dinheiro',
-                    digital: '... em Digital/Recibo',
-                    injections: '(+) Aportes de Capital',
-                    insurancePeriod: '(+) Micro Seguro (Gerado no Período)',
-                    loans: '(-) Empréstimos Realizados',
-                    expenses: '(-) Gastos Totais',
-                    settlementsCap: '(-) Retiradas de Caixa (Capital)',
-                    settlementsIns: '(-) Retiradas de Caixa (Seguro)',
-                    settlementsTot: '(-) Retiradas de Caixa Totais',
-                    netBalance: 'SALDO LÍQUIDO (Gerado no Período)',
-                    capitalHand: 'CAPITAL TOTAL EM MÃOS (Atual)',
-                    insuranceAccumulated: 'FUNDO SEGURO ACUMULADO (Atual)',
-                    detailsPayments: 'Detalhe dos Pagamentos Recebidos',
-                    detailsLoans: 'Detalhe dos Empréstimos Realizados',
-                    detailsExpenses: 'Detalhe dos Gastos',
-                    detailsSettlements: 'Histórico de Retiradas de Caixa e Micro Seguro', 
-                    detailsInjections: 'Detalhe dos Aportes de Capital',
-                    date: 'Data', client: 'Cliente', method: 'Método', value: 'Valor',
-                    type: 'Tipo', status: 'Status', category: 'Categoria', obs: 'Obs.',
-                    generatedBy: 'Gerado por LUMIX Finanças',
-                    page: 'Página', of: 'de',
-                    all: 'Todos',
-                    newRefin: 'Novo / Refin.',
-                    newIns: 'Novo (+Seg:',
-                    period24h: 'Últimas 24 Horas',
-                    period48h: 'Últimas 48 Horas',
-                    periodWeek: 'Última Semana',
-                    periodMonth: 'Últimos 30 Dias',
-                    periodFull: 'Período Completo',
-                    statusApproved: 'Aprovado',
-                    statusPending: 'Pendente',
-                    statusRejected: 'Rejeitado',
-                    withdrawalDefault: 'Retirada' // Texto por defecto PT
-                },
-                es: {
-                    title: 'Reporte de Cobranza',
-                    subtitle: 'Reporte Detallado',
-                    periodLabel: 'Período',
-                    collector: 'COBRADOR',
-                    summaryTitle: 'Resumen Contable del Período',
-                    received: '(+) Total Recibido',
-                    cash: '... en Efectivo',
-                    digital: '... en Digital/Recibo',
-                    injections: '(+) Aportes de Capital',
-                    insurancePeriod: '(+) Micro Seguro (Generado en Período)',
-                    loans: '(-) Préstamos Realizados',
-                    expenses: '(-) Gastos Totales',
-                    settlementsCap: '(-) Retiros de Caja (Capital)',
-                    settlementsIns: '(-) Retiros de Caja (Seguro)',
-                    settlementsTot: '(-) Retiros Totales',
-                    netBalance: 'SALDO NETO (Generado en Período)',
-                    capitalHand: 'CAPITAL TOTAL EN MANO (Actual)',
-                    insuranceAccumulated: 'FONDO SEGURO ACUMULADO (Actual)',
-                    detailsPayments: 'Detalle de Pagos Recibidos',
-                    detailsLoans: 'Detalle de Préstamos Realizados',
-                    detailsExpenses: 'Detalle de Gastos',
-                    detailsSettlements: 'Historial de Retiros de Caja y Micro Seguro',
-                    detailsInjections: 'Detalle de Aportes de Capital',
-                    date: 'Fecha', client: 'Cliente', method: 'Método', value: 'Valor',
-                    type: 'Tipo', status: 'Estado', category: 'Categoría', obs: 'Obs.',
-                    generatedBy: 'Generado por LUMIX Finanzas',
-                    page: 'Página', of: 'de',
-                    all: 'Todos',
-                    newRefin: 'Nuevo / Refin.',
-                    newIns: 'Nuevo (+Seg:',
-                    period24h: 'Últimas 24 Horas',
-                    period48h: 'Últimas 48 Horas',
-                    periodWeek: 'Última Semana',
-                    periodMonth: 'Últimos 30 Días',
-                    periodFull: 'Período Completo',
-                    statusApproved: 'Aprobado',
-                    statusPending: 'Pendiente',
-                    statusRejected: 'Rechazado',
-                    withdrawalDefault: 'Retiro de Caja' // Texto por defecto ES
-                },
-                en: {
-                    // (Omitido brevedad)
-                    title: 'Collection Report',
-                    withdrawalDefault: 'Withdrawal',
-                    statusApproved: 'Approved',
-                    statusPending: 'Pending',
-                    statusRejected: 'Rejected'
-                    // ... resto igual que arriba
+            try {
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF();
+                const now = new Date();
+                
+                // Helper seguro para formatear fechas
+                const safeDate = (timestamp) => {
+                    try {
+                        if (!timestamp) return { date: '--/--', time: '--:--' };
+                        let d;
+                        if (timestamp.seconds) d = new Date(timestamp.seconds * 1000);
+                        else if (timestamp instanceof Date) d = timestamp;
+                        else d = new Date(timestamp);
+                        
+                        if (isNaN(d.getTime())) return { date: 'Data Inválida', time: '--:--' };
+                        
+                        return {
+                            date: d.toLocaleDateString(currentLang === 'pt' ? 'pt-BR' : 'es-ES'),
+                            time: d.toLocaleTimeString(currentLang === 'pt' ? 'pt-BR' : 'es-ES', { hour: '2-digit', minute: '2-digit' })
+                        };
+                    } catch (e) {
+                        return { date: 'Erro Data', time: '--:--' };
+                    }
+                };
+
+                // --- 0. TRADUCCIONES ---
+                const textData = {
+                    pt: {
+                        title: 'Relatório de Cobrança',
+                        subtitle: 'Relatório Detalhado',
+                        periodLabel: 'Período',
+                        collector: 'COBRADOR',
+                        summaryTitle: 'Resumo Contábil do Período',
+                        received: '(+) Total Recebido',
+                        cash: '... em Dinheiro',
+                        digital: '... em Digital/Recibo',
+                        injections: '(+) Aportes de Capital',
+                        insurancePeriod: '(+) Micro Seguro (Gerado no Período)',
+                        loans: '(-) Empréstimos Realizados',
+                        expenses: '(-) Gastos Totais',
+                        settlementsCap: '(-) Retiradas de Caixa (Capital)',
+                        settlementsIns: '(-) Retiradas de Caixa (Seguro)',
+                        settlementsTot: '(-) Retiradas de Caixa Totais',
+                        netBalance: 'SALDO LÍQUIDO (Gerado no Período)',
+                        capitalHand: 'CAPITAL TOTAL EM MÃOS (Atual)',
+                        insuranceAccumulated: 'FUNDO SEGURO ACUMULADO (Atual)',
+                        detailsPayments: 'Detalhe dos Pagamentos Recebidos',
+                        detailsLoans: 'Detalhe dos Empréstimos Realizados',
+                        detailsExpenses: 'Detalhe dos Gastos',
+                        detailsSettlements: 'Histórico de Retiradas de Caixa e Micro Seguro',
+                        detailsInjections: 'Detalhe dos Aportes de Capital',
+                        date: 'Data', client: 'Cliente', method: 'Método', value: 'Valor',
+                        type: 'Tipo', status: 'Status', category: 'Categoria', obs: 'Obs.',
+                        generatedBy: 'Gerado por LUMIX Finanças',
+                        page: 'Página', of: 'de',
+                        all: 'Todos',
+                        newRefin: 'Novo / Refin.',
+                        newIns: 'Novo (+Seg:',
+                        period24h: 'Últimas 24 Horas',
+                        period48h: 'Últimas 48 Horas',
+                        periodWeek: 'Última Semana',
+                        periodMonth: 'Últimos 30 Dias',
+                        periodFull: 'Período Completo',
+                        statusApproved: 'Aprovado',
+                        statusPending: 'Pendente',
+                        statusRejected: 'Rejeitado'
+                    },
+                    es: {
+                        title: 'Reporte de Cobranza',
+                        subtitle: 'Reporte Detallado',
+                        periodLabel: 'Período',
+                        collector: 'COBRADOR',
+                        summaryTitle: 'Resumen Contable del Período',
+                        received: '(+) Total Recibido',
+                        cash: '... en Efectivo',
+                        digital: '... en Digital/Recibo',
+                        injections: '(+) Aportes de Capital',
+                        insurancePeriod: '(+) Micro Seguro (Generado en Período)',
+                        loans: '(-) Préstamos Realizados',
+                        expenses: '(-) Gastos Totales',
+                        settlementsCap: '(-) Retiros de Caja (Capital)',
+                        settlementsIns: '(-) Retiros de Caja (Seguro)',
+                        settlementsTot: '(-) Retiros Totales',
+                        netBalance: 'SALDO NETO (Generado en Período)',
+                        capitalHand: 'CAPITAL TOTAL EN MANO (Actual)',
+                        insuranceAccumulated: 'FONDO SEGURO ACUMULADO (Actual)',
+                        detailsPayments: 'Detalle de Pagos Recibidos',
+                        detailsLoans: 'Detalle de Préstamos Realizados',
+                        detailsExpenses: 'Detalle de Gastos',
+                        detailsSettlements: 'Historial de Retiros de Caja y Micro Seguro',
+                        detailsInjections: 'Detalle de Aportes de Capital',
+                        date: 'Fecha', client: 'Cliente', method: 'Método', value: 'Valor',
+                        type: 'Tipo', status: 'Estado', category: 'Categoría', obs: 'Obs.',
+                        generatedBy: 'Generado por LUMIX Finanzas',
+                        page: 'Página', of: 'de',
+                        all: 'Todos',
+                        newRefin: 'Nuevo / Refin.',
+                        newIns: 'Nuevo (+Seg:',
+                        period24h: 'Últimas 24 Horas',
+                        period48h: 'Últimas 48 Horas',
+                        periodWeek: 'Última Semana',
+                        periodMonth: 'Últimos 30 Días',
+                        periodFull: 'Período Completo',
+                        statusApproved: 'Aprobado',
+                        statusPending: 'Pendiente',
+                        statusRejected: 'Rechazado'
+                    },
+                    en: {
+                        title: 'Collection Report',
+                        subtitle: 'Detailed Report',
+                        periodLabel: 'Period',
+                        collector: 'COLLECTOR',
+                        summaryTitle: 'Accounting Summary',
+                        received: '(+) Total Received',
+                        cash: '... Cash',
+                        digital: '... Digital/Receipt',
+                        injections: '(+) Capital Injections',
+                        insurancePeriod: '(+) Micro Insurance (Generated)',
+                        loans: '(-) Loans Issued',
+                        expenses: '(-) Total Expenses',
+                        settlementsCap: '(-) Cash Withdrawals (Capital)',
+                        settlementsIns: '(-) Cash Withdrawals (Insurance)',
+                        settlementsTot: '(-) Total Withdrawals',
+                        netBalance: 'NET BALANCE (Generated)',
+                        capitalHand: 'TOTAL CASH ON HAND (Current)',
+                        insuranceAccumulated: 'ACCUMULATED INSURANCE FUND (Current)',
+                        detailsPayments: 'Received Payments Detail',
+                        detailsLoans: 'Issued Loans Detail',
+                        detailsExpenses: 'Expenses Detail',
+                        detailsSettlements: 'History of Cash and Insurance Withdrawals',
+                        detailsInjections: 'Capital Injections Detail',
+                        date: 'Date', client: 'Client', method: 'Method', value: 'Amount',
+                        type: 'Type', status: 'Status', category: 'Category', obs: 'Obs.',
+                        generatedBy: 'Generated by LUMIX Finance',
+                        page: 'Page', of: 'of',
+                        all: 'All',
+                        newRefin: 'New / Refin.',
+                        newIns: 'New (+Ins:',
+                        period24h: 'Last 24 Hours',
+                        period48h: 'Last 48 Hours',
+                        periodWeek: 'Last Week',
+                        periodMonth: 'Last 30 Days',
+                        periodFull: 'Full Period',
+                        statusApproved: 'Approved',
+                        statusPending: 'Pending',
+                        statusRejected: 'Rejected'
+                    }
+                };
+
+                const t = textData[currentLang] || textData['pt'];
+
+                const translateStatus = (status) => {
+                    if (status === 'approved') return t.statusApproved;
+                    if (status === 'pending') return t.statusPending;
+                    if (status === 'rejected') return t.statusRejected;
+                    return status;
+                };
+
+                // --- 1. FILTROS ---
+                const collector = allCollectors.find(c => c.id === collectorId);
+                if (!collector) {
+                    showToast("Cobrador não encontrado.", true);
+                    return;
                 }
-            };
 
-            const t = textData[currentLang] || textData['pt'];
+                let startDate;
+                let periodText = t.periodFull;
+                if (period === '24h') {
+                    startDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+                    periodText = t.period24h;
+                } else if (period === '48h') {
+                    startDate = new Date(now.getTime() - 48 * 60 * 60 * 1000);
+                    periodText = t.period48h;
+                } else if (period === 'week') {
+                    startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                    periodText = t.periodWeek;
+                } else if (period === 'month') {
+                    startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000); 
+                    periodText = t.periodMonth;
+                }
 
-            const translateStatus = (status) => {
-                if (status === 'approved') return t.statusApproved;
-                if (status === 'pending') return t.statusPending;
-                if (status === 'rejected') return t.statusRejected;
-                return status;
-            };
+                // --- 2. DATOS ACTUALES ---
+                const collectorMetrics = calculatedCollectorMetrics.get(collectorId) || { capitalOnHand: 0 };
+                const capitalOnHand = collectorMetrics.capitalOnHand; 
 
-            // --- 1. FILTROS ---
-            const collector = allCollectors.find(c => c.id === collectorId);
-            if (!collector) {
-                showToast("Cobrador não encontrado.", true);
-                return;
-            }
-
-            let startDate;
-            let periodText = t.periodFull || 'Período Completo';
-            if (period === '24h') {
-                startDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-                periodText = t.period24h || '24h';
-            } else if (period === '48h') {
-                startDate = new Date(now.getTime() - 48 * 60 * 60 * 1000);
-                periodText = t.period48h || '48h';
-            } else if (period === 'week') {
-                startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-                periodText = t.periodWeek || 'Semana';
-            } else if (period === 'month') {
-                startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000); 
-                periodText = t.periodMonth || 'Mes';
-            }
-
-            // --- 2. DATOS ACTUALES ---
-            const collectorMetrics = calculatedCollectorMetrics.get(collectorId) || { capitalOnHand: 0 };
-            const capitalOnHand = collectorMetrics.capitalOnHand; 
-
-            // Seguro Acumulado (Histórico Total)
-            let lifetimeInsuranceGenerated = 0;
-            const allCollectorClients = allClients.filter(c => c.collectorId === collectorId);
-            allCollectorClients.forEach(c => {
-                (c.loans || []).forEach(l => {
-                    lifetimeInsuranceGenerated += (parseFloat(l.microInsurance) || 0);
+                // Seguro Acumulado (Histórico Total)
+                let lifetimeInsuranceGenerated = 0;
+                const allCollectorClients = allClients.filter(c => c.collectorId === collectorId);
+                allCollectorClients.forEach(c => {
+                    (c.loans || []).forEach(l => {
+                        lifetimeInsuranceGenerated += (parseFloat(l.microInsurance) || 0);
+                    });
                 });
-            });
 
-            const lifetimeInsuranceWithdrawn = allSettlements
-                .filter(s => String(s.collectorId) === String(collectorId) && s.status === 'approved' && s.type === 'insurance')
-                .reduce((sum, s) => sum + (s.amount || 0), 0);
+                const lifetimeInsuranceWithdrawn = allSettlements
+                    .filter(s => String(s.collectorId) === String(collectorId) && s.status === 'approved' && s.type === 'insurance')
+                    .reduce((sum, s) => sum + (s.amount || 0), 0);
 
-            const currentInsuranceBalance = Math.max(0, lifetimeInsuranceGenerated - lifetimeInsuranceWithdrawn);
+                const currentInsuranceBalance = Math.max(0, lifetimeInsuranceGenerated - lifetimeInsuranceWithdrawn);
 
-            // --- 3. PROCESAMIENTO DE DATOS ---
-            const periodPaymentsList = [];
-            let periodTotalCash = 0;
-            let periodTotalDigital = 0;
+                // --- 3. PROCESAMIENTO DE DATOS ---
+                const periodPaymentsList = [];
+                let periodTotalCash = 0;
+                let periodTotalDigital = 0;
 
-            const collectorClients = allClients.filter(c => c.collectorId === collectorId);
+                const collectorClients = allClients.filter(c => c.collectorId === collectorId);
 
-            collectorClients.forEach(client => {
-                (client.loans || []).forEach((loan, loanIndex) => { 
-                    (loan.history || []).forEach(h => {
-                        if (h.date?.seconds && h.status !== 'pending_verification' && h.status !== 'rejected' && h.status !== 'postponed' && h.method !== 'migration') {
-                            const paymentDate = new Date(h.date.seconds * 1000);
-                            if (!startDate || paymentDate >= startDate) {
-                                const amount = h.amount || 0;
-                                periodPaymentsList.push({
-                                    clientName: client.name,
-                                    amount: amount,
-                                    time: paymentDate.toLocaleTimeString(currentLang === 'pt' ? 'pt-BR' : 'es-ES', { hour: '2-digit', minute: '2-digit' }),
-                                    date: paymentDate.toLocaleDateString(currentLang === 'pt' ? 'pt-BR' : 'es-ES'),
-                                    method: h.method || 'dinheiro'
-                                });
+                collectorClients.forEach(client => {
+                    (client.loans || []).forEach((loan, loanIndex) => { 
+                        (loan.history || []).forEach(h => {
+                            if (h.date?.seconds && h.status !== 'pending_verification' && h.status !== 'rejected' && h.status !== 'postponed' && h.method !== 'migration') {
+                                const paymentDateObj = h.date.seconds ? new Date(h.date.seconds * 1000) : null;
+                                
+                                if (paymentDateObj && (!startDate || paymentDateObj >= startDate)) {
+                                    const fmt = safeDate(paymentDateObj);
+                                    const amount = h.amount || 0;
+                                    periodPaymentsList.push({
+                                        clientName: client.name,
+                                        amount: amount,
+                                        time: fmt.time,
+                                        date: fmt.date,
+                                        rawDate: paymentDateObj,
+                                        method: h.method || 'dinheiro',
+                                        loanIndex: loanIndex + 1
+                                    });
 
-                                if (h.method === 'dinheiro') periodTotalCash += amount;
-                                else periodTotalDigital += amount;
+                                    if (h.method === 'dinheiro') periodTotalCash += amount;
+                                    else periodTotalDigital += amount;
+                                }
+                            }
+                        });
+                    });
+                });
+                const periodTotalCollected = periodTotalCash + periodTotalDigital;
+                periodPaymentsList.sort((a, b) => a.rawDate - b.rawDate);
+
+                const periodNewLoans = [];
+                collectorClients.forEach(client => {
+                    (client.loans || []).forEach((loan, index) => {
+                        if (loan.startDate?.seconds) {
+                            const loanDateObj = new Date(loan.startDate.seconds * 1000);
+                            if (!startDate || loanDateObj >= startDate) {
+                                if (!loan.migrationDate) {
+                                    let principal = loan.principalAmount;
+                                    if (!principal && loan.totalLoan) {
+                                         const rate = client.interestRate || 20;
+                                         principal = loan.totalLoan / (1 + (rate/100));
+                                    }
+                                    const fmt = safeDate(loanDateObj);
+                                    periodNewLoans.push({
+                                        clientName: client.name,
+                                        amount: principal || 0,
+                                        time: fmt.time,
+                                        date: fmt.date,
+                                        rawDate: loanDateObj,
+                                        microInsurance: parseFloat(loan.microInsurance) || 0 
+                                    });
+                                }
                             }
                         }
                     });
                 });
-            });
-            const periodTotalCollected = periodTotalCash + periodTotalDigital;
-            periodPaymentsList.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime() || a.time.localeCompare(b.time));
+                const totalLoansOutflow = periodNewLoans.reduce((sum, l) => sum + l.amount, 0);
+                const totalMicroInsurance = periodNewLoans.reduce((sum, l) => sum + l.microInsurance, 0);
+                periodNewLoans.sort((a, b) => a.rawDate - b.rawDate);
 
-            const periodNewLoans = [];
-            collectorClients.forEach(client => {
-                (client.loans || []).forEach((loan, index) => {
-                    if (loan.startDate?.seconds) {
-                        const loanDate = new Date(loan.startDate.seconds * 1000);
-                        if (!startDate || loanDate >= startDate) {
-                            if (!loan.migrationDate) {
-                                let principal = loan.principalAmount;
-                                if (!principal && loan.totalLoan) {
-                                     const rate = client.interestRate || 20;
-                                     principal = loan.totalLoan / (1 + (rate/100));
-                                }
-                                periodNewLoans.push({
-                                    clientName: client.name,
-                                    amount: principal || 0,
-                                    time: loanDate.toLocaleTimeString(currentLang === 'pt' ? 'pt-BR' : 'es-ES', { hour: '2-digit', minute: '2-digit' }),
-                                    date: loanDate.toLocaleDateString(currentLang === 'pt' ? 'pt-BR' : 'es-ES'),
-                                    microInsurance: parseFloat(loan.microInsurance) || 0 
-                                });
-                            }
-                        }
-                    }
+                // C. Gastos (Salidas)
+                const periodExpenses = allExpenses.filter(e => {
+                    if (e.collectorId !== collectorId) return false;
+                    const d = e.date && e.date.seconds ? new Date(e.date.seconds * 1000) : new Date();
+                    return !startDate || d >= startDate;
                 });
-            });
-            const totalLoansOutflow = periodNewLoans.reduce((sum, l) => sum + l.amount, 0);
-            const totalMicroInsurance = periodNewLoans.reduce((sum, l) => sum + l.microInsurance, 0);
-            periodNewLoans.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+                const totalExpenses = periodExpenses.reduce((sum, e) => sum + e.value, 0);
+                periodExpenses.sort((a, b) => (a.date.seconds || 0) - (b.date.seconds || 0));
 
-            const periodExpenses = allExpenses.filter(e => {
-                if (e.collectorId !== collectorId) return false;
-                if (!e.date?.seconds) return false;
-                const d = new Date(e.date.seconds * 1000);
-                return !startDate || d >= startDate;
-            });
-            const totalExpenses = periodExpenses.reduce((sum, e) => sum + e.value, 0);
-            periodExpenses.sort((a, b) => (a.date.seconds || 0) - (b.date.seconds || 0));
-
-            // FILTRO DE RETIROS (TOLERANTE)
-            console.log("Filtrando retiros para:", collectorId);
-            const periodSettlements = allSettlements.filter(s => {
-                if (String(s.collectorId) !== String(collectorId)) return false;
-                if (s.status === 'rejected') return false; 
-                let itemDate = new Date(); 
-                if (s.date && s.date.seconds) {
-                    itemDate = new Date(s.date.seconds * 1000);
-                } else if (s.date instanceof Date) {
-                    itemDate = s.date;
-                }
-                if (startDate && itemDate < startDate) return false;
-                return true;
-            });
-            
-            const settlementsCapital = periodSettlements.filter(s => s.type !== 'insurance');
-            const settlementsInsurance = periodSettlements.filter(s => s.type === 'insurance');
-            const totalSettlementsCapital = settlementsCapital.reduce((sum, s) => sum + s.amount, 0);
-            const totalSettlementsInsurance = settlementsInsurance.reduce((sum, s) => sum + s.amount, 0);
-            const totalSettlementsAll = totalSettlementsCapital + totalSettlementsInsurance;
-            
-            periodSettlements.sort((a, b) => {
-                const dateA = a.date?.seconds ? a.date.seconds : (Date.now()/1000);
-                const dateB = b.date?.seconds ? b.date.seconds : (Date.now()/1000);
-                return dateA - dateB;
-            });
-            
-            const periodInjections = allCapitalInjections.filter(i => {
-                if (i.collectorId !== collectorId) return false;
-                if (!i.date?.seconds) return false;
-                if (i.status !== 'approved') return false;
-                const d = new Date(i.date.seconds * 1000);
-                return !startDate || d >= startDate;
-            });
-            const totalInjections = periodInjections.reduce((sum, i) => sum + i.amount, 0);
-            periodInjections.sort((a, b) => (a.date.seconds || 0) - (b.date.seconds || 0));
-
-            const netBalance = (periodTotalCollected + totalInjections + totalMicroInsurance) - (totalExpenses + totalSettlementsAll + totalLoansOutflow);
-
-            if (periodTotalCollected === 0 && totalExpenses === 0 && totalSettlementsAll === 0 && totalInjections === 0 && totalLoansOutflow === 0) {
-                showToast("Nenhuma atividade registrada neste período.", true);
-                return;
-            }
-
-            // --- 4. GENERAR PDF ---
-            const pageMargin = 15;
-            const pageWidth = doc.internal.pageSize.getWidth();
-            const pageHeight = doc.internal.pageSize.getHeight();
-            const center = pageWidth / 2;
-            let y = 0;
-
-            // Encabezado
-            y = 25;
-            doc.setFontSize(16);
-            doc.setFont(undefined, 'bold');
-            doc.text(currentCompanyData?.name || t.title, center, y, { align: 'center' });
-            y += 7;
-            doc.setFontSize(12);
-            doc.setFont(undefined, 'normal');
-            doc.setTextColor(100);
-            doc.text(`${t.subtitle} - ${periodText}`, center, y, { align: 'center' });
-
-            y += 15;
-            doc.setFontSize(10);
-            doc.setTextColor(150);
-            doc.text(`${t.collector}:`, pageMargin, y);
-            doc.setFontSize(12);
-            doc.setTextColor(0);
-            doc.setFont(undefined, 'bold');
-            doc.text(collector.name || 'N/A', pageMargin + 25, y); 
-
-            // Resumen Contable
-            y += 15;
-            doc.setFontSize(14);
-            doc.setFont(undefined, 'bold');
-            doc.text(t.summaryTitle, pageMargin, y);
-            y += 5;
-            doc.setLineWidth(0.5);
-            doc.setDrawColor(200);
-            doc.line(pageMargin, y, pageWidth - pageMargin, y);
-
-            const addSummaryLine = (label, value, color = '#000000', bold = false) => {
-                y += 8;
-                doc.setFontSize(11);
-                doc.setFont(undefined, bold ? 'bold' : 'normal');
-                doc.setTextColor(100);
-                doc.text(label, pageMargin + 5, y);
-                doc.setFont(undefined, 'bold');
-                doc.setTextColor(color);
-                doc.text(money(value), pageWidth - pageMargin - 5, y, { align: 'right' });
-            };
-
-            addSummaryLine(t.received, periodTotalCollected, '#28a745');
-            addSummaryLine(t.cash, periodTotalCash, '#6c757d');
-            addSummaryLine(t.digital, periodTotalDigital, '#6c757d');
-            addSummaryLine(t.injections, totalInjections, '#28a745');
-            
-            if (totalMicroInsurance > 0) {
-                addSummaryLine(t.insurancePeriod, totalMicroInsurance, '#0ea5e9', true);
-            }
-
-            addSummaryLine(t.loans, totalLoansOutflow, '#dc3545'); 
-            addSummaryLine(t.expenses, totalExpenses, '#dc3545');
-            
-            if (totalSettlementsCapital > 0) addSummaryLine(t.settlementsCap, totalSettlementsCapital, '#a855f7');
-            if (totalSettlementsInsurance > 0) addSummaryLine(t.settlementsIns, totalSettlementsInsurance, '#0ea5e9');
-            if (totalSettlementsAll === 0) addSummaryLine(t.settlementsTot, 0, '#dc3545');
-
-            y += 3;
-            doc.setLineWidth(0.2);
-            doc.line(pageMargin + 5, y, pageWidth - pageMargin - 5, y); 
-            
-            doc.setFontSize(14);
-            doc.setFont(undefined, 'bold');
-            doc.setTextColor(netBalance >= 0 ? '#6f42c1' : '#dc3545');
-            doc.text(t.netBalance, pageMargin + 5, y + 8);
-            doc.text(money(netBalance), pageWidth - pageMargin - 5, y + 8, { align: 'right' });
-            
-            y += 8; 
-            
-            doc.setFontSize(14);
-            doc.setFont(undefined, 'bold');
-            doc.setTextColor(capitalOnHand >= 0 ? '#000000' : '#dc3545');
-            doc.text(t.capitalHand, pageMargin + 5, y + 8);
-            doc.text(money(capitalOnHand), pageWidth - pageMargin - 5, y + 8, { align: 'right' });
-
-            if (currentInsuranceBalance > 0) {
-                y += 8;
-                doc.setTextColor('#0ea5e9'); 
-                doc.text(t.insuranceAccumulated, pageMargin + 5, y + 8);
-                doc.text(money(currentInsuranceBalance), pageWidth - pageMargin - 5, y + 8, { align: 'right' });
-            }
-
-            y += 20;
-
-            const checkPageBreak = () => { if (y > 270) { doc.addPage(); y = 20; } };
-            
-            // --- NUEVA LÓGICA DE SECCIÓN EN HOJA APARTE ---
-            const addSectionHeader = (title) => {
-                // Si estamos a mitad de página o más abajo (y > 100), saltamos de página
-                // para que la sección entera empiece limpia arriba.
-                if (y > 100) {
-                    doc.addPage();
-                    y = 20;
-                } else {
-                    // Si estamos arriba, solo verificamos el margen normal
-                    checkPageBreak(50);
-                }
+                // FILTRO DE RETIROS (TOLERANTE + BLINDADO)
+                const periodSettlements = allSettlements.filter(s => {
+                    if (String(s.collectorId) !== String(collectorId)) return false;
+                    if (s.status === 'rejected') return false; 
+                    
+                    let itemDate = new Date(); 
+                    if (s.date && s.date.seconds) itemDate = new Date(s.date.seconds * 1000);
+                    else if (s.date instanceof Date) itemDate = s.date;
+                    
+                    if (startDate && itemDate < startDate) return false;
+                    return true;
+                });
                 
-                y += 5;
+                const settlementsCapital = periodSettlements.filter(s => s.type !== 'insurance');
+                const settlementsInsurance = periodSettlements.filter(s => s.type === 'insurance');
+                const totalSettlementsCapital = settlementsCapital.reduce((sum, s) => sum + s.amount, 0);
+                const totalSettlementsInsurance = settlementsInsurance.reduce((sum, s) => sum + s.amount, 0);
+                const totalSettlementsAll = totalSettlementsCapital + totalSettlementsInsurance;
+                
+                periodSettlements.sort((a, b) => {
+                    const dateA = a.date?.seconds ? a.date.seconds : (Date.now()/1000);
+                    const dateB = b.date?.seconds ? b.date.seconds : (Date.now()/1000);
+                    return dateA - dateB;
+                });
+                
+                const periodInjections = allCapitalInjections.filter(i => {
+                    if (i.collectorId !== collectorId) return false;
+                    if (!i.date?.seconds) return false;
+                    if (i.status !== 'approved') return false;
+                    const d = new Date(i.date.seconds * 1000);
+                    return !startDate || d >= startDate;
+                });
+                const totalInjections = periodInjections.reduce((sum, i) => sum + i.amount, 0);
+                periodInjections.sort((a, b) => (a.date.seconds || 0) - (b.date.seconds || 0));
+
+                const netBalance = (periodTotalCollected + totalInjections + totalMicroInsurance) - (totalExpenses + totalSettlementsAll + totalLoansOutflow);
+
+                // --- 4. GENERAR PDF ---
+                const pageMargin = 15;
+                const pageWidth = doc.internal.pageSize.getWidth();
+                const center = pageWidth / 2;
+                let y = 0;
+
+                y = 25;
+                doc.setFontSize(16);
+                doc.setFont(undefined, 'bold');
+                doc.text(currentCompanyData?.name || t.title, center, y, { align: 'center' });
+                y += 7;
+                doc.setFontSize(12);
+                doc.setFont(undefined, 'normal');
+                doc.setTextColor(100);
+                doc.text(`${t.subtitle} - ${periodText}`, center, y, { align: 'center' });
+
+                y += 15;
+                doc.setFontSize(10);
+                doc.setTextColor(150);
+                doc.text(`${t.collector}:`, pageMargin, y);
+                doc.setFontSize(12);
+                doc.setTextColor(0);
+                doc.setFont(undefined, 'bold');
+                doc.text(collector.name || 'N/A', pageMargin + 25, y); 
+
+                y += 15;
                 doc.setFontSize(14);
                 doc.setFont(undefined, 'bold');
-                doc.setTextColor(0);
-                doc.text(title, pageMargin, y);
+                doc.text(t.summaryTitle, pageMargin, y);
                 y += 5;
                 doc.setLineWidth(0.5);
                 doc.setDrawColor(200);
                 doc.line(pageMargin, y, pageWidth - pageMargin, y);
-                y += 8;
-            };
-            // ----------------------------------------------
 
-            const addTableHeaders = (headers) => {
-                 doc.setFontSize(9); doc.setTextColor(100);
-                 headers.forEach(header => { doc.text(header.label, header.x, y, { align: header.align || 'left' }); });
-                 y += 5;
-            };
+                const addSummaryLine = (label, value, color = '#000000', bold = false) => {
+                    y += 8;
+                    doc.setFontSize(11);
+                    doc.setFont(undefined, bold ? 'bold' : 'normal');
+                    doc.setTextColor(100);
+                    doc.text(label, pageMargin + 5, y);
+                    doc.setFont(undefined, 'bold');
+                    doc.setTextColor(color);
+                    doc.text(money(value), pageWidth - pageMargin - 5, y, { align: 'right' });
+                };
 
-            // D.1. Pagos
-            if (periodPaymentsList.length > 0) {
-                addSectionHeader(t.detailsPayments);
-                addTableHeaders([
-                    { label: t.date, x: pageMargin + 5 },
-                    { label: t.client, x: pageMargin + 40 },
-                    { label: t.method, x: pageMargin + 130 },
-                    { label: t.value, x: pageWidth - pageMargin - 5, align: 'right' }
-                ]);
-                periodPaymentsList.forEach(p => {
-                    checkPageBreak();
-                    doc.setFontSize(10); doc.setTextColor(0);
-                    doc.text(`${p.date} ${p.time}`, pageMargin + 5, y);
-                    doc.text(doc.splitTextToSize(p.clientName, 80), pageMargin + 40, y);
-                    doc.text(p.method, pageMargin + 130, y);
-                    doc.setFont(undefined, 'bold'); doc.setTextColor('#28a745');
-                    doc.text(money(p.amount), pageWidth - pageMargin - 5, y, { align: 'right' });
-                    y += 7;
-                });
-            }
-
-            // D.2. Nuevos Préstamos
-            if (periodNewLoans.length > 0) {
-                addSectionHeader(t.detailsLoans);
-                addTableHeaders([
-                    { label: t.date, x: pageMargin + 5 },
-                    { label: t.client, x: pageMargin + 40 },
-                    { label: t.type, x: pageMargin + 105 }, 
-                    { label: t.value, x: pageWidth - pageMargin - 5, align: 'right' }
-                ]);
+                addSummaryLine(t.received, periodTotalCollected, '#28a745');
+                addSummaryLine(t.cash, periodTotalCash, '#6c757d');
+                addSummaryLine(t.digital, periodTotalDigital, '#6c757d');
+                addSummaryLine(t.injections, totalInjections, '#28a745');
                 
-                periodNewLoans.forEach(l => {
-                    checkPageBreak();
-                    doc.setFontSize(10); doc.setTextColor(0);
-                    doc.text(`${l.date} ${l.time}`, pageMargin + 5, y);
-                    doc.text(doc.splitTextToSize(l.clientName, 55), pageMargin + 40, y);
+                if (totalMicroInsurance > 0) {
+                    addSummaryLine(t.insurancePeriod, totalMicroInsurance, '#0ea5e9', true);
+                }
+
+                addSummaryLine(t.loans, totalLoansOutflow, '#dc3545'); 
+                addSummaryLine(t.expenses, totalExpenses, '#dc3545');
+                
+                if (totalSettlementsCapital > 0) addSummaryLine(t.settlementsCap, totalSettlementsCapital, '#a855f7');
+                if (totalSettlementsInsurance > 0) addSummaryLine(t.settlementsIns, totalSettlementsInsurance, '#0ea5e9');
+                if (totalSettlementsAll === 0) addSummaryLine(t.settlementsTot, 0, '#dc3545');
+
+                y += 3;
+                doc.setLineWidth(0.2);
+                doc.line(pageMargin + 5, y, pageWidth - pageMargin - 5, y); 
+                
+                doc.setFontSize(14);
+                doc.setFont(undefined, 'bold');
+                doc.setTextColor(netBalance >= 0 ? '#6f42c1' : '#dc3545');
+                doc.text(t.netBalance, pageMargin + 5, y + 8);
+                doc.text(money(netBalance), pageWidth - pageMargin - 5, y + 8, { align: 'right' });
+                
+                y += 8; 
+                
+                doc.setFontSize(14);
+                doc.setFont(undefined, 'bold');
+                doc.setTextColor(capitalOnHand >= 0 ? '#000000' : '#dc3545');
+                doc.text(t.capitalHand, pageMargin + 5, y + 8);
+                doc.text(money(capitalOnHand), pageWidth - pageMargin - 5, y + 8, { align: 'right' });
+
+                if (currentInsuranceBalance > 0) {
+                    y += 8;
+                    doc.setTextColor('#0ea5e9'); 
+                    doc.text(t.insuranceAccumulated, pageMargin + 5, y + 8);
+                    doc.text(money(currentInsuranceBalance), pageWidth - pageMargin - 5, y + 8, { align: 'right' });
+                }
+
+                y += 20;
+
+                const checkPageBreak = () => { if (y > 270) { doc.addPage(); y = 20; } };
+                
+                const addSectionHeader = (title) => {
+                    if (y > 100) { doc.addPage(); y = 20; } else { checkPageBreak(50); }
+                    y += 5; doc.setFontSize(14); doc.setFont(undefined, 'bold'); doc.setTextColor(0); doc.text(title, pageMargin, y);
+                    y += 5; doc.setLineWidth(0.5); doc.setDrawColor(200); doc.line(pageMargin, y, pageWidth - pageMargin, y); y += 8;
+                };
+
+                const addTableHeaders = (headers) => {
+                     doc.setFontSize(9); doc.setTextColor(100);
+                     headers.forEach(header => { doc.text(header.label, header.x, y, { align: header.align || 'left' }); });
+                     y += 5;
+                };
+
+                // D.1. Pagos
+                if (periodPaymentsList.length > 0) {
+                    addSectionHeader(t.detailsPayments);
+                    addTableHeaders([
+                        { label: t.date, x: pageMargin + 5 },
+                        { label: t.client, x: pageMargin + 40 },
+                        { label: t.method, x: pageMargin + 130 },
+                        { label: t.value, x: pageWidth - pageMargin - 5, align: 'right' }
+                    ]);
+                    periodPaymentsList.forEach(p => {
+                        checkPageBreak();
+                        doc.setFontSize(10); doc.setTextColor(0);
+                        doc.text(`${p.date} ${p.time}`, pageMargin + 5, y);
+                        doc.text(doc.splitTextToSize(p.clientName, 80), pageMargin + 40, y);
+                        doc.text(p.method, pageMargin + 130, y);
+                        doc.setFont(undefined, 'bold'); doc.setTextColor('#28a745');
+                        doc.text(money(p.amount), pageWidth - pageMargin - 5, y, { align: 'right' });
+                        y += 7;
+                    });
+                }
+
+                // D.2. Nuevos Préstamos
+                if (periodNewLoans.length > 0) {
+                    addSectionHeader(t.detailsLoans);
+                    addTableHeaders([
+                        { label: t.date, x: pageMargin + 5 },
+                        { label: t.client, x: pageMargin + 40 },
+                        { label: t.type, x: pageMargin + 105 }, 
+                        { label: t.value, x: pageWidth - pageMargin - 5, align: 'right' }
+                    ]);
                     
-                    if (l.microInsurance > 0) {
-                        doc.setTextColor('#0ea5e9'); 
-                        doc.text(`${t.newIns} ${money(l.microInsurance)})`, pageMargin + 105, y);
-                    } else {
+                    periodNewLoans.forEach(l => {
+                        checkPageBreak();
+                        doc.setFontSize(10); doc.setTextColor(0);
+                        doc.text(`${l.date} ${l.time}`, pageMargin + 5, y);
+                        
+                        doc.text(doc.splitTextToSize(l.clientName, 55), pageMargin + 40, y);
+                        
+                        if (l.microInsurance > 0) {
+                            doc.setTextColor('#0ea5e9'); 
+                            doc.text(`${t.newIns} ${money(l.microInsurance)})`, pageMargin + 105, y);
+                        } else {
+                            doc.setTextColor(0);
+                            doc.text(t.newRefin, pageMargin + 105, y);
+                        }
+
+                        doc.setFont(undefined, 'bold');
+                        doc.setTextColor('#dc3545'); 
+                        doc.text(`-${money(l.amount)}`, pageWidth - pageMargin - 5, y, { align: 'right' });
+                        y += 7;
+                    });
+                }
+
+                // D.3. Gastos
+                if (periodExpenses.length > 0) {
+                    addSectionHeader(t.detailsExpenses);
+                    addTableHeaders([
+                        { label: t.date, x: pageMargin + 5 },
+                        { label: t.category, x: pageMargin + 40 },
+                        { label: t.obs, x: pageMargin + 80 },
+                        { label: t.value, x: pageWidth - pageMargin - 5, align: 'right' }
+                    ]);
+                    periodExpenses.forEach(e => {
+                        checkPageBreak();
+                        const fmt = safeDate(e.date);
+                        // CORRECCIÓN APLICADA: Uso de currentLang
+                        const category = (translations[currentLang] && translations[currentLang][e.category]) 
+                            ? translations[currentLang][e.category] 
+                            : (e.category || 'Outros');
+                        
+                        doc.setFontSize(10); doc.setTextColor(0);
+                        doc.text(fmt.date, pageMargin + 5, y);
+                        doc.text(category, pageMargin + 40, y);
+                        doc.text(doc.splitTextToSize(e.observations || '-', 50), pageMargin + 80, y);
+                        doc.setFont(undefined, 'bold'); doc.setTextColor('#dc3545');
+                        doc.text(`-${money(e.value)}`, pageWidth - pageMargin - 5, y, { align: 'right' });
+                        y += 7;
+                    });
+                }
+
+                // D.4. Liquidaciones
+                if (periodSettlements.length > 0) {
+                    addSectionHeader(t.detailsSettlements); 
+                    addTableHeaders([
+                        { label: t.date, x: pageMargin + 5 },
+                        { label: `${t.type} / ${t.obs}`, x: pageMargin + 40 },
+                        { label: t.status, x: pageMargin + 125 },
+                        { label: t.value, x: pageWidth - pageMargin - 5, align: 'right' }
+                    ]);
+
+                    periodSettlements.forEach(s => {
+                        checkPageBreak();
+                        const fmt = safeDate(s.date);
+                        
+                        doc.setFontSize(10); doc.setTextColor(0);
+                        doc.text(fmt.date, pageMargin + 5, y);
+                        
+                        let typeText = s.notes || t.withdrawalDefault || 'Retirada';
+                        if (s.type === 'insurance') {
+                            doc.setTextColor('#0ea5e9'); 
+                            typeText = `[MICRO SEGURO] ${typeText}`;
+                        } else {
+                            doc.setTextColor(0);
+                        }
+                        doc.text(doc.splitTextToSize(typeText, 75), pageMargin + 40, y);
+                        
                         doc.setTextColor(0);
-                        doc.text(t.newRefin, pageMargin + 105, y);
-                    }
+                        doc.text(translateStatus(s.status), pageMargin + 125, y);
 
-                    doc.setFont(undefined, 'bold');
-                    doc.setTextColor('#dc3545'); 
-                    doc.text(`-${money(l.amount)}`, pageWidth - pageMargin - 5, y, { align: 'right' });
-                    y += 7;
-                });
+                        doc.setFont(undefined, 'bold');
+                        doc.setTextColor(s.type === 'insurance' ? '#0ea5e9' : '#a855f7'); 
+                        doc.text(`-${money(s.amount)}`, pageWidth - pageMargin - 5, y, { align: 'right' });
+                        y += 7;
+                    });
+                }
+                
+                // D.5. Aportes
+                if (periodInjections.length > 0) {
+                    addSectionHeader(t.detailsInjections);
+                     addTableHeaders([ { label: t.date, x: pageMargin + 5 }, { label: t.status, x: pageMargin + 70 }, { label: t.value, x: pageWidth - pageMargin - 5, align: 'right' } ]);
+                    periodInjections.forEach(i => {
+                        checkPageBreak();
+                        const fmt = safeDate(i.date);
+                        doc.setFontSize(10); doc.setTextColor(0);
+                        doc.text(fmt.date, pageMargin + 5, y);
+                        doc.text(translateStatus(i.status) || 'Aprovado', pageMargin + 70, y);
+                        doc.setFont(undefined, 'bold'); doc.setTextColor('#28a745');
+                        doc.text(money(i.amount), pageWidth - pageMargin - 5, y, { align: 'right' });
+                        y += 7;
+                    });
+                }
+                
+                const pageCount = doc.internal.getNumberOfPages();
+                for (let i = 1; i <= pageCount; i++) {
+                    doc.setPage(i); doc.setFontSize(9); doc.setTextColor(150);
+                    doc.text(`${t.generatedBy} - ${t.page} ${i} ${t.of} ${pageCount}`, center, 285, { align: 'center' });
+                }
+
+                const sanitizedName = (collector.name || 'cobrador').replace(/\s+/g, '_');
+                const sanitizedPeriod = periodText.replace(/\s+/g, '_');
+                doc.save(`relatorio_${sanitizedName}_${sanitizedPeriod}.pdf`);
+
+            } catch (error) {
+                console.error("ERRO CRÍTICO AO GERAR PDF:", error);
+                showToast("Erro ao gerar PDF: " + error.message, true);
             }
-
-            // D.3. Gastos
-            if (periodExpenses.length > 0) {
-                addSectionHeader(t.detailsExpenses);
-                addTableHeaders([
-                    { label: t.date, x: pageMargin + 5 },
-                    { label: t.category, x: pageMargin + 40 },
-                    { label: t.obs, x: pageMargin + 80 },
-                    { label: t.value, x: pageWidth - pageMargin - 5, align: 'right' }
-                ]);
-                periodExpenses.forEach(e => {
-                    checkPageBreak();
-                    const date = new Date(e.date.seconds * 1000).toLocaleDateString(currentLang === 'pt' ? 'pt-BR' : 'es-ES');
-                    const category = translations[lang][e.category] || e.category;
-                    doc.setFontSize(10); doc.setTextColor(0);
-                    doc.text(date, pageMargin + 5, y);
-                    doc.text(category, pageMargin + 40, y);
-                    doc.text(doc.splitTextToSize(e.observations || '-', 50), pageMargin + 80, y);
-                    doc.setFont(undefined, 'bold'); doc.setTextColor('#dc3545');
-                    doc.text(`-${money(e.value)}`, pageWidth - pageMargin - 5, y, { align: 'right' });
-                    y += 7;
-                });
-            }
-
-            // D.4. Liquidaciones (RETIROS DE CAJA) - AHORA SIEMPRE SE EJECUTA SI HAY DATOS
-            if (periodSettlements.length > 0) {
-                addSectionHeader(t.detailsSettlements); 
-                addTableHeaders([
-                    { label: t.date, x: pageMargin + 5 },
-                    { label: `${t.type} / ${t.obs}`, x: pageMargin + 40 },
-                    { label: t.status, x: pageMargin + 125 },
-                    { label: t.value, x: pageWidth - pageMargin - 5, align: 'right' }
-                ]);
-
-                periodSettlements.forEach(s => {
-                    checkPageBreak();
-                    // Fecha segura
-                    const dateObj = s.date?.seconds ? new Date(s.date.seconds * 1000) : new Date();
-                    const date = dateObj.toLocaleDateString(currentLang === 'pt' ? 'pt-BR' : 'es-ES');
-                    
-                    doc.setFontSize(10); doc.setTextColor(0);
-                    doc.text(date, pageMargin + 5, y);
-                    
-                    // CAMBIO: USAMOS EL TEXTO POR DEFECTO DEL IDIOMA
-                    let typeText = s.notes || t.withdrawalDefault || 'Retirada';
-                    
-                    if (s.type === 'insurance') {
-                        doc.setTextColor('#0ea5e9'); 
-                        typeText = `[MICRO SEGURO] ${typeText}`;
-                    } else {
-                        doc.setTextColor(0);
-                    }
-                    doc.text(doc.splitTextToSize(typeText, 75), pageMargin + 40, y);
-                    
-                    doc.setTextColor(0);
-                    doc.text(translateStatus(s.status), pageMargin + 125, y);
-
-                    doc.setFont(undefined, 'bold');
-                    doc.setTextColor(s.type === 'insurance' ? '#0ea5e9' : '#a855f7'); 
-                    doc.text(`-${money(s.amount)}`, pageWidth - pageMargin - 5, y, { align: 'right' });
-                    y += 7;
-                });
-            } else {
-                console.log("No se encontraron retiros para imprimir en el PDF en este periodo.");
-            }
-            
-            // D.5. Aportes
-            if (periodInjections.length > 0) {
-                addSectionHeader(t.detailsInjections);
-                 addTableHeaders([ { label: t.date, x: pageMargin + 5 }, { label: t.status, x: pageMargin + 70 }, { label: t.value, x: pageWidth - pageMargin - 5, align: 'right' } ]);
-                periodInjections.forEach(i => {
-                    checkPageBreak();
-                    const date = new Date(i.date.seconds * 1000).toLocaleDateString(currentLang === 'pt' ? 'pt-BR' : 'es-ES');
-                    doc.setFontSize(10); doc.setTextColor(0);
-                    doc.text(date, pageMargin + 5, y);
-                    doc.text(translateStatus(i.status) || 'Aprovado', pageMargin + 70, y);
-                    doc.setFont(undefined, 'bold'); doc.setTextColor('#28a745');
-                    doc.text(money(i.amount), pageWidth - pageMargin - 5, y, { align: 'right' });
-                    y += 7;
-                });
-            }
-            
-            const pageCount = doc.internal.getNumberOfPages();
-            for (let i = 1; i <= pageCount; i++) {
-                doc.setPage(i); doc.setFontSize(9); doc.setTextColor(150);
-                doc.text(`${t.generatedBy} - ${t.page} ${i} ${t.of} ${pageCount}`, center, 285, { align: 'center' });
-            }
-
-            const sanitizedName = (collector.name || 'cobrador').replace(/\s+/g, '_');
-            const sanitizedPeriod = periodText.replace(/\s+/g, '_');
-            doc.save(`relatorio_${sanitizedName}_${sanitizedPeriod}.pdf`);
         }
 
     
@@ -7898,3 +7929,4 @@ async function showRefinanceVerificationModal(clientId) {
     </script>
 </body>
     </html>
+
