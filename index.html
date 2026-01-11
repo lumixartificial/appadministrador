@@ -333,11 +333,18 @@
     .search-bar-wrapper { position: relative; margin-bottom: 20px; }
     .search-bar-wrapper input { width: 100%; padding: 12px 12px 12px 40px; font-size: 1em; border-radius: 8px; border: 1px solid var(--border-color); background-color: var(--surface); color: var(--text-primary); }
     .search-bar-wrapper .icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-secondary); }
-    #toast-container { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 1000; }
+     #toast-container { 
+        position: fixed; 
+        top: 20px; 
+        left: 50%; 
+        transform: translateX(-50%); 
+        z-index: 20000 !important; /* <--- CAMBIO AQUÍ: Nivel súper alto */
+        pointer-events: none; /* Para que puedas hacer clic debajo si el mensaje estorba */
+    }
     .toast { background-color: #333; color: white; padding: 12px 20px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); font-size: 0.9em; opacity: 0; transform: translateY(-20px); transition: opacity 0.3s, transform 0.3s; }
     .toast.show { opacity: 1; transform: translateY(0); }
-    .toast.toast-error { background-color: var(--danger-color); }
-
+    .toast.toast-error { background-color: var(--danger-color); }                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          
+    .toast.toast-success { background-color: var(--accent-green); color: #ffffff; font-weight: 600; }
     .status-pending { color: var(--warning-color); } .status-paid { color: var(--accent-green); } .status-late { color: var(--danger-color); }
     .profile-pic-wrapper { position: relative; cursor: pointer; display: inline-block; }
     .profile-pic-wrapper::after { content: '✎'; position: absolute; bottom: 5px; right: 5px; background-color: rgba(0,0,0,0.6); color: white; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-size: 14px; }
@@ -1182,23 +1189,23 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
         <img id="splash-logo" src="https://firebasestorage.googleapis.com/v0/b/lumix-financas-app.firebasestorage.app/o/LOGO---LUMIX-FINANZAS-REDUCIDO.png?alt=media&token=0b4c34d2-f2e3-44b3-a380-7aadfb9c0991" alt="Logo">
     </div>
 
-    <div id="login-view">
+      <div id="login-view">
         <div class="login-card">
             <div class="logo">
                 <img id="login-logo" src="https://firebasestorage.googleapis.com/v0/b/lumix-financas-app.firebasestorage.app/o/LOGO---LUMIX-FINANZAS-REDUCIDO.png?alt=media&token=0b4c34d2-f2e3-44b3-a380-7aadfb9c0991" alt="Logo">
             </div>
-            <h2>Bem-vindo, Administrador</h2>
-            <p>Gerencie sua equipe e operações com eficiência.</p>
+            <h2 data-lang-key="welcomeAdmin">Bem-vindo, Administrador</h2>
+            <p data-lang-key="manageTeamDesc">Gerencie sua equipe e operações com eficiência.</p>
             <form id="login-form">
                 <div class="form-group">
-                <label for="username">Email</label> <!-- <--- CAMBIO AQUÍ -->
-                <input type="text" id="username" required>
+                    <label for="username" data-lang-key="emailLabel">Email</label>
+                    <input type="text" id="username" required>
                 </div>
-                    <div class="form-group">
-                    <label for="password">Senha</label>
+                <div class="form-group">
+                    <label for="password" data-lang-key="passwordLabel">Senha</label>
                     <input type="password" id="password" required>
                 </div>
-                <button type="submit" class="btn-primary">Acessar Painel</button>
+                <button type="submit" class="btn-primary" data-lang-key="accessPanel">Acessar Painel</button>
             </form>
         </div>
     </div>
@@ -1296,6 +1303,11 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
         // ... código existente ...
     const translations = {
         pt: {
+            welcomeAdmin: 'Bem-vindo, Administrador',
+            manageTeamDesc: 'Gerencie sua equipe e operações com eficiência.',
+            accessPanel: 'Acessar Painel',
+            emailLabel: 'Email',
+            passwordLabel: 'Senha',
             microInsurance: 'Micro Seguro',
             microInsuranceFund: 'Micro Seguro (Fundo)',
             microInsuranceLabel: 'Micro Seguro (Valor a Descontar)',
@@ -1334,6 +1346,10 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             saveSettings: 'Salvar Ajustes', settingsSaved: 'Ajustes salvos com sucesso!',
             fuel: 'Combustível', food: 'Alimentação', rent: 'Aluguel', mechanics: 'Mecânica', other: 'Outros',
             downloadReport: 'Baixar Relatório', selectPeriod: 'Selecione um Período',
+            last24h: 'Últimas 24h', 
+            last48h: 'Últimas 48h', 
+            lastWeek: 'Última Semana', 
+            lastMonth: 'Último Mês',
             reputationGood: 'Bom', reputationRegular: 'Regular', reputationBad: 'Ruim',
             loanProgress: 'Progresso do Empréstimo',
             totalValue: 'Valor Total',
@@ -1409,8 +1425,33 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             settlementApproved: 'Retirada APROVADA com sucesso!',
             downloadGraphicPDF: 'Baixar PDF Gráfico',
             // --- NUEVO ---
-            chartCenterBalance: 'SALDO (CAIXA)' 
-        },
+            chartCenterBalance: 'SALDO (CAIXA)',  
+            activeFines: 'Multas Ativas (Total)',
+            registerSettlement: 'Registrar Retirada',
+            aportarCapital: 'Aportar Capital',
+            unlockAppButton: 'Desbloquear (30m)',
+            unlockAppTitle: 'Desbloquear App',
+            unlockAppMsg: 'Isso permitirá que o cobrador acesse o aplicativo por 30 minutos, ignorando horários. Continuar?',
+            unlockConfirm: 'Sim, Desbloquear',
+            appUnlockedSuccess: 'App do cobrador desbloqueado por 30min!',
+            deleteAlertTitle: 'Apagar Alerta?',
+            deleteAlertMsg: 'Deseja remover esta observação do cliente?',
+            confirmDeleteShort: 'Apagar',
+            valToWithdraw: 'Valor a Retirar',
+            valToInject: 'Valor a Aportar',
+            obsOptional: 'Observações (Opcional)',
+            confirmRegister: 'Confirmar Registro',
+            confirmInjection: 'Confirmar Aporte',
+            cancel: 'Cancelar',
+            capitalOnHandLabel: 'Capital em Mãos',
+            microInsuranceLabelSimple: 'Micro Seguro',
+            appUnlockedSuccess: 'App do cobrador desbloqueado!', // Mensaje corregido
+            welcomeAdmin: 'Bienvenido, Administrador',
+            manageTeamDesc: 'Gestione su equipo y operaciones con eficiencia.',
+            accessPanel: 'Acceder al Panel',
+            emailLabel: 'Correo Electrónico',
+            passwordLabel: 'Contraseña',
+        },  
 
         es: {
             microInsurance: 'Micro Seguro',
@@ -1525,7 +1566,34 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             settlementApproved: '¡Retiro APROBADO con éxito!',
             downloadGraphicPDF: 'Descargar PDF Gráfico',
             // --- NUEVO ---
-            chartCenterBalance: 'SALDO (CAJA)' 
+            chartCenterBalance: 'SALDO (CAJA)', 
+            // --- NUEVOS (PEGAR AL FINAL DEL BLOQUE ES) ---
+            activeFines: 'Multas Activas (Total)',
+            registerSettlement: 'Registrar Retiro',
+            aportarCapital: 'Aportar Capital',
+            unlockAppButton: 'Desbloquear (30m)',
+            unlockAppTitle: 'Desbloquear App',
+            unlockAppMsg: 'Esto permitirá al cobrador acceder a la app por 30 minutos, ignorando horarios. ¿Continuar?',
+            unlockConfirm: 'Sí, Desbloquear',
+            appUnlockedSuccess: '¡App de cobrador desbloqueada por 30min!',
+            deleteAlertTitle: '¿Borrar Alerta?',
+            deleteAlertMsg: '¿Desea eliminar esta observación del cliente?',
+            confirmDeleteShort: 'Eliminar',
+            // --- NUEVOS (MODALES Y DESBLOQUEO) ---
+            valToWithdraw: 'Valor a Retirar',
+            valToInject: 'Valor a Aportar',
+            obsOptional: 'Observaciones (Opcional)',
+            confirmRegister: 'Confirmar Registro',
+            confirmInjection: 'Confirmar Aporte',
+            cancel: 'Cancelar',
+            capitalOnHandLabel: 'Capital en Mano',
+            microInsuranceLabelSimple: 'Micro Seguro',
+            appUnlockedSuccess: 'App cobrador desbloqueada', // Mensaje corregido exacto
+            welcomeAdmin: 'Welcome, Administrator',
+            manageTeamDesc: 'Manage your team and operations efficiently.',
+            accessPanel: 'Access Dashboard',
+            emailLabel: 'Email',
+            passwordLabel: 'Password',
         },
         en: {
             microInsurance: 'Micro Insurance',
@@ -1640,7 +1708,17 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             settlementApproved: 'Withdrawal APPROVED successfully!',
             downloadGraphicPDF: 'Download Graphic PDF',
             // --- NUEVO ---
-            chartCenterBalance: 'CASH BALANCE' 
+            chartCenterBalance: 'CASH BALANCE',
+             // --- NUEVOS (MODALES Y DESBLOQUEO) ---
+            valToWithdraw: 'Amount to Withdraw',
+            valToInject: 'Amount to Inject',
+            obsOptional: 'Observations (Optional)',
+            confirmRegister: 'Confirm Register',
+            confirmInjection: 'Confirm Injection',
+            cancel: 'Cancel',
+            capitalOnHandLabel: 'Capital on Hand',
+            microInsuranceLabelSimple: 'Micro Insurance',
+            appUnlockedSuccess: 'Collector app unlocked!', // Mensaje corregido
         }
     };
 
@@ -2064,43 +2142,60 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
         }
 
         
-            function showCollectorDetails(collectorId) {
+             function showCollectorDetails(collectorId) {
             const detailView = document.getElementById('collectorDetailView');
             const collector = allCollectors.find(c => c.id === collectorId);
-            const clients = allClients.filter(c => c.collectorId === collectorId); 
+            
+            // --- CONECTAR TRADUCCIONES ---
+            const t = translations[currentLang] || {}; 
             
             if (!collector) return;
 
             const mapView = document.getElementById('map-view');
             if (mapView && mapView.classList.contains('active')) {
-                // Si venimos del mapa, no tocamos la navegación
             } else {
                 document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
                 const dashboardNavItem = document.querySelector('.nav-item[data-view="dashboard"]');
                 if (dashboardNavItem) dashboardNavItem.classList.add('active');
             }
             
-            const placeholderUrl = `https://placehold.co/128x128/0f172a/FFFFFF?text=${(collector.name || 'C').charAt(0)}`;
+            // FOTO DE PERFIL
+            const initial = (collector.name || 'C').charAt(0).toUpperCase();
+            const placeholderUrl = 'https://placehold.co/128x128/0f172a/FFFFFF?text=' + initial;
+            const photoUrl = collector.profilePictureUrl || placeholderUrl;
+
+            // LOGO WHATSAPP OFICIAL
+            const whatsappLogoUrl = "https://firebasestorage.googleapis.com/v0/b/lumix-financas-app.firebasestorage.app/o/LOGO%20WHATSAPP%20OFI.png?alt=media&token=e022ad51-a151-4812-bb3d-9be867dac891";
+
             const isTrackingActive = collector.isRealtimeTrackingActive;
             const lastSeenTime = formatTimestamp(collector.lastLocationUpdate);
 
             const metrics = calculatedCollectorMetrics.get(collectorId) || {};
-            
             const {
                 capitalOnHand = 0, 
-                collectorTotalInsurance = 0, // DATO CLAVE: Seguro de este cobrador
+                collectorTotalInsurance = 0, 
                 status = { textKey: 'inOrder', color: 'var(--accent-green)', icon: 'check-circle' },
-                totalClientsCount, 
-                activeClientsCount = 0, 
-                lateClientsCount = 0,
-                dailyCollected = 0,
-                weeklyCollected = 0
+                totalClientsCount, activeClientsCount = 0, 
+                dailyCollected = 0, weeklyCollected = 0
             } = metrics; 
 
-            // Generar lista de clientes
+            // --- RECOLECTAR ALERTAS ---
+            let clientsWithAlerts = [];
+            const clients = allClients.filter(c => c.collectorId === collectorId); 
+            clients.forEach(c => {
+                (c.loans || []).forEach((l, idx) => {
+                    if (l.status !== 'finished' && l.notes && l.notes.trim() !== '') {
+                        clientsWithAlerts.push({
+                            clientId: c.id, clientName: c.name, loanIndex: idx, note: l.notes
+                        });
+                    }
+                });
+            });
+
+            // --- LISTA DE CLIENTES ---
             let clientsListHtml = '';
             if (clients.length > 0) {
-                const clientsWithDisplayLoan = clients.map(client => {
+                const sortedClients = clients.map(client => {
                     const loansWithStatus = (client.loans || []).map((loan, index) => {
                         const details = calculateLoanDetails(loan);
                         return { ...loan, status: details.status, lateDays: details.lateDays, originalIndex: index };
@@ -2110,41 +2205,30 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                                       loansWithStatus.find(l => l.status === 'pending') || 
                                       loansWithStatus.find(l => l.status === 'paid') || 
                                       loansWithStatus[0];
-                    
-                    if (!displayLoan) {
-                         displayLoan = { amount: 0, status: 'n/a', lateDays: 0, originalIndex: 0 };
-                    }
+                    if (!displayLoan) displayLoan = { amount: 0, status: 'n/a', lateDays: 0, originalIndex: 0 };
 
                     const activeLoansCount = loansWithStatus.filter(l => l.status !== 'finished').length;
-                    const hasMultipleActive = activeLoansCount > 1;
-
-                    return { client, displayLoan, hasMultipleActive, activeLoansCount };
+                    return { client, displayLoan, hasMultipleActive: activeLoansCount > 1, activeLoansCount };
                 }).sort((a, b) => a.client.name.localeCompare(b.client.name));
 
-                clientsListHtml = clientsWithDisplayLoan.map(({ client, displayLoan, hasMultipleActive, activeLoansCount }) => {
+                clientsListHtml = sortedClients.map(({ client, displayLoan, hasMultipleActive, activeLoansCount }) => {
                     const statusClass = `status-${displayLoan.status}`;
                     const statusText = (translations[currentLang] && translations[currentLang][displayLoan.status]) || displayLoan.status;
-                    const nameInitial = (client.name || 'C').charAt(0).toUpperCase();
-                    const photoUrl = client.profilePictureUrl || `https://placehold.co/80x80/3b82f6/FFFFFF?text=${nameInitial}`;
+                    const cInitial = (client.name || 'C').charAt(0).toUpperCase();
+                    const cPhoto = client.profilePictureUrl || ('https://placehold.co/80x80/3b82f6/FFFFFF?text=' + cInitial);
                     
                     const lateDays = displayLoan.lateDays || 0;
                     const reputationScore = Math.max(0, 10 - lateDays);
-                    let repClass = 'rep-bad';
-                    if (reputationScore === 10) repClass = 'rep-perfect';
-                    else if (reputationScore >= 7) repClass = 'rep-good';
-                    else if (reputationScore >= 3) repClass = 'rep-regular';
+                    let repClass = reputationScore === 10 ? 'rep-perfect' : (reputationScore >= 7 ? 'rep-good' : (reputationScore >= 3 ? 'rep-regular' : 'rep-bad'));
                     
-                    const multipleLoansIndicator = hasMultipleActive 
-                        ? `<span style="font-size: 0.75em; color: var(--accent-purple); font-weight: 600; margin-left: 5px;">(${activeLoansCount} Préstamos)</span>` 
-                        : '';
+                    const multipleIndicator = hasMultipleActive 
+                        ? `<span style="font-size: 0.75em; color: var(--accent-purple); font-weight: 600; margin-left: 5px;">(${activeLoansCount} Préstamos)</span>` : '';
 
                     return `
                         <div class="client-card" data-client-id="${client.id}" data-loan-index="${displayLoan.originalIndex}">
-                            <div class="item-avatar">
-                                <img src="${photoUrl}" alt="Foto do Cliente" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover;">
-                            </div>
+                            <div class="item-avatar"><img src="${cPhoto}" alt="Foto" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover;"></div>
                             <div class="item-info">
-                                <h4 class="item-name" style="font-size: 0.95em;">${client.name}${multipleLoansIndicator}</h4>
+                                <h4 class="item-name" style="font-size: 0.95em;">${client.name}${multipleIndicator}</h4>
                                 <p class="item-subtext" style="font-size: 0.85em;">${client.address || 'Endereço não informado'}</p>
                             </div>
                             <div class="item-details" style="text-align: right;">
@@ -2161,37 +2245,33 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                 clientsListHtml = '<p style="padding: 20px; text-align: center; color: var(--text-secondary);">Nenhum cliente para este cobrador.</p>';
             }
 
+            // Textos Alertas
+            const alertTitle = currentLang === 'es' ? 'ALERTAS / MENSAJES (App)' : (currentLang === 'en' ? 'ALERTS / MESSAGES' : 'ALERTAS / MENSAGENS (App)');
+            const searchPlace = currentLang === 'es' ? 'Buscar alerta...' : (currentLang === 'en' ? 'Search alert...' : 'Buscar alerta...');
+            const noAlerts = currentLang === 'es' ? 'Sin alertas pendientes.' : (currentLang === 'en' ? 'No pending alerts.' : 'Sem alertas pendentes.');
+
             detailView.innerHTML = `
                 <header class="modal-header">
                     <button id="closeDetailView"><i data-lucide="arrow-left"></i></button>
                     <span class="modal-title">${collector.name}</span>
-                    
                     <button id="editCollectorBtn" class="btn-secondary" style="padding: 8px 16px; font-size: 0.9em; font-weight: 600; display: flex; align-items: center; gap: 6px; border-radius: 8px;" data-collector-id="${collectorId}">
-                        <i data-lucide="edit-3" style="width: 16px; height: 16px;"></i> 
-                        <span data-lang-key="editData">Editar</span>
+                        <i data-lucide="edit-3" style="width: 16px; height: 16px;"></i> <span data-lang-key="editData">Editar</span>
                     </button>
                 </header>
                 
                 <div class="modal-content-wrapper container">
                     <div class="collector-detail-header">
-                        <img src="${collector.profilePictureUrl || placeholderUrl}" alt="Foto do Cobrador">
+                        <img src="${photoUrl}" alt="Foto do Cobrador">
                         <div class="collector-detail-info">
                             <h3 class="item-name" style="margin-bottom: 5px;">${collector.name}</h3>
                             <div class="status-indicator ${isTrackingActive ? 'online' : 'offline'}">
                                 <span data-lang-key="${isTrackingActive ? 'online' : 'offline'}"></span>
                             </div>
-                            ${!isTrackingActive && lastSeenTime ? `
-                                <div class="last-seen-info">
-                                    <i data-lucide="clock" style="width:12px; height:12px;"></i>
-                                    <span data-lang-key="lastSeen"></span> ${lastSeenTime}
-                                </div>` : ''
-                            }
+                            ${!isTrackingActive && lastSeenTime ? `<div class="last-seen-info"><i data-lucide="clock" style="width:12px; height:12px;"></i> <span data-lang-key="lastSeen"></span> ${lastSeenTime}</div>` : ''}
                         </div>
                         <div style="margin-left: auto; display: flex; gap: 8px;">
-                            ${collector.whatsapp ? `<a href="https://wa.me/${collector.whatsapp.replace(/\D/g, '')}" target="_blank" class="header-btn" title="WhatsApp"><i data-lucide="message-circle" style="width: 24px; height: 24px;"></i></a>` : ''}
-                            <button class="header-btn collector-map-btn" data-collector-id="${collectorId}" title="Ver no mapa">
-                                <i data-lucide="map-pin" style="width: 24px; height: 24px;"></i>
-                            </button>
+                            ${collector.whatsapp ? `<a href="https://wa.me/${collector.whatsapp.replace(/\D/g, '')}" target="_blank" class="header-btn" title="WhatsApp" style="padding:0;"><img src="${whatsappLogoUrl}" alt="WhatsApp" style="width: 24px; height: 24px; border-radius:0;"></a>` : ''}
+                            <button class="header-btn collector-map-btn" data-collector-id="${collectorId}" title="Ver no mapa"><i data-lucide="map-pin" style="width: 24px; height: 24px;"></i></button>
                         </div>
                     </div>
 
@@ -2200,37 +2280,30 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                         <p class="kpi-value" id="kpi-capital-total" style="color: var(--accent-green); font-size: 2em;">${money(capitalOnHand)}</p>
                     </div>
 
-                    <!-- ESTADÍSTICAS (Cuadrícula 2x2) -->
                     <section class="kpi-grid" style="grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
-                        <div class="kpi-card">
-                            <h3 class="kpi-title" style="font-size: 0.8em;" data-lang-key="collectedToday">Hoje</h3>
-                            <p class="kpi-value" style="color: var(--accent-green); font-size: 1.2em;">${money(dailyCollected)}</p>
-                        </div>
-                        <div class="kpi-card">
-                            <h3 class="kpi-title" style="font-size: 0.8em;" data-lang-key="collectedWeek">Semana</h3>
-                            <p class="kpi-value" style="color: var(--accent-green); font-size: 1.2em;">${money(weeklyCollected)}</p>
-                        </div>
-                        <div class="kpi-card">
-                            <h3 class="kpi-title" style="font-size: 0.8em;">Clientes</h3>
-                            <p class="kpi-value">${totalClientsCount !== undefined ? totalClientsCount : activeClientsCount}</p>
-                        </div>
-                        
-                        <!-- TARJETA MICRO SEGURO (Reemplaza a "Clientes Atrasados") -->
-                        <div class="kpi-card">
-                            <h3 class="kpi-title" style="font-size: 0.8em; color: #0ea5e9;">
-                                <i data-lucide="shield-check" style="width: 14px; height: 14px; margin-right: 5px;"></i>
-                                <span data-lang-key="microInsurance">Micro Seguro</span>
-                            </h3>
-                            <p class="kpi-value" style="color: #0ea5e9;">${money(collectorTotalInsurance)}</p>
-                        </div>
-                        <!-- FIN TARJETA -->
-
+                        <div class="kpi-card"><h3 class="kpi-title" style="font-size: 0.8em;" data-lang-key="collectedToday">Hoje</h3><p class="kpi-value" style="color: var(--accent-green); font-size: 1.2em;">${money(dailyCollected)}</p></div>
+                        <div class="kpi-card"><h3 class="kpi-title" style="font-size: 0.8em;" data-lang-key="collectedWeek">Semana</h3><p class="kpi-value" style="color: var(--accent-green); font-size: 1.2em;">${money(weeklyCollected)}</p></div>
+                        <div class="kpi-card"><h3 class="kpi-title" style="font-size: 0.8em;">Clientes</h3><p class="kpi-value">${totalClientsCount !== undefined ? totalClientsCount : activeClientsCount}</p></div>
+                        <div class="kpi-card"><h3 class="kpi-title" style="font-size: 0.8em; color: #0ea5e9;"><i data-lucide="shield-check" style="width: 14px; height: 14px; margin-right: 5px;"></i><span data-lang-key="microInsurance">Micro Seguro</span></h3><p class="kpi-value" style="color: #0ea5e9;">${money(collectorTotalInsurance)}</p></div>
                     </section>
 
-                    <h2 class="section-title">Clientes</h2>
-                    <div class="item-list">
-                        ${clientsListHtml}
+                    <!-- SECCIÓN ALERTAS -->
+                    <div class="kpi-card" style="margin-bottom: 30px; border-color: #dc3545; background-color: var(--surface);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">
+                            <h3 class="kpi-title" style="color: #dc3545; margin: 0; font-size: 1em;"><i data-lucide="bell-ring"></i> ${alertTitle}</h3>
+                            <span style="background-color: #dc3545; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.8em; font-weight: 700;">${clientsWithAlerts.length}</span>
+                        </div>
+                        <div class="search-bar-wrapper" style="margin-bottom: 10px;">
+                            <input type="text" id="alert-search-input" placeholder="${searchPlace}" style="padding: 8px 12px 8px 35px; font-size: 0.9em;">
+                            <i class="icon" data-lucide="search" style="width: 16px; left: 10px;"></i>
+                        </div>
+                        <div id="alerts-list-container" style="max-height: 250px; overflow-y: auto;">
+                            ${clientsWithAlerts.length === 0 ? `<p style="text-align: center; color: var(--text-secondary); font-size: 0.9em; padding: 10px;">${noAlerts}</p>` : ''}
+                        </div>
                     </div>
+
+                    <h2 class="section-title">Clientes</h2>
+                    <div class="item-list">${clientsListHtml}</div>
 
                     <section style="margin-top: 30px;">
                         <h2 class="section-title" data-lang-key="settlementHistory">Histórico de Retiradas</h2>
@@ -2238,31 +2311,78 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                     </section>
                 </div>
 
+                <!-- BOTONES DE ACCIÓN (COLORES FORZADOS) -->
                 <div class="action-buttons">
-                    <button id="download-report-btn" data-collector-id="${collectorId}" class="btn-secondary">
+                    <!-- Reporte: Azul Borde -->
+                    <button id="download-report-btn" data-collector-id="${collectorId}" class="btn-secondary" style="border: 2px solid #3b82f6; color: #3b82f6; background-color: transparent;">
                         <i data-lucide="file-text"></i> <span data-lang-key="downloadReport">Relatório</span>
                     </button>
                     
-                    <button id="register-settlement-btn" data-collector-id="${collectorId}" class="btn-primary">
+                    <!-- Retiro: Morado -->
+                    <button id="register-settlement-btn" data-collector-id="${collectorId}" class="btn-primary" style="background-color: #8b5cf6; border-color: #8b5cf6; color: white;">
                         <i data-lucide="arrow-down-circle"></i> <span data-lang-key="registerSettlement">Retirada</span>
                     </button>
                     
-                    <button id="add-capital-injection-btn" data-collector-id="${collectorId}" class="btn-primary" style="background-color: var(--accent-green); border-color: var(--accent-green);">
+                    <!-- Aporte: Verde -->
+                    <button id="add-capital-injection-btn" data-collector-id="${collectorId}" class="btn-primary" style="background-color: #10b981; border-color: #10b981; color: white;">
                         <i data-lucide="arrow-up-circle"></i> <span data-lang-key="aportarCapital">Aporte</span>
                     </button>
                     
-                    <button id="unlock-app-btn" data-collector-id="${collectorId}" class="btn-primary" style="background-color: var(--warning-color); border-color: var(--warning-color); color: #000;">
-                        <i data-lucide="lock-open"></i> 30m
+                    <!-- Desbloquear: Amarillo -->
+                    <button id="unlock-app-btn" data-collector-id="${collectorId}" class="btn-primary" style="background-color: #f59e0b; border-color: #f59e0b; color: #000000;">
+                        <i data-lucide="lock-open"></i> <span data-lang-key="unlockAppButton">Desbloquear</span>
                     </button>
                 </div>
             `;
 
-            // Llenar historial de retiros
+            // Lógica renderizado alertas
+            const renderAlerts = (filterText = '') => {
+                const container = document.getElementById('alerts-list-container');
+                if(!container) return;
+                const filtered = clientsWithAlerts.filter(a => a.clientName.toLowerCase().includes(filterText.toLowerCase()) || a.note.toLowerCase().includes(filterText.toLowerCase()));
+                if(filtered.length === 0) {
+                    container.innerHTML = `<p style="text-align: center; color: var(--text-secondary); font-size: 0.9em; padding: 10px;">${filterText ? 'Nenhuma alerta encontrada.' : noAlerts}</p>`;
+                    return;
+                }
+                container.innerHTML = filtered.map(a => `
+                    <div style="background-color: var(--bg); border: 1px solid var(--border-color); border-radius: 8px; padding: 10px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;">
+                        <div style="flex-grow: 1;">
+                            <strong style="color: var(--text-primary); font-size: 0.95em; display: block; margin-bottom: 4px;">${a.clientName}</strong>
+                            <p style="color: #dc3545; margin: 0; font-size: 0.9em; font-weight: 600; line-height: 1.3;">${a.note}</p>
+                        </div>
+                        <button class="delete-alert-btn" data-client-id="${a.clientId}" data-loan-index="${a.loanIndex}" style="background: none; border: none; color: var(--text-secondary); cursor: pointer; padding: 4px;">
+                            <i data-lucide="trash-2" style="width: 16px; height: 16px;"></i>
+                        </button>
+                    </div>
+                `).join('');
+                lucide.createIcons({nodes: container.querySelectorAll('[data-lucide]')});
+
+                container.querySelectorAll('.delete-alert-btn').forEach(btn => {
+                    btn.addEventListener('click', async (e) => {
+                        const cId = e.currentTarget.dataset.clientId;
+                        const lIdx = parseInt(e.currentTarget.dataset.loanIndex);
+                        const confirmed = await showConfirmationModal(t.deleteAlertTitle || 'Apagar Alerta?', t.deleteAlertMsg || 'Deseja remover esta observação do cliente?', t.confirmDeleteShort || 'Apagar');
+                        if(!confirmed) return;
+                        try {
+                            const clientRef = doc(db, 'companies', currentCompanyId, "clients", cId);
+                            const clientData = allClients.find(c => c.id === cId);
+                            const updatedLoans = JSON.parse(JSON.stringify(clientData.loans));
+                            updatedLoans[lIdx].notes = ""; 
+                            await updateDoc(clientRef, { loans: updatedLoans });
+                            showToast("Alerta removida.");
+                            clientsWithAlerts = clientsWithAlerts.filter(item => !(item.clientId === cId && item.loanIndex === lIdx));
+                            renderAlerts(document.getElementById('alert-search-input').value);
+                        } catch(err) { console.error(err); showToast("Erro ao apagar.", true); }
+                    });
+                });
+            };
+            renderAlerts(); 
+            const alertSearch = document.getElementById('alert-search-input');
+            if(alertSearch) { alertSearch.addEventListener('input', (e) => renderAlerts(e.target.value)); }
+
+            // Lógica Histórico Retiros
             const settlementsListContainer = detailView.querySelector('#settlements-history-list');
-            const collectorSettlements = allSettlements
-                .filter(s => s.collectorId === collectorId)
-                .sort((a, b) => (b.date?.seconds || 0) - (a.date?.seconds || 0)); 
-            
+            const collectorSettlements = allSettlements.filter(s => s.collectorId === collectorId).sort((a, b) => (b.date?.seconds || 0) - (a.date?.seconds || 0)); 
             if (settlementsListContainer) {
                 if (collectorSettlements.length === 0) {
                     settlementsListContainer.innerHTML = `<p class="no-items" style="text-align: center; color: var(--text-secondary);">Nenhuma retirada registrada.</p>`;
@@ -2271,11 +2391,8 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                         const date = settlement.date?.seconds ? new Date(settlement.date.seconds * 1000) : null;
                         const dateString = date ? date.toLocaleDateString('pt-BR') : '--/--';
                         const timeString = date ? date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '';
-                        
-                        // Etiqueta si es retiro de Seguro
                         const isInsurance = settlement.type === 'insurance';
                         const typeLabel = isInsurance ? '<span style="color: #0ea5e9; font-weight: bold; font-size: 0.8em; display: block;">MICRO SEGURO</span>' : '';
-
                         return `
                         <div class="payment-history-item" style="cursor: default;">
                             <div class="payment-history-details">
@@ -2296,63 +2413,39 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             applyLanguage(currentLang);
 
             detailView.querySelector('#closeDetailView').addEventListener('click', () => detailView.classList.remove('active'));
-
             detailView.querySelector('.item-list').addEventListener('click', (e) => {
                 const clientCard = e.target.closest('.client-card');
-                if (clientCard) {
-                    showClientDetails(clientCard.dataset.clientId, parseInt(clientCard.dataset.loanIndex, 10));
-                }
+                if (clientCard) showClientDetails(clientCard.dataset.clientId, parseInt(clientCard.dataset.loanIndex, 10));
             });
-            
             const editBtn = detailView.querySelector('#editCollectorBtn');
             if (editBtn) editBtn.addEventListener('click', (e) => showCollectorFormModal(e.currentTarget.dataset.collectorId));
-            
             const mapBtn = detailView.querySelector('.collector-map-btn');
             if (mapBtn) mapBtn.addEventListener('click', (e) => focusOnCollector(e.currentTarget.dataset.collectorId));
-
             const reportBtn = detailView.querySelector('#download-report-btn');
-            if (reportBtn) {
-                reportBtn.addEventListener('click', (e) => showReportOptionsModal(e.currentTarget.dataset.collectorId));
-            }
-
+            if (reportBtn) reportBtn.addEventListener('click', (e) => showReportOptionsModal(e.currentTarget.dataset.collectorId));
             const settlementBtn = detailView.querySelector('#register-settlement-btn');
-            if (settlementBtn) {
-                settlementBtn.addEventListener('click', (e) => {
-                    const cId = e.currentTarget.dataset.collectorId;
-                    const cObj = allCollectors.find(c => c.id === cId);
-                    // Llama al modal de retiro (que ya tiene la opción de seguro)
-                    showSettlementModal(cId, cObj.name, capitalOnHand); 
-                });
-            }
-
+            if (settlementBtn) settlementBtn.addEventListener('click', (e) => { const cId = e.currentTarget.dataset.collectorId; const cObj = allCollectors.find(c => c.id === cId); showSettlementModal(cId, cObj.name, capitalOnHand); });
             const injectionBtn = detailView.querySelector('#add-capital-injection-btn');
-            if (injectionBtn) {
-                injectionBtn.addEventListener('click', (e) => {
-                    const cId = e.currentTarget.dataset.collectorId;
-                    const cObj = allCollectors.find(c => c.id === cId);
-                    showCapitalInjectionModal(cId, cObj.name);
-                });
-            }
+            if (injectionBtn) injectionBtn.addEventListener('click', (e) => { const cId = e.currentTarget.dataset.collectorId; const cObj = allCollectors.find(c => c.id === cId); showCapitalInjectionModal(cId, cObj.name); });
 
+            // Lógica Desbloqueo (VERDE)
             const unlockBtn = detailView.querySelector('#unlock-app-btn');
             if (unlockBtn) {
                 unlockBtn.addEventListener('click', async (e) => {
                     const cId = e.currentTarget.dataset.collectorId;
                     const confirmed = await showConfirmationModal(
-                        'Desbloquear App',
-                        'Isso permitirá que o cobrador acesse o aplicativo por 30 minutos, ignorando horários. Continuar?',
-                        'Sim, Desbloquear', 'btn-primary'
+                        t.unlockAppTitle || 'Desbloquear App',
+                        t.unlockAppMsg || 'Isso permitirá que o cobrador acesse o aplicativo por 30 minutos, ignorando horários. Continuar?',
+                        t.unlockConfirm || 'Sim, Desbloquear', 
+                        'btn-primary', 'var(--warning-color)', '#000000'
                     );
-                    
                     if (!confirmed) return;
-
                     try {
                         const unlockUntil = new Date();
                         unlockUntil.setMinutes(unlockUntil.getMinutes() + 30); 
-                        await updateDoc(doc(db, 'collectors', cId), {
-                            tempUnlockUntil: Timestamp.fromDate(unlockUntil)
-                        });
-                        showToast("App liberada por 30 minutos!", false);
+                        await updateDoc(doc(db, 'collectors', cId), { tempUnlockUntil: Timestamp.fromDate(unlockUntil) });
+                        // Usamos 'yellow' para que salga amarillo
+                        showToast(t.appUnlockedSuccess || "App do cobrador desbloqueado!", 'yellow');
                     } catch (error) {
                         console.error("Erro ao desbloquear:", error);
                         showToast("Erro ao desbloquear app.", true);
@@ -2360,79 +2453,120 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                 });
             }
         }
-
-
-        function showToast(message, isError = false) {
-            const toast = document.createElement('div');
-            toast.className = `toast ${isError ? 'toast-error' : ''}`;
-            toast.textContent = message;
-            document.getElementById('toast-container').appendChild(toast);
-            setTimeout(() => toast.classList.add('show'), 10);
-            setTimeout(() => {
-                toast.classList.remove('show');
-                setTimeout(() => toast.remove(), 500);
-            }, 3500);
-        }
-
-
-        /* === INICIO DEL CÓDIGO A AÑADIR (BLOQUE 3) === */
-/**
- * Muestra un modal de confirmación genérico usando el overlay #reportOptionsModal.
- * @param {string} title - El título del modal.
- * @param {string} message - El mensaje de confirmación.
- * @param {string} confirmText - El texto del botón de confirmación (ej: "Eliminar").
- * @param {string} confirmClass - 'btn-danger' o 'btn-primary'.
- * @returns {Promise<boolean>} - Resuelve 'true' si se confirma, 'false' si se cancela.
- */
-function showConfirmationModal(title, message, confirmText = 'Confirmar', confirmClass = 'btn-danger') {
-    return new Promise((resolve) => {
-        const modal = document.getElementById('reportOptionsModal');
-        if (!modal) {
-            console.error("Modal de overlay #reportOptionsModal no encontrado.");
-            resolve(false); // Rechaza si el modal no existe
-            return;
-        }
-
-        modal.innerHTML = `
-        <div class="modal-content" style="max-width: 450px; text-align: center;">
-            <i data-lucide="alert-triangle" style="width: 48px; height: 48px; color: ${confirmClass === 'btn-danger' ? 'var(--danger-color)' : 'var(--accent-blue)'}; margin-bottom: 15px;"></i>
-            <h3 style="font-size: 1.25em; font-weight: 600; margin-top: 0; margin-bottom: 10px;">${title}</h3>
-            <p style="color: var(--text-secondary); margin-bottom: 25px; line-height: 1.5;">${message}</p>
-            <div style="display: flex; gap: 10px; justify-content: flex-end;">
-                <button id="confirm-cancel" class="btn-secondary" style="background-color: var(--surface); border-color: var(--border-color); color: var(--text-secondary);">Cancelar</button>
-                <button id="confirm-accept" class="${confirmClass}">${confirmText}</button>
-            </div>
-        </div>
-        `;
-        
-        lucide.createIcons({ nodes: modal.querySelectorAll('[data-lucide]') });
-        modal.classList.add('active');
-
-        const btnCancel = modal.querySelector('#confirm-cancel');
-        const btnAccept = modal.querySelector('#confirm-accept');
-
-        const close = (result) => {
-            modal.classList.remove('active');
-            // Limpia el modal después de cerrar para no interferir con otros usos
+        // <--- FIN DE LA FUNCIÓN showCollectorDetails (Esta llave cierra la función)
             
-            resolve(result); // Resuelve la promesa
-        };
 
-        // Listeners
-        btnCancel.addEventListener('click', (e) => {
-            e.stopPropagation(); // <-- [AÑADIR ESTA LÍNEA (aprox. 5337)]
-            close(false);
-        });
-        btnAccept.addEventListener('click', (e) => {
-            e.stopPropagation(); // <-- [AÑADIR ESTA LÍNEA (aprox. 5340)]
-            close(true);
-        });
-        // Cierra si se hace clic en el fondo (overlay)
-        modal.addEventListener('click', (e) => {
-             if (e.target.id === 'reportOptionsModal') close(false);
-        }, { once: true });
-    });
-}
+
+        function showToast(message, type = 'normal') {
+            const toast = document.createElement('div');
+            
+            // Estilos base
+            let cssClass = 'toast';
+            let bgColor = '#333'; // Gris (Default)
+            let textColor = '#fff';
+            let iconHtml = '';
+
+            // --- SELECCIÓN DE COLOR ---
+            if (type === true || type === 'error') {
+                cssClass += ' toast-error';
+                bgColor = '#ef4444'; // Rojo
+            } 
+            else if (type === 'success') { // Verde
+                cssClass += ' toast-success';
+                bgColor = '#10b981'; 
+                iconHtml = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="margin-right:8px;"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+            } 
+            else if (type === 'purple') { // Lila/Morado
+                bgColor = '#8b5cf6'; 
+                iconHtml = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:8px;"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>`;
+            }
+            else if (type === 'yellow') { // Amarillo
+                bgColor = '#f59e0b';
+                textColor = '#000000'; // Letra negra para contraste
+                iconHtml = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:8px;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`;
+            }
+            else if (type === 'blue') { // Azul (NUEVO para Idioma)
+                bgColor = '#3b82f6';
+                iconHtml = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:8px;"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>`;
+            }
+            
+            toast.className = cssClass;
+            // Aplicamos estilos directos para asegurar visibilidad
+            toast.style.backgroundColor = bgColor;
+            toast.style.color = textColor;
+            toast.style.fontWeight = '600';
+            toast.style.display = 'flex';
+            toast.style.alignItems = 'center';
+            
+            if (iconHtml) {
+                toast.innerHTML = `<span style="display:flex; align-items:center;">${iconHtml} ${message}</span>`;
+            } else {
+                toast.textContent = message;
+            }
+
+            const container = document.getElementById('toast-container');
+            if (container) {
+                container.appendChild(toast);
+                setTimeout(() => toast.classList.add('show'), 10);
+                setTimeout(() => {
+                    toast.classList.remove('show');
+                    setTimeout(() => toast.remove(), 500);
+                }, 3500);
+            }
+        }
+
+
+        
+         function showConfirmationModal(title, message, confirmText = 'Confirmar', confirmClass = 'btn-danger', customColor = null, textColor = 'white') {
+            return new Promise((resolve) => {
+                const modal = document.getElementById('reportOptionsModal');
+                if (!modal) {
+                    console.error("Modal no encontrado.");
+                    resolve(false); 
+                    return;
+                }
+
+                // Color por defecto
+                let mainColor = 'var(--accent-blue)';
+                if (confirmClass.includes('btn-danger')) mainColor = 'var(--danger-color)';
+                
+                // Si se pasa un color personalizado (ej: amarillo), lo usamos
+                if (customColor) mainColor = customColor;
+
+                // Estilo del botón
+                let btnStyle = '';
+                if (customColor) {
+                    btnStyle = `background-color: ${customColor}; border-color: ${customColor}; color: ${textColor};`;
+                }
+
+                modal.innerHTML = `
+                <div class="modal-content" style="max-width: 450px; text-align: center;">
+                    <i data-lucide="alert-triangle" style="width: 48px; height: 48px; color: ${mainColor}; margin-bottom: 15px;"></i>
+                    <h3 style="font-size: 1.25em; font-weight: 600; margin-top: 0; margin-bottom: 10px;">${title}</h3>
+                    <p style="color: var(--text-secondary); margin-bottom: 25px; line-height: 1.5;">${message}</p>
+                    <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                        <button id="confirm-cancel" class="btn-secondary" style="background-color: var(--surface); border-color: var(--border-color); color: var(--text-secondary);">Cancelar</button>
+                        <button id="confirm-accept" class="${confirmClass}" style="${btnStyle}">${confirmText}</button>
+                    </div>
+                </div>
+                `;
+                
+                lucide.createIcons({ nodes: modal.querySelectorAll('[data-lucide]') });
+                modal.classList.add('active');
+
+                const btnCancel = modal.querySelector('#confirm-cancel');
+                const btnAccept = modal.querySelector('#confirm-accept');
+
+                const close = (result) => {
+                    modal.classList.remove('active');
+                    resolve(result); 
+                };
+
+                btnCancel.addEventListener('click', (e) => { e.stopPropagation(); close(false); });
+                btnAccept.addEventListener('click', (e) => { e.stopPropagation(); close(true); });
+                modal.addEventListener('click', (e) => { if (e.target.id === 'reportOptionsModal') close(false); }, { once: true });
+            });
+        }
 
 
 
@@ -3026,119 +3160,7 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
         }
 
         
-    function updateDashboard() {
-            const kpiActiveCollectors = document.getElementById('kpi-active-collectors');
-            const kpiActiveClients = document.getElementById('kpi-active-clients');
-            const kpiGlobalPatrimonio = document.getElementById('kpi-global-patrimonio');
-            const kpiGlobalDistributed = document.getElementById('kpi-global-distributed');
-            const kpiGlobalCapitalOnHand = document.getElementById('kpi-global-capital-on-hand');
-            const kpiGlobalMicroInsurance = document.getElementById('kpi-global-micro-insurance');
-
-            if(!kpiActiveCollectors) return; 
-            
-            // LEER Métricas Globales
-            const {
-                activeCollectorsCount = 0,
-                activeClientsCount = 0,
-                sumGlobalDistributed = 0,
-                sumGlobalPatrimonio = 0,
-                sumGlobalCapitalOnHand = 0,
-                availableInsuranceFund = 0 // <--- USAMOS EL DISPONIBLE CALCULADO
-            } = calculatedGlobalMetrics;
-
-            if (kpiGlobalPatrimonio) kpiGlobalPatrimonio.textContent = money(sumGlobalPatrimonio);
-            if (kpiGlobalDistributed) kpiGlobalDistributed.textContent = money(sumGlobalDistributed);
-            if (kpiGlobalCapitalOnHand) kpiGlobalCapitalOnHand.textContent = money(sumGlobalCapitalOnHand);
-            
-            // Aquí mostramos el valor en la tarjeta azul
-            if (kpiGlobalMicroInsurance) kpiGlobalMicroInsurance.textContent = money(availableInsuranceFund);
-            
-            kpiActiveCollectors.textContent = activeCollectorsCount;
-            kpiActiveClients.textContent = activeClientsCount;
-
-            // Lista de Cobradores
-            const listContainer = document.getElementById('collectors-list');
-            if(!listContainer) return;
-
-            const searchInput = document.getElementById('collector-search-input');
-            const searchTerm = searchInput ? searchInput.value.toLowerCase() : '';
-            const activeStatusFilter = document.querySelector('#dashboard-view .filter-btn[data-filter].active');
-            const statusFilter = activeStatusFilter ? activeStatusFilter.dataset.filter : 'all';
-            const activeSortBtn = document.querySelector('#dashboard-view .filter-btn[data-sort].active');
-            const sortBy = activeSortBtn ? activeSortBtn.dataset.sort : null;
-            
-            let filteredCollectors = allCollectors.filter(collector => 
-                collector.name.toLowerCase().includes(searchTerm)
-            );
-            
-            if (statusFilter !== 'all') {
-                if (statusFilter === 'trackingUnavailable') {
-                    filteredCollectors = filteredCollectors.filter(collector => !collector.isRealtimeTrackingActive);
-                } else {
-                    filteredCollectors = filteredCollectors.filter(collector => {
-                        const status = calculateCollectorStatus(collector.id); 
-                        return status.textKey === statusFilter;
-                    });
-                }
-            }
-            
-            let collectorsWithData = filteredCollectors.map(collector => {
-                const metrics = calculatedCollectorMetrics.get(collector.id) || { capitalOnHand: 0, totalClientsCount: 0, activeClientsCount: 0, totalPatrimonio: 0 };
-                return { 
-                    ...collector, 
-                    capitalOnHand: metrics.capitalOnHand,
-                    totalPatrimonio: metrics.totalPatrimonio,
-                    clientCount: metrics.activeClientsCount !== undefined ? metrics.activeClientsCount : metrics.totalClientsCount
-                };
-            });
-            
-            if (sortBy === 'capital') {
-                collectorsWithData.sort((a, b) => b.totalPatrimonio - a.totalPatrimonio);
-            }
-
-            if (collectorsWithData.length === 0) {
-                listContainer.innerHTML = `<p>Nenhum cobrador encontrado.</p>`;
-                return;
-            }
-
-            listContainer.innerHTML = collectorsWithData.map(collector => {
-                const placeholderUrl = `https://placehold.co/96x96/0f172a/FFFFFF?text=${(collector.name || 'C').charAt(0)}`;
-                const status = calculateCollectorStatus(collector.id); 
-                const isTrackingActive = collector.isRealtimeTrackingActive;
-
-                return `
-                    <div class="collector-card" data-collector-id="${collector.id}">
-                        <div class="item-avatar">
-                            <img src="${collector.profilePictureUrl || placeholderUrl}" alt="Foto do Cobrador">
-                        </div>
-                        <div class="collector-card-main">
-                            <div class="collector-card-top">
-                                <div class="item-info">
-                                    <h4 class="item-name">${collector.name}</h4>
-                                    <p class="item-subtext">${collector.clientCount} <span data-lang-key="activeClients"></span></p>
-                                </div>
-                                <div class="item-details" style="display: flex; align-items: center; gap: 6px; color: var(--accent-purple);">
-                                    <i data-lucide="gem" style="width: 16px; height: 16px;"></i>
-                                    <span class="item-detail-value" style="color: var(--accent-purple);">${money(collector.totalPatrimonio)}</span>
-                                </div>
-                            </div>
-                            <div class="item-tags">
-                                <div class="item-status-tag" style="background-color: ${status.color}20; color: ${status.color};">
-                                    <i data-lucide="${status.icon}" style="width: 14px; height: 14px;"></i>
-                                    <span data-lang-key="${status.textKey}"></span>
-                                </div>
-                                <div class="tracking-tag ${isTrackingActive ? 'available' : 'unavailable'}">
-                                    <i data-lucide="${isTrackingActive ? 'map' : 'wifi-off'}" style="width: 14px; height: 14px;"></i>
-                                    <span data-lang-key="${isTrackingActive ? 'trackingAvailable' : 'trackingUnavailable'}"></span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                `;
-            }).join('');
-            lucide.createIcons({nodes: listContainer.querySelectorAll('[data-lucide]')});
-            applyLanguage(currentLang);
-        }
+             
 
 
 
@@ -5224,8 +5246,9 @@ async function submitCollectorReport(collectorId) {
 
             const t = translations[currentLang];
             
-            // Calculamos el fondo de seguro disponible (GLOBAL)
-            const availableInsurance = calculatedGlobalMetrics.availableInsuranceFund || 0;
+            const availableInsurance = (typeof calculatedGlobalMetrics !== 'undefined' && calculatedGlobalMetrics.availableInsuranceFund) 
+                ? calculatedGlobalMetrics.availableInsuranceFund 
+                : 0;
 
             modal.innerHTML = `
             <div class="modal-content" style="max-width: 400px;">
@@ -5233,42 +5256,41 @@ async function submitCollectorReport(collectorId) {
 
                 <h3 style="margin-bottom: 15px; text-align: center;">${t.registerSettlement}</h3>
                 
-                <!-- SELECTOR DE TIPO DE RETIRO -->
                 <div style="background-color: var(--bg); padding: 10px; border-radius: 8px; margin-bottom: 20px; display: flex; gap: 10px;">
                     <label style="flex: 1; cursor: pointer;">
                         <input type="radio" name="settlement-type" value="capital" checked style="display: none;">
                         <div class="type-btn active" style="text-align: center; padding: 10px; border-radius: 6px; border: 1px solid var(--accent-green); color: var(--accent-green); font-weight: 600;">
-                            Capital em Mãos
+                            ${t.capitalOnHandLabel}
                             <div style="font-size: 0.8em; margin-top: 2px;">${money(currentCapitalOnHand)}</div>
                         </div>
                     </label>
                     <label style="flex: 1; cursor: pointer;">
                         <input type="radio" name="settlement-type" value="insurance" style="display: none;">
                         <div class="type-btn" style="text-align: center; padding: 10px; border-radius: 6px; border: 1px solid var(--border-color); color: var(--text-secondary);">
-                            Micro Seguro
+                            ${t.microInsuranceLabelSimple}
                             <div style="font-size: 0.8em; margin-top: 2px;">${money(availableInsurance)}</div>
                         </div>
                     </label>
                 </div>
 
                 <div class="form-group">
-                    <label for="settlement-amount">Valor a Retirar:</label>
+                    <label for="settlement-amount">${t.valToWithdraw}:</label>
                     <input type="number" id="settlement-amount" step="0.01" placeholder="0.00" required style="font-size: 1.5em; text-align: center; padding: 15px;">
                 </div>
 
                 <div class="form-group">
-                    <label for="settlement-notes">Observações (Opcional):</label>
-                    <textarea id="settlement-notes" rows="2" placeholder="Ex: Referente à cobrança de hoje..."></textarea>
+                    <label for="settlement-notes">${t.obsOptional}:</label>
+                    <textarea id="settlement-notes" rows="2" placeholder="..."></textarea>
                 </div>
 
                 <div style="display: flex; gap: 10px; justify-content: center; margin-top: 25px;">
-                    <button class="btn-secondary" id="cancel-settlement-btn" style="flex-grow: 1;">Cancelar</button>
-                    <button class="btn-primary" id="confirm-settlement-btn" style="flex-grow: 1;">Confirmar Registro</button>
+                    <button class="btn-secondary" id="cancel-settlement-btn" style="flex-grow: 1;">${t.cancel}</button>
+                    <!-- BOTÓN MORADO AQUÍ -->
+                    <button class="btn-primary" id="confirm-settlement-btn" style="flex-grow: 1; background-color: var(--accent-purple); border-color: var(--accent-purple);">${t.confirmRegister}</button>
                 </div>
             </div>
             `;
 
-            // Lógica visual del selector
             const radioBtns = modal.querySelectorAll('input[name="settlement-type"]');
             const typeDivs = modal.querySelectorAll('.type-btn');
             
@@ -5304,7 +5326,8 @@ async function submitCollectorReport(collectorId) {
 
             confirmBtn.addEventListener('click', async () => {
                 const amount = parseFloat(amountInput.value);
-                const type = document.querySelector('input[name="settlement-type"]:checked').value;
+                const typeInput = document.querySelector('input[name="settlement-type"]:checked');
+                const type = typeInput ? typeInput.value : 'capital';
                 
                 if (isNaN(amount) || amount <= 0) {
                     showToast('Por favor, insira um valor válido.', true);
@@ -5312,16 +5335,14 @@ async function submitCollectorReport(collectorId) {
                 }
                 
                 confirmBtn.disabled = true;
-                confirmBtn.innerHTML = `<i data-lucide="loader-circle" style="animation: spin 1s linear infinite;"></i> Registrando...`;
+                confirmBtn.innerHTML = `<i data-lucide="loader-circle" style="animation: spin 1s linear infinite;"></i>...`;
                 lucide.createIcons({ nodes: [confirmBtn.querySelector('i')] });
 
                 try {
-                    // Datos comunes para ambos casos
                     const noteText = notesInput.value.trim();
                     const adminUserId = auth.currentUser ? auth.currentUser.uid : 'admin_manual';
 
                     if (type === 'capital') {
-                        // === 1. RETIRO NORMAL ===
                         await addDoc(collection(db, 'companies', currentCompanyId, 'settlements'), {
                             collectorId: collectorId,
                             collectorName: collectorName, 
@@ -5330,12 +5351,9 @@ async function submitCollectorReport(collectorId) {
                             date: serverTimestamp(), 
                             adminId: adminUserId, 
                             status: 'approved',
-                            type: 'capital' // Tipo Capital
+                            type: 'capital'
                         });
-                    
                     } else {
-                        // === 2. RETIRO DE SEGURO ===
-                        // A) Guardar en la colección especial de seguros (Para restar del saldo disponible)
                         await addDoc(collection(db, 'companies', currentCompanyId, 'insuranceWithdrawals'), {
                             collectorId: collectorId,
                             amount: amount,
@@ -5344,9 +5362,6 @@ async function submitCollectorReport(collectorId) {
                             note: `Retirada via ${collectorName} - ${noteText}`,
                             type: 'insurance'
                         });
-                        
-                        // B) Guardar en 'settlements' (Para que salga en el historial visual)
-                        // IMPORTANTE: type: 'insurance' hace que la función 'calculateCollectorMetrics' lo ignore
                         await addDoc(collection(db, 'companies', currentCompanyId, 'settlements'), {
                             collectorId: collectorId,
                             collectorName: collectorName,
@@ -5355,80 +5370,78 @@ async function submitCollectorReport(collectorId) {
                             date: serverTimestamp(),
                             adminId: adminUserId,
                             status: 'approved',
-                            type: 'insurance' // Tipo Insurance
+                            type: 'insurance' 
                         });
                     }
 
-                    showToast('Retirada registrada com sucesso!');
+                    // Usamos 'purple' para que salga lila
+                    showToast('Retirada registrada com sucesso!', 'purple');
                     closeModal();
                 } catch (error) {
-                    console.error("Erro ao registrar retirada:", error);
-                    showToast('Erro ao salvar a retirada.', true);
+                    console.error("Erro:", error);
+                    showToast('Erro ao salvar.', true);
                     confirmBtn.disabled = false;
-                    confirmBtn.innerHTML = `Confirmar Registro`;
+                    confirmBtn.innerHTML = t.confirmRegister;
                 }
             });
         }
+        // --- FIN DE LA FUNCIÓN ---
 
 
-        function showCapitalInjectionModal(collectorId, collectorName) {
-            // Reutilizamos el modal overlay genérico 'reportOptionsModal'
+         function showCapitalInjectionModal(collectorId, collectorName) {
             const modal = document.getElementById('reportOptionsModal');
-            modal.classList.add('active'); // Muestra el overlay oscuro
+            modal.classList.add('active'); 
+
+            const t = translations[currentLang];
 
             modal.innerHTML = `
             <div class="modal-content" style="max-width: 400px;">
                 <button class="close-modal-btn" style="position: absolute; top: 10px; right: 10px; background: none; border: none; font-size: 24px; color: var(--text-secondary);">&times;</button>
 
-                <h3 style="margin-bottom: 15px; text-align: center;" data-lang-key="aportarCapital"></h3>
+                <h3 style="margin-bottom: 15px; text-align: center;">${t.aportarCapital}</h3>
                 <p style="text-align: center; color: var(--text-secondary); margin-bottom: 25px;">
                     Para: <strong>${collectorName}</strong>
                 </p>
 
                 <div class="form-group">
-                    <label for="injection-amount">Valor a Aportar (Injetar):</label>
+                    <label for="injection-amount">${t.valToInject}:</label>
                     <input type="number" id="injection-amount" step="0.01" placeholder="0.00" required style="font-size: 1.5em; text-align: center; padding: 15px;">
                 </div>
 
                 <div class="form-group">
-                    <label for="injection-notes">Observações (Opcional):</label>
-                    <textarea id="injection-notes" rows="2" placeholder="Ex: Adiantamento para despesas..."></textarea>
+                    <label for="injection-notes">${t.obsOptional}:</label>
+                    <textarea id="injection-notes" rows="2" placeholder="..."></textarea>
                 </div>
 
                 <div style="display: flex; gap: 10px; justify-content: center; margin-top: 25px;">
-                    <button class="btn-secondary" id="cancel-injection-btn" style="flex-grow: 1;">Cancelar</button>
-                    <button class="btn-primary" id="confirm-injection-btn" style="flex-grow: 1; background-color: var(--accent-green); border-color: var(--accent-green);">Confirmar Aporte</button>
+                    <button class="btn-secondary" id="cancel-injection-btn" style="flex-grow: 1;">${t.cancel}</button>
+                    <!-- BOTÓN VERDE AQUÍ -->
+                    <button class="btn-primary" id="confirm-injection-btn" style="flex-grow: 1; background-color: var(--accent-green); border-color: var(--accent-green);">${t.confirmInjection}</button>
                 </div>
             </div>
             `;
             
-            applyLanguage(currentLang); // Para el título del modal
             lucide.createIcons({ nodes: modal.querySelectorAll('[data-lucide]') });
 
-            // --- Lógica de los Botones del Modal ---
             const confirmBtn = modal.querySelector('#confirm-injection-btn');
             const cancelBtn = modal.querySelector('#cancel-injection-btn');
             const closeModalBtn = modal.querySelector('.close-modal-btn');
             const amountInput = modal.querySelector('#injection-amount');
             const notesInput = modal.querySelector('#injection-notes');
 
-            // Cerrar modal
             const closeModal = () => modal.classList.remove('active');
             cancelBtn.addEventListener('click', closeModal);
             closeModalBtn.addEventListener('click', closeModal);
 
-            // Confirmar y Guardar
             confirmBtn.addEventListener('click', async () => {
                 const amount = parseFloat(amountInput.value);
                 if (isNaN(amount) || amount <= 0) {
                     showToast('Por favor, insira um valor válido.', true);
-                    amountInput.style.borderColor = 'var(--danger-color)';
-                    setTimeout(() => { amountInput.style.borderColor = ''; }, 2000);
                     return;
                 }
 
                 confirmBtn.disabled = true;
-                confirmBtn.innerHTML = `<i data-lucide="loader-circle" style="animation: spin 1s linear infinite;"></i> Registrando...`;
+                confirmBtn.innerHTML = `<i data-lucide="loader-circle" style="animation: spin 1s linear infinite;"></i>...`;
                 lucide.createIcons({ nodes: [confirmBtn.querySelector('i')] });
 
                 const injectionData = {
@@ -5438,22 +5451,19 @@ async function submitCollectorReport(collectorId) {
                     notes: notesInput.value.trim(),
                     date: serverTimestamp(),
                     adminId: auth.currentUser ? auth.currentUser.uid : 'admin_manual',
-                    status: 'approved' // Aportes de capital se aprueban automáticamente
+                    status: 'approved' 
                 };
 
                 try {
-                    // Añade el documento a la colección 'capitalInjections'
                     await addDoc(collection(db, 'companies', currentCompanyId, 'capitalInjections'), injectionData);
-                    showToast('Aporte de capital registrado com sucesso!');
+                    // Usamos 'success' para que salga verde
+                    showToast('Aporte de capital registrado com sucesso!', 'success');
                     closeModal();
-                    // El listener 'onSnapshot' de 'capitalInjections' (línea 586)
-                    // detectará este cambio y llamará a 'checkAndRunGlobalUpdate',
-                    // que recalculará toda la contabilidad automáticamente.
                 } catch (error) {
-                    console.error("Erro ao registrar aporte de capital:", error);
-                    showToast('Erro ao salvar o aporte.', true);
+                    console.error("Erro:", error);
+                    showToast('Erro ao salvar.', true);
                     confirmBtn.disabled = false;
-                    confirmBtn.innerHTML = `Confirmar Aporte`;
+                    confirmBtn.innerHTML = t.confirmInjection;
                 }
             });
         }
@@ -5589,30 +5599,221 @@ async function submitCollectorReport(collectorId) {
                 return 'Erro Formato';
             }
         }
-        // --- [FIN MODIFICACIÓN: FUNCIÓN DE AYUDA PARA FECHAS] ---
 
+              function updateDashboard() {
+            const kpiActiveCollectors = document.getElementById('kpi-active-collectors');
+            const kpiActiveClients = document.getElementById('kpi-active-clients');
+            const kpiGlobalPatrimonio = document.getElementById('kpi-global-patrimonio');
+            const kpiGlobalDistributed = document.getElementById('kpi-global-distributed');
+            const kpiGlobalCapitalOnHand = document.getElementById('kpi-global-capital-on-hand');
+            const kpiGlobalMicroInsurance = document.getElementById('kpi-global-micro-insurance');
 
-
-        function updateProfileView() {
-            // --- [INICIO MODIFICACIÓN: ARREGLAR "PLANO ATUAL"] ---
+            if(!kpiActiveCollectors) return; 
             
-            // 1. Seleccionamos los elementos del "Plano Atual"
-            const planTypeElement = document.getElementById('plan-info-type');
-            const planCollectorsElement = document.getElementById('plan-info-collectors');
-            const planStartDateElement = document.getElementById('plan-info-start-date'); // <-- NUEVO
-            const planEndDateElement = document.getElementById('plan-info-end-date'); // <-- NUEVO
+            const {
+                activeCollectorsCount = 0,
+                activeClientsCount = 0,
+                sumGlobalDistributed = 0,
+                sumGlobalPatrimonio = 0,
+                sumGlobalCapitalOnHand = 0,
+                availableInsuranceFund = 0 
+            } = calculatedGlobalMetrics;
 
-            // Verificamos que los elementos existan
-            if (!planTypeElement || !planCollectorsElement || !planStartDateElement || !planEndDateElement) {
-                 console.log("Vista de Perfil no activa o elementos del plan no encontrados. Saltando actualización de Perfil.");
-                 return;
+            if (kpiGlobalPatrimonio) kpiGlobalPatrimonio.textContent = money(sumGlobalPatrimonio);
+            if (kpiGlobalDistributed) kpiGlobalDistributed.textContent = money(sumGlobalDistributed);
+            if (kpiGlobalCapitalOnHand) kpiGlobalCapitalOnHand.textContent = money(sumGlobalCapitalOnHand);
+            if (kpiGlobalMicroInsurance) kpiGlobalMicroInsurance.textContent = money(availableInsuranceFund);
+            
+            kpiActiveCollectors.textContent = activeCollectorsCount;
+            kpiActiveClients.textContent = activeClientsCount;
+
+            const listContainer = document.getElementById('collectors-list');
+            if(!listContainer) return;
+
+            const searchInput = document.getElementById('collector-search-input');
+            const searchTerm = searchInput ? searchInput.value.toLowerCase() : '';
+            const activeStatusFilter = document.querySelector('#dashboard-view .filter-btn[data-filter].active');
+            const statusFilter = activeStatusFilter ? activeStatusFilter.dataset.filter : 'all';
+            const activeSortBtn = document.querySelector('#dashboard-view .filter-btn[data-sort].active');
+            const sortBy = activeSortBtn ? activeSortBtn.dataset.sort : null;
+            
+            let filteredCollectors = allCollectors.filter(collector => 
+                collector.name.toLowerCase().includes(searchTerm)
+            );
+            
+            if (statusFilter !== 'all') {
+                if (statusFilter === 'trackingUnavailable') {
+                    filteredCollectors = filteredCollectors.filter(collector => !collector.isRealtimeTrackingActive);
+                } else {
+                    filteredCollectors = filteredCollectors.filter(collector => {
+                        const status = calculateCollectorStatus(collector.id); 
+                        return status.textKey === statusFilter;
+                    });
+                }
+            }
+            
+            let collectorsWithData = filteredCollectors.map(collector => {
+                const metrics = calculatedCollectorMetrics.get(collector.id) || { capitalOnHand: 0, totalClientsCount: 0, activeClientsCount: 0, totalPatrimonio: 0 };
+                
+                // --- CONTAR ALERTAS/NOTAS ACTIVAS ---
+                const collectorClients = allClients.filter(c => c.collectorId === collector.id);
+                let alertsCount = 0;
+                collectorClients.forEach(c => {
+                    (c.loans || []).forEach(l => {
+                        if (l.status !== 'finished' && l.notes && l.notes.trim() !== '') {
+                            alertsCount++;
+                        }
+                    });
+                });
+                // ------------------------------------
+
+                return { 
+                    ...collector, 
+                    capitalOnHand: metrics.capitalOnHand,
+                    totalPatrimonio: metrics.totalPatrimonio,
+                    clientCount: metrics.activeClientsCount !== undefined ? metrics.activeClientsCount : metrics.totalClientsCount,
+                    alertsCount: alertsCount 
+                };
+            });
+            
+            if (sortBy === 'capital') {
+                collectorsWithData.sort((a, b) => b.totalPatrimonio - a.totalPatrimonio);
             }
 
-            // 2. Eliminamos toda la lógica de "Finanças Globais" (kpi-distributed-capital, etc.)
-            //    ya que esa sección fue eliminada del HTML del perfil en renderMainLayout.
+            if (collectorsWithData.length === 0) {
+                listContainer.innerHTML = `<p>Nenhum cobrador encontrado.</p>`;
+                return;
+            }
 
-            // 3. Lógica del Plan (Ahora con fechas)
-            if (currentCompanyData && currentCompanyData.plan) {
+            listContainer.innerHTML = collectorsWithData.map(collector => {
+                const placeholderUrl = `https://placehold.co/96x96/0f172a/FFFFFF?text=${(collector.name || 'C').charAt(0)}`;
+                const status = calculateCollectorStatus(collector.id); 
+                const isTrackingActive = collector.isRealtimeTrackingActive;
+
+                // LÓGICA VISUAL DE LA CAMPANITA (Siempre visible)
+                const hasAlerts = collector.alertsCount > 0;
+                const bellBg = hasAlerts ? '#fef2f2' : 'var(--bg)'; // Rojo suave o Gris fondo
+                const bellBorder = hasAlerts ? '#fca5a5' : 'var(--border-color)'; // Borde rojo o gris
+                const bellColor = hasAlerts ? '#dc3545' : 'var(--text-secondary)'; // Icono rojo o gris
+                const bellFill = hasAlerts ? '#dc3545' : 'none'; // Relleno solo si hay alerta
+                const countWeight = hasAlerts ? '700' : '500';
+
+                return `
+                    <div class="collector-card" data-collector-id="${collector.id}">
+                        <div class="item-avatar">
+                            <img src="${collector.profilePictureUrl || placeholderUrl}" alt="Foto do Cobrador">
+                        </div>
+                        <div class="collector-card-main">
+                            <div class="collector-card-top">
+                                <div class="item-info">
+                                    <h4 class="item-name">${collector.name}</h4>
+                                    <p class="item-subtext">${collector.clientCount} <span data-lang-key="activeClients"></span></p>
+                                </div>
+                                
+                                <!-- INDICADOR DE ALERTAS (SIEMPRE VISIBLE) -->
+                                <div style="display: flex; align-items: center; background-color: ${bellBg}; padding: 4px 8px; border-radius: 12px; border: 1px solid ${bellBorder}; margin-right: 10px;">
+                                    <i data-lucide="bell" style="width: 14px; height: 14px; color: ${bellColor}; fill: ${bellFill};"></i>
+                                    <span style="font-size: 0.8em; font-weight: ${countWeight}; color: ${bellColor}; margin-left: 4px;">${collector.alertsCount}</span>
+                                </div>
+                                <!-- FIN CAMPANITA -->
+
+                                <div class="item-details" style="display: flex; align-items: center; gap: 6px; color: var(--accent-purple);">
+                                    <i data-lucide="gem" style="width: 16px; height: 16px;"></i>
+                                    <span class="item-detail-value" style="color: var(--accent-purple);">${money(collector.totalPatrimonio)}</span>
+                                </div>
+                            </div>
+                            <div class="item-tags">
+                                <div class="item-status-tag" style="background-color: ${status.color}20; color: ${status.color};">
+                                    <i data-lucide="${status.icon}" style="width: 14px; height: 14px;"></i>
+                                    <span data-lang-key="${status.textKey}"></span>
+                                </div>
+                                <div class="tracking-tag ${isTrackingActive ? 'available' : 'unavailable'}">
+                                    <i data-lucide="${isTrackingActive ? 'map' : 'wifi-off'}" style="width: 14px; height: 14px;"></i>
+                                    <span data-lang-key="${isTrackingActive ? 'trackingAvailable' : 'trackingUnavailable'}"></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            lucide.createIcons({nodes: listContainer.querySelectorAll('[data-lucide]')});
+            applyLanguage(currentLang);
+        }
+
+
+
+
+
+
+
+
+            function updateProfileView(collectorData = null) {
+            // --- 1. ELEMENTOS FINANCIEROS (KPIs) ---
+            const dailyTotalEl = document.getElementById('kpi-daily-total');
+            const capitalTotalEl = document.getElementById('kpi-capital-total');
+            const dailyCashEl = document.getElementById('kpi-daily-cash');
+            const dailyDigitalEl = document.getElementById('kpi-daily-digital');
+            const totalFinesEl = document.getElementById('kpi-total-fines'); // Tarjeta de Multas
+
+            // --- 2. ELEMENTOS DEL PLAN ---
+            const planTypeElement = document.getElementById('plan-info-type');
+            const planCollectorsElement = document.getElementById('plan-info-collectors');
+            const planStartDateElement = document.getElementById('plan-info-start-date');
+            const planEndDateElement = document.getElementById('plan-info-end-date');
+
+            // --- 3. CÁLCULOS FINANCIEROS (GLOBALES) ---
+            let dailyTotal = 0;
+            let dailyTotalCash = 0;
+            let dailyTotalDigital = 0;
+            let totalActiveFines = 0;
+
+            // Usamos la fecha de hoy para filtrar lo recaudado hoy
+            const today = new Date();
+            const isSameDate = (d1, d2) => 
+                d1.getDate() === d2.getDate() &&
+                d1.getMonth() === d2.getMonth() &&
+                d1.getFullYear() === d2.getFullYear();
+
+            // Iteramos todos los clientes para sumar pagos de hoy y multas activas
+            allClients.forEach(client => {
+                (client.loans || []).forEach(loan => {
+                    // A. Sumar Pagos de Hoy
+                    (loan.history || []).forEach(h => {
+                        if (h.status !== 'pending_verification' && h.status !== 'rejected' && h.status !== 'postponed' && h.method !== 'migration') {
+                            let pDate = null;
+                            if (h.date?.seconds) pDate = new Date(h.date.seconds * 1000);
+                            else if (h.date instanceof Date) pDate = h.date;
+                            
+                            if (pDate && isSameDate(pDate, today)) {
+                                const amt = h.amount || 0;
+                                dailyTotal += amt;
+                                if (h.method === 'dinheiro') dailyTotalCash += amt;
+                                else dailyTotalDigital += amt;
+                            }
+                        }
+                    });
+
+                    // B. Sumar Multas Activas
+                    const details = calculateLoanDetails(loan);
+                    if (details.hasFixedFine && details.fixedFineApplied > 0) {
+                        totalActiveFines += details.fixedFineApplied;
+                    }
+                });
+            });
+
+            // Actualizar DOM Financiero (Si los elementos existen en la vista)
+            if (dailyTotalEl) dailyTotalEl.textContent = money(dailyTotal);
+            if (dailyCashEl) dailyCashEl.textContent = money(dailyTotalCash);
+            if (dailyDigitalEl) dailyDigitalEl.textContent = money(dailyTotalDigital);
+            if (totalFinesEl) totalFinesEl.textContent = money(totalActiveFines);
+            
+            // Capital en Manos (Usamos la métrica global ya calculada)
+            if (capitalTotalEl && calculatedGlobalMetrics && calculatedGlobalMetrics.sumGlobalCapitalOnHand !== undefined) {
+                capitalTotalEl.textContent = money(calculatedGlobalMetrics.sumGlobalCapitalOnHand);
+            }
+
+            // --- 4. LÓGICA DEL PLAN ---
+            if (planTypeElement && currentCompanyData && currentCompanyData.plan) {
                 const plan = currentCompanyData.plan; 
                 const planTypeText = plan.type === 'pro' ? `PRO (${plan.plan || 'N/A'})` : 'DEMO';
                 planTypeElement.textContent = planTypeText; 
@@ -5636,30 +5837,18 @@ async function submitCollectorReport(collectorId) {
                     planCollectorsElement.style.fontWeight = '';
                 }
                 
-                // --- [INICIO DE LA CORRECCIÓN (Data de Início)] ---
-                // Leemos 'currentCompanyData.createdAt' (fecha de creación de la empresa)
-                // en lugar de 'plan.startDate' (que no existe).
                 planStartDateElement.textContent = formatSimpleDate(currentCompanyData.createdAt);
-                // 'plan.endDate' está correcto, lo dejamos como está.
                 planEndDateElement.textContent = formatSimpleDate(plan.endDate);
-                // --- [FIN DE LA CORRECCIÓN] ---
-
-            } else {
+            } else if (planTypeElement) {
                 planTypeElement.textContent = 'Não definido';
                 planCollectorsElement.textContent = `${allCollectors.length} / ?`;
                 planStartDateElement.textContent = '--';
                 planEndDateElement.textContent = '--';
             }
-            // --- [FIN MODIFICACIÓN: ARREGLAR "PLANO ATUAL"] ---
         }
 
-
-
         
-    
 
-
-        
         // REEMPLAZA ESTA FUNCIÓN COMPLETA (BLOQUE 5)
         // REEMPLAZA ESTA FUNCIÓN COMPLETA (BLOQUE 5 - Con Traducción Micro Seguro)
         function showClientDetails(clientId, loanIndex = 0) { 
@@ -7301,7 +7490,8 @@ function setupEventListeners() {
                 const langDropdown = document.getElementById('lang-dropdown');
                 if (langDropdown) langDropdown.style.display = 'none';
                 
-                showToast(`Idioma alterado para: ${langBtn.textContent.trim()}`);
+                // Usamos 'blue' para que el mensaje salga azul bonito
+                showToast(`Idioma alterado para: ${langBtn.textContent.trim()}`, 'blue');
             }
                 
 
@@ -7786,141 +7976,115 @@ async function showRefinanceVerificationModal(clientId) {
 
 
         
-        function init() {
-    document.body.classList.add('dark-mode');
+                function init() {
+            document.body.classList.add('dark-mode');
+            
+            // APLICAR IDIOMA INMEDIATAMENTE PARA EL LOGIN
+            applyLanguage(currentLang);
 
-    // Lógica del Banner de Instalación PWA (se queda igual)
-    window.addEventListener('beforeinstallprompt', (e) => {
-        e.preventDefault();
-        deferredPrompt = e;
-        const installBanner = document.getElementById('install-banner');
-        if (installBanner) {
-            installBanner.style.display = 'block';
-            applyLanguage(currentLang); // Aplica el idioma al nuevo contenido
+            // Lógica del Banner de Instalación PWA
+            window.addEventListener('beforeinstallprompt', (e) => {
+                e.preventDefault();
+                deferredPrompt = e;
+                const installBanner = document.getElementById('install-banner');
+                if (installBanner) {
+                    installBanner.style.display = 'block';
+                    applyLanguage(currentLang); 
+                }
+            });
+            const installBtn = document.getElementById('install-btn');
+            if (installBtn) {
+                installBtn.addEventListener('click', async () => {
+                    const installBanner = document.getElementById('install-banner');
+                    if (installBanner) installBanner.style.display = 'none';
+                    if (deferredPrompt) {
+                        deferredPrompt.prompt();
+                        const { outcome } = await deferredPrompt.userChoice;
+                        console.log(`User response to the install prompt: ${outcome}`);
+                        deferredPrompt = null;
+                    }
+                });
+            }
+            const closeInstallBtn = document.getElementById('close-install-banner');
+            if (closeInstallBtn) {
+                closeInstallBtn.addEventListener('click', () => {
+                    const installBanner = document.getElementById('install-banner');
+                    if (installBanner) installBanner.style.display = 'none';
+                });
+            }
+
+            const splash = document.getElementById('splash-screen');
+
+            onAuthStateChanged(auth, async (user) => {
+                splash.style.opacity = '0';
+                setTimeout(() => {
+                    splash.style.display = 'none';
+                }, 500);
+
+                if (user) {
+                    try {
+                        console.log("Verificando permissões do admin...");
+                        const tokenResult = await user.getIdTokenResult(true); 
+                        const claims = tokenResult.claims;
+
+                        console.log("Claims (permissões) do usuário:", claims);
+
+                        if (claims.role !== 'admin' || !claims.companyId) {
+                            const errorMsg = "Sua conta não tem permissões de administrador. Contate o suporte.";
+                            console.error(errorMsg, claims);
+                            showBlockedView(errorMsg); 
+                            await signOut(auth); 
+                            return; 
+                        }
+
+                        currentCompanyId = claims.companyId; 
+                        console.log("Admin verificado. Company ID:", currentCompanyId);
+
+                        const companyRef = doc(db, 'companies', currentCompanyId);
+                        const companySnap = await getDoc(companyRef); 
+
+                        if (!companySnap.exists()) {
+                            const errorMsg = `Erro crítico: A empresa com ID (${currentCompanyId}) não foi encontrada no banco de dados.`;
+                            console.error(errorMsg);
+                            showBlockedView(errorMsg);
+                            await signOut(auth);
+                            return;
+                        }
+
+                        currentCompanyData = companySnap.data(); 
+
+                        if (currentCompanyData.status === 'suspended') {
+                            const errorMsg = `A conta da sua empresa (${currentCompanyData.name}) está suspensa. Entre em contato com o suporte para reativar seu serviço.`;
+                            console.warn(errorMsg);
+                            showBlockedView(errorMsg); 
+                            return;
+                        }
+
+                        console.log(`Acesso concedido para: ${currentCompanyData.name} (Status: ${currentCompanyData.status})`);
+                        document.getElementById('login-view').style.display = 'none';
+
+                        globalSettings = currentCompanyData; 
+                        loadGlobalSettings(globalSettings); 
+                        updateSettingsForm(globalSettings);
+
+                        showMainApp(); 
+
+                    } catch (error) {
+                        console.error("Erro crítico durante a verificação de acesso:", error);
+                        showBlockedView(`Ocorreu um erro ao verificar sua conta: ${error.message}`);
+                        await signOut(auth);
+                    }
+
+                } else {
+                    document.getElementById('app-container').style.display = 'none';
+                    document.getElementById('login-view').style.display = 'flex';
+                    const loginForm = document.getElementById('login-form');
+                    if (loginForm) { 
+                        loginForm.addEventListener('submit', handleLogin);
+                    }
+                }
+            });
         }
-    });
-    const installBtn = document.getElementById('install-btn');
-    if (installBtn) {
-        installBtn.addEventListener('click', async () => {
-            const installBanner = document.getElementById('install-banner');
-            if (installBanner) installBanner.style.display = 'none';
-            if (deferredPrompt) {
-                deferredPrompt.prompt();
-                const { outcome } = await deferredPrompt.userChoice;
-                console.log(`User response to the install prompt: ${outcome}`);
-                deferredPrompt = null;
-            }
-        });
-    }
-    const closeInstallBtn = document.getElementById('close-install-banner');
-    if (closeInstallBtn) {
-        closeInstallBtn.addEventListener('click', () => {
-            const installBanner = document.getElementById('install-banner');
-            if (installBanner) installBanner.style.display = 'none';
-        });
-    }
-
-    // Lógica de Global Settings (se queda igual)
-    
-
-    // --- ¡AQUÍ ESTÁ EL GRAN CAMBIO! ---
-    // Quitamos el setTimeout y usamos onAuthStateChanged.
-    // Esto escucha si el usuario está logueado o no CADA VEZ que se carga la app.
-    const splash = document.getElementById('splash-screen');
-
-    
-    onAuthStateChanged(auth, async (user) => {
-    // Ocultamos el splash AHORA
-    splash.style.opacity = '0';
-    setTimeout(() => {
-        splash.style.display = 'none';
-    }, 500);
-
-    if (user) {
-        // ¡El usuario SÍ está logueado! (Es el admin)
-        // Empezamos la verificación inteligente...
-
-        // PASO 1 (TAREA 1): Verificar permisos (Custom Claims)
-        try {
-            console.log("Verificando permissões do admin...");
-            // Pedimos los permisos "frescos" a Firebase
-            const tokenResult = await user.getIdTokenResult(true); 
-            const claims = tokenResult.claims;
-
-            console.log("Claims (permissões) do usuário:", claims);
-
-            // Verificamos si es un 'admin' y tiene un 'companyId'
-            if (claims.role !== 'admin' || !claims.companyId) {
-                const errorMsg = "Sua conta não tem permissões de administrador. Contate o suporte.";
-                console.error(errorMsg, claims);
-                showBlockedView(errorMsg); // Muestra pantalla de bloqueo
-                await signOut(auth); // Deslogueamos al usuario no autorizado
-                return; // Detenemos la ejecución
-            }
-
-            // ¡Éxito! Guardamos la "llave maestra"
-            currentCompanyId = claims.companyId; 
-            console.log("Admin verificado. Company ID:", currentCompanyId);
-
-            // PASO 2 (TAREA 0): Verificar si la empresa está ACTIVA o SUSPENSA
-            // Usamos la 'llave maestra' (currentCompanyId) para leer el documento de la empresa
-            const companyRef = doc(db, 'companies', currentCompanyId);
-            const companySnap = await getDoc(companyRef); // <-- Usamos la herramienta que importamos
-
-            if (!companySnap.exists()) {
-                const errorMsg = `Erro crítico: A empresa com ID (${currentCompanyId}) não foi encontrada no banco de dados.`;
-                console.error(errorMsg);
-                showBlockedView(errorMsg);
-                await signOut(auth);
-                return;
-            }
-
-            // Guardamos los datos de la empresa (nombre, logo, status)
-            currentCompanyData = companySnap.data(); 
-
-            // ¡LA COMPROBACIÓN DE ESTADO!
-            if (currentCompanyData.status === 'suspended') {
-                const errorMsg = `A conta da sua empresa (${currentCompanyData.name}) está suspensa. Entre em contato com o suporte para reativar seu serviço.`;
-                console.warn(errorMsg);
-                showBlockedView(errorMsg); // Muestra bloqueo
-                // No cerramos sesión, solo bloqueamos la app.
-                return;
-            }
-
-            // ¡TODAS LAS VERIFICACIONES PASARON!
-            console.log(`Acesso concedido para: ${currentCompanyData.name} (Status: ${currentCompanyData.status})`);
-            document.getElementById('login-view').style.display = 'none';
-
-            globalSettings = currentCompanyData; 
-            loadGlobalSettings(globalSettings); 
-            updateSettingsForm(globalSettings);
-
-
-            // Ahora llamamos a la app principal
-            showMainApp(); 
-
-        } catch (error) {
-            console.error("Erro crítico durante a verificação de acesso:", error);
-            showBlockedView(`Ocorreu um erro ao verificar sua conta: ${error.message}`);
-            await signOut(auth);
-        }
-
-    } else {
-        // El usuario NO está logueado (esto no cambia)
-        // Mostramos la pantalla de login
-        document.getElementById('app-container').style.display = 'none';
-        document.getElementById('login-view').style.display = 'flex';
-        // Añadimos el listener para el formulario de login
-        const loginForm = document.getElementById('login-form');
-        if (loginForm) { // Comprobamos si existe antes de añadir
-            loginForm.addEventListener('submit', handleLogin);
-        }
-    }
-});
-
-
-    // --- FIN DEL GRAN CAMBIO ---
-}
 
         // --- HACER FUNCIONES ACCESIBLES DESDE EL MAPA ---
         window.showClientDetails = showClientDetails;
@@ -7929,4 +8093,3 @@ async function showRefinanceVerificationModal(clientId) {
     </script>
 </body>
     </html>
-
