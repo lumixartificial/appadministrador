@@ -1360,7 +1360,28 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
 
         let collectorMarkers = {};
         let deferredPrompt; // Para la instalación de PWA
-        const money = val => (typeof val !== 'number' || isNaN(val)) ? 'R$ 0,00' : val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        const money = val => {
+            const safeVal = (typeof val !== 'number' || isNaN(val)) ? 0 : val;
+            
+            // Buscamos la moneda configurada en la empresa, o usamos BRL por defecto
+            const currencyCode = (typeof currentCompanyData !== 'undefined' && currentCompanyData?.settings?.currency) 
+                                ? currentCompanyData.settings.currency 
+                                : 'BRL';
+            
+            // Mapas de formato regional para que los puntos y comas se vean bien según el país
+            const localeMap = {
+                'USD': 'en-US', // $ 1,000.00
+                'MXN': 'es-MX', // $ 1,000.00
+                'COP': 'es-CO', // $ 1.000,00
+                'ARS': 'es-AR', // $ 1.000,00
+                'CLP': 'es-CL', // $ 1.000
+                'EUR': 'es-ES'  // 1.000,00 €
+            };
+            // Si la moneda no está en la lista, usamos formato brasileño (compatible con la mayoría de latam: 1.000,00)
+            const locale = localeMap[currencyCode] || 'pt-BR'; 
+
+            return safeVal.toLocaleString(locale, { style: 'currency', currency: currencyCode });
+        };
         const DEFAULT_LOGO_URL = "https://firebasestorage.googleapis.com/v0/b/lumix-financas-app.firebasestorage.app/o/LOGO---LUMIX-FINANZAS-REDUCIDO.png?alt=media&token=0b4c34d2-f2e3-44b3-a380-7aadfb9c0991";
 
         // ... código existente ...
@@ -8508,5 +8529,3 @@ async function showRefinanceVerificationModal(clientId) {
     </script>
 </body>
     </html>
-
-
