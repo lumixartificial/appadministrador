@@ -2125,7 +2125,9 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
 
             onSnapshot(collection(db, 'companies', currentCompanyId, 'clients'), snapshot => {
                 allClients = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                 allClients.forEach(client => {
+                 
+                // Procesamiento de datos
+                allClients.forEach(client => {
                     if (!client.loans && client.totalLoan) {
                         client.loans = [{ ...client }];
                     } else if (!client.loans) {
@@ -2141,6 +2143,69 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                 
                 clientsReady = true; 
                 checkAndRunGlobalUpdate(); 
+
+                // 1. ACTUALIZACIÓN EN TIEMPO REAL: CHAT DEL CLIENTE
+                const detailModal = document.getElementById('clientDetailModal');
+                if (detailModal && detailModal.classList.contains('active') && location.hash.startsWith('#client/')) {
+                    const parts = location.hash.split('/');
+                    if (parts.length >= 3) {
+                        const currentClientId = parts[1];
+                        const currentLoanIndex = parseInt(parts[2], 10);
+                        const updatedClient = allClients.find(c => c.id === currentClientId);
+                        
+                        if (updatedClient) {
+                            const contentWrapper = detailModal.querySelector('.modal-content-wrapper');
+                            const scrollPos = contentWrapper ? contentWrapper.scrollTop : 0;
+                            const chatContainer = document.getElementById('chat-history-container');
+                            const chatScrollPos = chatContainer ? chatContainer.scrollTop : 0;
+                            const isChatAtBottom = chatContainer ? (Math.abs(chatContainer.scrollHeight - chatContainer.scrollTop - chatContainer.clientHeight) < 20) : false;
+
+                            showClientDetails(currentClientId, currentLoanIndex);
+
+                            const newWrapper = detailModal.querySelector('.modal-content-wrapper');
+                            if (newWrapper) newWrapper.scrollTop = scrollPos;
+                            const newChatContainer = document.getElementById('chat-history-container');
+                            if (newChatContainer) {
+                                if (isChatAtBottom) newChatContainer.scrollTop = newChatContainer.scrollHeight;
+                                else newChatContainer.scrollTop = chatScrollPos;
+                            }
+                        }
+                    }
+                }
+
+                // 2. ACTUALIZACIÓN EN TIEMPO REAL: PERFIL COBRADOR (ALERTAS / MENSAJES APP)
+                // Esto soluciona que tengas que salir y entrar para ver los mensajes nuevos en la lista
+                const collectorView = document.getElementById('collectorDetailView');
+                if (collectorView && collectorView.classList.contains('active')) {
+                    // Obtenemos el ID del cobrador que se está viendo actualmente
+                    const editBtn = collectorView.querySelector('#editCollectorBtn');
+                    const cId = editBtn ? editBtn.dataset.collectorId : null;
+                    
+                    if (cId) {
+                        // Memorizamos el scroll para que no salte
+                        const wrapper = collectorView.querySelector('.modal-content-wrapper');
+                        const savedScroll = wrapper ? wrapper.scrollTop : 0;
+                        
+                        // Memorizamos lo que estabas buscando en la lupa de alertas
+                        const alertInput = document.getElementById('alert-search-input');
+                        const searchValue = alertInput ? alertInput.value : '';
+
+                        // Repintamos la pantalla con los datos nuevos (mensajes nuevos)
+                        showCollectorDetails(cId);
+
+                        // Restauramos scroll
+                        const newWrapper = collectorView.querySelector('.modal-content-wrapper');
+                        if (newWrapper) newWrapper.scrollTop = savedScroll;
+                        
+                        // Restauramos el texto del buscador y filtramos de nuevo
+                        const newAlertInput = document.getElementById('alert-search-input');
+                        if (newAlertInput && searchValue) {
+                            newAlertInput.value = searchValue;
+                            // Forzamos el evento input para que filtre la lista
+                            newAlertInput.dispatchEvent(new Event('input'));
+                        }
+                    }
+                }
             });
             
             onSnapshot(collection(db, 'companies', currentCompanyId, 'expenses'), snapshot => {
@@ -6153,20 +6218,11 @@ async function submitCollectorReport(collectorId) {
             const chatPlaceholder = currentLang === 'es' ? 'Escribe un mensaje...' : (currentLang === 'en' ? 'Type a message...' : 'Digite uma mensagem...');
             const historyTitle = currentLang === 'es' ? 'Historial de Pagos' : (currentLang === 'en' ? 'Payment History' : 'Histórico de Pagamentos');
             
-            // Obtener historial de mensajes (Array) o fallback si no existe
-            // Si solo hay 'notes' (texto antiguo), lo convertimos visualmente en un mensaje
             let messages = loan.chatHistory || [];
-            
-            // Si no hay historial pero hay nota antigua, la mostramos como mensaje del admin
             if (messages.length === 0 && loan.notes && loan.notes.trim() !== '') {
-                messages.push({
-                    sender: 'admin',
-                    text: loan.notes,
-                    timestamp: new Date() // Fecha aproximada
-                });
+                messages.push({ sender: 'admin', text: loan.notes, timestamp: new Date() });
             }
 
-            // Generar HTML de las burbujas
             const chatBubblesHtml = messages.map(msg => {
                 const isAdmin = msg.sender === 'admin';
                 const time = msg.timestamp ? new Date(msg.timestamp.seconds ? msg.timestamp.seconds * 1000 : msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '';
@@ -6227,13 +6283,12 @@ async function submitCollectorReport(collectorId) {
                         ${docsHtml}
                     </section>
 
-                    <!-- 2. NUEVA SECCIÓN: CHAT (TIPO WHATSAPP) -->
+                    <!-- SECCIÓN CHAT -->
                     <section style="margin-top: 30px; background-color: var(--surface); padding: 15px; border-radius: 12px; border: 1px solid var(--border-color);">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                             <h2 class="section-title" style="border: none; margin: 0; padding: 0; color: var(--accent-blue); font-size: 1.1em;">
                                 <i data-lucide="message-circle" style="width: 20px; height: 20px; vertical-align: middle;"></i> ${chatTitle}
                             </h2>
-                            <!-- BOTÓN PAPELERA (CANASTA) -->
                             <button id="clear-chat-btn" style="background: none; border: none; color: var(--danger-color); cursor: pointer;" title="Borrar Chat">
                                 <i data-lucide="trash-2" style="width: 20px; height: 20px;"></i>
                             </button>
@@ -6265,7 +6320,6 @@ async function submitCollectorReport(collectorId) {
             lucide.createIcons({ nodes: detailModal.querySelectorAll('[data-lucide]') });
             applyLanguage(currentLang);
             
-            // Scroll al fondo del chat
             const chatContainer = document.getElementById('chat-history-container');
             if(chatContainer) chatContainer.scrollTop = chatContainer.scrollHeight;
 
@@ -6279,7 +6333,6 @@ async function submitCollectorReport(collectorId) {
                     const text = chatInput.value.trim();
                     if (!text) return;
 
-                    // Deshabilitar temporalmente
                     chatInput.disabled = true;
                     sendChatBtn.disabled = true;
 
@@ -6289,33 +6342,33 @@ async function submitCollectorReport(collectorId) {
                         const newMessage = {
                             sender: 'admin',
                             text: text,
-                            timestamp: new Date() // Guardamos fecha local, Firestore la convierte
+                            timestamp: new Date()
                         };
 
                         const updatedLoans = JSON.parse(JSON.stringify(client.loans));
-                        
-                        // 1. Inicializar array si no existe
                         if (!updatedLoans[currentLoanIndex].chatHistory) {
                             updatedLoans[currentLoanIndex].chatHistory = [];
                         }
                         
-                        // 2. Agregar mensaje al historial
                         updatedLoans[currentLoanIndex].chatHistory.push(newMessage);
-                        
-                        // 3. Actualizar campo 'notes' para compatibilidad con App Cobrador antigua
-                        updatedLoans[currentLoanIndex].notes = text; 
+                        updatedLoans[currentLoanIndex].notes = text;
 
                         await updateDoc(clientRef, { loans: updatedLoans });
 
-                        // 4. Enviar notificación (Campanita)
+                        // --- TRADUCCIÓN DE NOTIFICACIÓN ---
+                        // "Nuevo mensaje sobre CLIENTE: TEXTO"
+                        let msgPrefix = 'Nova mensagem sobre';
+                        if (currentLang === 'es') msgPrefix = 'Nuevo mensaje sobre';
+                        else if (currentLang === 'en') msgPrefix = 'New message regarding';
+
+                        const notifTitle = currentLang === 'es' ? 'Mensaje del Admin' : (currentLang === 'en' ? 'Admin Message' : 'Mensagem do Admin');
+                        const notifBody = `${msgPrefix} ${client.name}: "${text}"`;
+
                         if (client.collectorId) {
-                            const notifTitle = currentLang === 'es' ? 'Mensaje del Admin' : 'Mensagem do Admin';
-                            await sendNotificationToCollector(client.collectorId, notifTitle, `Nova mensagem sobre ${client.name}: "${text}"`, 'admin_note', 'message-circle', clientId);
+                            await sendNotificationToCollector(client.collectorId, notifTitle, notifBody, 'admin_note', 'message-circle', clientId);
                         }
 
-                        // Limpiar input y re-enfocar
                         chatInput.value = '';
-                        // La UI se actualizará sola gracias al listener onSnapshot, pero podemos forzar scroll
                         setTimeout(() => {
                              const cContainer = document.getElementById('chat-history-container');
                              if(cContainer) cContainer.scrollTop = cContainer.scrollHeight;
@@ -6337,12 +6390,11 @@ async function submitCollectorReport(collectorId) {
                 });
             }
 
-            // Lógica Botón Papelera (Borrar Chat)
             if (clearChatBtn) {
                 clearChatBtn.addEventListener('click', async () => {
                     const confirmed = await showConfirmationModal(
                         currentLang === 'es' ? '¿Borrar Chat?' : 'Limpar Chat?',
-                        currentLang === 'es' ? '¿Estás seguro de borrar todo el historial de mensajes con este cliente?' : 'Tem certeza que deseja apagar todo o histórico de mensagens deste cliente?',
+                        currentLang === 'es' ? '¿Estás seguro de borrar todo el historial de mensajes?' : 'Tem certeza que deseja limpar o histórico?',
                         currentLang === 'es' ? 'Sí, Borrar' : 'Sim, Apagar',
                         'btn-danger'
                     );
@@ -6352,11 +6404,8 @@ async function submitCollectorReport(collectorId) {
                     try {
                         const clientRef = doc(db, 'companies', currentCompanyId, "clients", clientId);
                         const updatedLoans = JSON.parse(JSON.stringify(client.loans));
-                        
-                        // Limpiar historial y notas
                         updatedLoans[currentLoanIndex].chatHistory = [];
                         updatedLoans[currentLoanIndex].notes = "";
-
                         await updateDoc(clientRef, { loans: updatedLoans });
                         showToast(currentLang === 'es' ? 'Chat borrado.' : 'Chat limpo.');
                     } catch (error) {
@@ -6366,58 +6415,31 @@ async function submitCollectorReport(collectorId) {
                 });
             }
 
-            // --- LÓGICA DE VISOR DE IMÁGENES ---
             detailModal.querySelectorAll('.doc-preview-trigger').forEach(trigger => {
                 trigger.addEventListener('click', () => {
                     const url = trigger.dataset.docUrl;
                     const name = trigger.dataset.docName;
                     const isImage = name.toLowerCase().match(/\.(jpeg|jpg|gif|png|webp)$/) || url.includes('alt=media');
-
                     if (isImage) {
                         let viewer = document.getElementById('image-viewer-overlay');
                         if (!viewer) {
                             viewer = document.createElement('div');
                             viewer.id = 'image-viewer-overlay';
-                            viewer.style.cssText = `
-                                position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-                                background-color: rgba(0,0,0,0.95); z-index: 10000;
-                                display: flex; flex-direction: column; justify-content: center; align-items: center;
-                                opacity: 0; transition: opacity 0.3s;
-                            `;
-                            viewer.innerHTML = `
-                                <button id="close-viewer-btn" style="position: absolute; top: 20px; right: 20px; background: rgba(255,255,255,0.2); border: none; color: white; border-radius: 50%; width: 44px; height: 44px; cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 10001;">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-                                </button>
-                                <img id="viewer-img" src="" style="max-width: 100%; max-height: 90vh; object-fit: contain; box-shadow: 0 4px 20px rgba(0,0,0,0.5);">
-                                <p id="viewer-caption" style="color: #ccc; margin-top: 15px; font-family: sans-serif; font-size: 0.9em; text-align: center; padding: 0 10px;"></p>
-                            `;
+                            viewer.style.cssText = `position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.95); z-index: 10000; display: flex; flex-direction: column; justify-content: center; align-items: center; opacity: 0; transition: opacity 0.3s;`;
+                            viewer.innerHTML = `<button id="close-viewer-btn" style="position: absolute; top: 20px; right: 20px; background: rgba(255,255,255,0.2); border: none; color: white; border-radius: 50%; width: 44px; height: 44px; cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 10001;"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button><img id="viewer-img" src="" style="max-width: 100%; max-height: 90vh; object-fit: contain; box-shadow: 0 4px 20px rgba(0,0,0,0.5);"><p id="viewer-caption" style="color: #ccc; margin-top: 15px; font-family: sans-serif; font-size: 0.9em; text-align: center; padding: 0 10px;"></p>`;
                             document.body.appendChild(viewer);
-                            
-                            const closeAction = () => {
-                                viewer.style.opacity = '0';
-                                setTimeout(() => viewer.style.display = 'none', 300);
-                            };
+                            const closeAction = () => { viewer.style.opacity = '0'; setTimeout(() => viewer.style.display = 'none', 300); };
                             viewer.querySelector('#close-viewer-btn').addEventListener('click', closeAction);
-                            viewer.addEventListener('click', (e) => {
-                                if(e.target === viewer || e.target.tagName === 'IMG') closeAction();
-                            });
+                            viewer.addEventListener('click', (e) => { if(e.target === viewer || e.target.tagName === 'IMG') closeAction(); });
                         }
-
                         const img = viewer.querySelector('#viewer-img');
                         const caption = viewer.querySelector('#viewer-caption');
-                        img.src = url;
-                        caption.textContent = name || 'Visualização';
-                        
-                        viewer.style.display = 'flex';
-                        setTimeout(() => { viewer.style.opacity = '1'; }, 10);
-
-                    } else {
-                        window.open(url, '_blank');
-                    }
+                        img.src = url; caption.textContent = name || 'Visualização';
+                        viewer.style.display = 'flex'; setTimeout(() => { viewer.style.opacity = '1'; }, 10);
+                    } else { window.open(url, '_blank'); }
                 });
             });
 
-            // --- LISTENERS GENERALES ---
             detailModal.querySelector('#closeClientDetail').addEventListener('click', () => window.history.back());
             detailModal.querySelector('#editClientBtn').addEventListener('click', () => showClientFormModal(clientId));
             
@@ -6433,7 +6455,7 @@ async function submitCollectorReport(collectorId) {
                     tab.addEventListener('click', (e) => showClientDetails(clientId, parseInt(e.currentTarget.dataset.loanIndex, 10)));
                 });
             }
-        } 
+        }
         
 
 
@@ -6614,7 +6636,7 @@ function updateAdminNotificationsView() {
 
     let notifications = [];
 
-    // 1. Buscar Pagos Pendientes de Verificación
+    // 1. Pagos Pendientes
     allClients.forEach(client => {
         (client.loans || []).forEach((loan, loanIndex) => {
             (loan.history || []).forEach((payment, historyIndex) => {
@@ -6627,15 +6649,31 @@ function updateAdminNotificationsView() {
                         profilePictureUrl: client.profilePictureUrl,
                         amount: payment.amount,
                         loanIndex: loanIndex,
-                        historyIndex: historyIndex,
-                        textKey: 'paymentVerification'
+                        historyIndex: historyIndex
                     });
                 }
             });
+
+            // 2. Mensajes de Chat
+            if (loan.chatHistory && loan.chatHistory.length > 0) {
+                const lastMsg = loan.chatHistory[loan.chatHistory.length - 1];
+                if (lastMsg.sender === 'collector') {
+                    notifications.push({
+                        type: 'message', 
+                        date: lastMsg.timestamp,
+                        clientId: client.id,
+                        clientName: client.name,
+                        profilePictureUrl: client.profilePictureUrl,
+                        amount: 0, 
+                        loanIndex: loanIndex,
+                        messageText: lastMsg.text 
+                    });
+                }
+            }
         });
     });
 
-    // 2. Buscar Liquidaciones Pendientes
+    // 3. Liquidaciones
     allSettlements.forEach(settlement => {
         if (settlement && settlement.status === 'pending_verification') {
             const collector = allCollectors.find(c => c.id === settlement.collectorId);
@@ -6646,13 +6684,12 @@ function updateAdminNotificationsView() {
                 collectorName: settlement.collectorName || collector?.name || 'Desconhecido',
                 profilePictureUrl: collector?.profilePictureUrl,
                 amount: settlement.amount,
-                settlementId: settlement.id,
-                textKey: 'settlementVerification' 
+                settlementId: settlement.id
             });
         }
     });
 
-    // 3. Buscar Solicitudes de Refinanciamiento
+    // 4. Refinanciamientos
     allClients.forEach(client => {
         if (client.refinanceRequest && client.refinanceRequest.status === 'pending') {
              notifications.push({
@@ -6661,13 +6698,16 @@ function updateAdminNotificationsView() {
                 clientId: client.id,
                 clientName: client.name,
                 profilePictureUrl: client.profilePictureUrl,
-                amount: client.refinanceRequest.amount,
-                textKey: 'refinanceRequest'
+                amount: client.refinanceRequest.amount
             });
         }
     });
     
-    notifications.sort((a, b) => (b.date?.seconds || 0) - (a.date?.seconds || 0));
+    notifications.sort((a, b) => {
+        const timeA = a.date?.seconds ? a.date.seconds : (a.date instanceof Date ? a.date.getTime()/1000 : 0);
+        const timeB = b.date?.seconds ? b.date.seconds : (b.date instanceof Date ? b.date.getTime()/1000 : 0);
+        return timeB - timeA;
+    });
 
     badge.textContent = notifications.length;
     badge.style.display = notifications.length > 0 ? 'flex' : 'none';
@@ -6679,8 +6719,12 @@ function updateAdminNotificationsView() {
         
         const t = translations[currentLang];
         
+        // --- TRADUCCIÓN ETIQUETA NUEVO ---
+        let newLabel = 'NOVO';
+        if (currentLang === 'es') newLabel = 'NUEVO';
+        else if (currentLang === 'en') newLabel = 'NEW';
+        
         if (notifications.length === 0) {
-            // CORRECCIÓN CLAVE: Añadido data-lang-key="noNotifications"
             container.innerHTML = `<p class="no-items" style="text-align: center; padding: 20px; color: var(--text-secondary);" data-lang-key="noNotifications">${t.noNotifications}</p>`;
             return;
         }
@@ -6692,23 +6736,43 @@ function updateAdminNotificationsView() {
             const photoUrl = n.profilePictureUrl || placeholderUrl;
             
             let subtitle = '';
+            let iconBadge = '';
             
             if (n.type === 'payment') {
                 subtitle = `${t.notifPaymentMsg} <strong>${money(n.amount)}</strong>. ${t.notifVerifyMsg}`;
+                iconBadge = `<i data-lucide="dollar-sign" style="color: var(--accent-green);"></i>`;
             } else if (n.type === 'settlement') {
                 subtitle = `${t.notifSettlementMsg} <strong>${money(n.amount)}</strong>. ${t.notifApproveMsg}`;
+                iconBadge = `<i data-lucide="arrow-down-circle" style="color: var(--accent-purple);"></i>`;
             } else if (n.type === 'refinance') {
                 subtitle = `${t.notifRefinanceMsg} <strong>${money(n.amount)}</strong>. ${t.notifIdentityMsg}`;
+                iconBadge = `<i data-lucide="refresh-cw" style="color: var(--warning-color);"></i>`;
+            } else if (n.type === 'message') {
+                const msgPreview = n.messageText.length > 50 ? n.messageText.substring(0, 50) + '...' : n.messageText;
+                let timeStr = '';
+                if (n.date) {
+                    const d = n.date.seconds ? new Date(n.date.seconds * 1000) : new Date(n.date);
+                    timeStr = d.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                }
+                
+                subtitle = `<div style="display:flex; justify-content:space-between; align-items:center;">
+                                <span style="font-style: italic; color: var(--text-primary);">"${msgPreview}"</span>
+                                <span style="font-size: 0.75em; color: var(--text-secondary); margin-left: 10px; white-space: nowrap;">${timeStr}</span>
+                            </div>`;
+                iconBadge = `<i data-lucide="message-circle" style="color: var(--accent-blue);"></i>`;
             }
 
             return `
-            <div class="client-card" data-type="${n.type}" data-client-id="${n.clientId || ''}" data-collector-id="${n.collectorId || ''}" data-loan-index="${n.loanIndex || 0}" data-history-index="${n.historyIndex || 0}" data-settlement-id="${n.settlementId || ''}" style="cursor: pointer;">
+            <div class="client-card" data-type="${n.type}" data-client-id="${n.clientId || ''}" data-collector-id="${n.collectorId || ''}" data-loan-index="${n.loanIndex || 0}" data-history-index="${n.historyIndex || 0}" data-settlement-id="${n.settlementId || ''}" style="cursor: pointer; border-left: 4px solid ${n.type === 'message' ? 'var(--accent-blue)' : 'transparent'};">
                 <img src="${photoUrl}" alt="Foto" class="item-avatar" style="width: 48px; height: 48px;">
                 <div class="item-info">
-                    <h4 class="item-name">${name}</h4>
-                    <p class="item-subtext" style="font-size: 0.9em;">${subtitle}</p>
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <h4 class="item-name">${name}</h4>
+                        ${n.type === 'message' ? `<span style="background-color: var(--accent-blue); color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.6em; font-weight: bold;">${newLabel}</span>` : ''}
+                    </div>
+                    <div class="item-subtext" style="font-size: 0.9em;">${subtitle}</div>
                 </div>
-                <i data-lucide="chevron-right" style="color: var(--text-secondary); flex-shrink: 0;"></i>
+                ${iconBadge}
             </div>`;
         }).join('');
         
@@ -7985,13 +8049,20 @@ function setupEventListeners() {
                 }
 
 
-                const notificationCard = target.closest('#admin-notifications-list .client-card');
+                 const notificationCard = target.closest('#admin-notifications-list .client-card');
                 if (notificationCard) {
                     const { type, clientId, collectorId, loanIndex, historyIndex, settlementId } = notificationCard.dataset;
                     
                     if (type === 'payment') {
+                        // Ver detalle de pago
                         showClientDetails(clientId, parseInt(loanIndex, 10));
+                        // Esperar un poco a que cargue y abrir el modal específico si se desea
+                        // showPaymentDetailModal(...) se llama desde la lista de historial
                     } 
+                    else if (type === 'message') {
+                        // IR DIRECTO AL CHAT (Abre la ficha del cliente)
+                        showClientDetails(clientId, parseInt(loanIndex, 10));
+                    }
                     else if (type === 'settlement') {
                         const settlement = allSettlements.find(s => s.id === settlementId);
                         if (settlement) {
@@ -8000,13 +8071,10 @@ function setupEventListeners() {
                             showToast('Erro: Liquidação não encontrada ou já processada.', true);
                         }
                     }
-                    // --- [INICIO DE LA MODIFICACIÓN] ---
                     else if (type === 'refinance') {
-                        // ¡Llama a la nueva función de verificación de refinanciamiento!
                         showRefinanceVerificationModal(clientId);
                     }
-                    // --- [FIN DE LA MODIFICACIÓN] ---
-                }                
+                }               
 
 
             });
@@ -8440,4 +8508,5 @@ async function showRefinanceVerificationModal(clientId) {
     </script>
 </body>
     </html>
+
 
