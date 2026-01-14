@@ -1171,7 +1171,70 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
 }
 /* === FIN: CÓDIGO AÑADIDO (FASE 3 - BLOQUE 1/6) === */
 
-
+          /* === ESTILOS CHAT TIPO WHATSAPP === */
+    .chat-container {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        max-height: 300px;
+        overflow-y: auto;
+        padding: 15px;
+        background-color: #e5ddd5; /* Color fondo WhatsApp clásico */
+        border-radius: 8px;
+        border: 1px solid var(--border-color);
+        margin-bottom: 10px;
+    }
+    body.dark-mode .chat-container {
+        background-color: #2a2f32; /* Fondo oscuro WhatsApp */
+        border-color: #374151;
+    }
+    .chat-bubble {
+        max-width: 80%;
+        padding: 8px 12px;
+        border-radius: 8px;
+        position: relative;
+        font-size: 0.95em;
+        line-height: 1.4;
+        word-wrap: break-word;
+    }
+    .chat-bubble.admin {
+        align-self: flex-end;
+        background-color: #dcf8c6; /* Verde Admin */
+        color: #000;
+        border-top-right-radius: 0;
+    }
+    body.dark-mode .chat-bubble.admin {
+        background-color: #056162;
+        color: #fff;
+    }
+    .chat-bubble.collector {
+        align-self: flex-start;
+        background-color: #ffffff; /* Blanco Cobrador */
+        color: #000;
+        border-top-left-radius: 0;
+    }
+    body.dark-mode .chat-bubble.collector {
+        background-color: #262d31;
+        color: #fff;
+    }
+    .chat-time {
+        font-size: 0.7em;
+        opacity: 0.7;
+        text-align: right;
+        margin-top: 4px;
+        display: block;
+    }
+    .chat-input-area {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+    }
+    .chat-input-area input {
+        flex-grow: 1;
+        border-radius: 20px;
+        padding: 10px 15px;
+        border: 1px solid var(--border-color);
+    }
 
 
     </style>
@@ -2142,15 +2205,15 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
         }
 
         
-             function showCollectorDetails(collectorId) {
+            function showCollectorDetails(collectorId) {
             const detailView = document.getElementById('collectorDetailView');
             const collector = allCollectors.find(c => c.id === collectorId);
             
-            // --- CONECTAR TRADUCCIONES ---
             const t = translations[currentLang] || {}; 
             
             if (!collector) return;
 
+            // Manejo de navegación
             const mapView = document.getElementById('map-view');
             if (mapView && mapView.classList.contains('active')) {
             } else {
@@ -2192,7 +2255,7 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                 });
             });
 
-            // --- LISTA DE CLIENTES ---
+            // --- LISTA DE CLIENTES (Vista General) ---
             let clientsListHtml = '';
             if (clients.length > 0) {
                 const sortedClients = clients.map(client => {
@@ -2302,6 +2365,26 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                         </div>
                     </div>
 
+                    <!-- NUEVA SECCIÓN MEJORADA: GESTIÓN DE MULTAS (CON DÍAS Y VALOR) -->
+                    <div class="kpi-card" style="margin-bottom: 30px; border-color: #f59e0b; background-color: var(--surface);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">
+                            <h3 class="kpi-title" style="color: #f59e0b; margin: 0; font-size: 1em;">
+                                <i data-lucide="gavel"></i> Gestão de Multas
+                            </h3>
+                        </div>
+                        <p style="font-size: 0.85em; color: var(--text-secondary); margin-bottom: 10px;">
+                            Busque um cliente para configurar dias de atraso e valor da multa.
+                        </p>
+                        <div class="search-bar-wrapper" style="margin-bottom: 10px;">
+                            <input type="text" id="fine-manager-search" placeholder="Buscar cliente..." style="padding: 8px 12px 8px 35px; font-size: 0.9em;">
+                            <i class="icon" data-lucide="search" style="width: 16px; left: 10px;"></i>
+                        </div>
+                        <div id="fine-manager-results" style="max-height: 250px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;">
+                            <p style="text-align: center; color: var(--text-secondary); font-size: 0.9em; padding: 10px;">Digite o nome do cliente...</p>
+                        </div>
+                    </div>
+                    <!-- FIN NUEVA SECCIÓN -->
+
                     <h2 class="section-title">Clientes</h2>
                     <div class="item-list">${clientsListHtml}</div>
 
@@ -2311,31 +2394,24 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                     </section>
                 </div>
 
-                <!-- BOTONES DE ACCIÓN (COLORES FORZADOS) -->
+                <!-- BOTONES DE ACCIÓN -->
                 <div class="action-buttons">
-                    <!-- Reporte: Azul Borde -->
                     <button id="download-report-btn" data-collector-id="${collectorId}" class="btn-secondary" style="border: 2px solid #3b82f6; color: #3b82f6; background-color: transparent;">
                         <i data-lucide="file-text"></i> <span data-lang-key="downloadReport">Relatório</span>
                     </button>
-                    
-                    <!-- Retiro: Morado -->
                     <button id="register-settlement-btn" data-collector-id="${collectorId}" class="btn-primary" style="background-color: #8b5cf6; border-color: #8b5cf6; color: white;">
                         <i data-lucide="arrow-down-circle"></i> <span data-lang-key="registerSettlement">Retirada</span>
                     </button>
-                    
-                    <!-- Aporte: Verde -->
                     <button id="add-capital-injection-btn" data-collector-id="${collectorId}" class="btn-primary" style="background-color: #10b981; border-color: #10b981; color: white;">
                         <i data-lucide="arrow-up-circle"></i> <span data-lang-key="aportarCapital">Aporte</span>
                     </button>
-                    
-                    <!-- Desbloquear: Amarillo -->
                     <button id="unlock-app-btn" data-collector-id="${collectorId}" class="btn-primary" style="background-color: #f59e0b; border-color: #f59e0b; color: #000000;">
                         <i data-lucide="lock-open"></i> <span data-lang-key="unlockAppButton">Desbloquear</span>
                     </button>
                 </div>
             `;
 
-            // Lógica renderizado alertas
+            // 1. Lógica Alertas
             const renderAlerts = (filterText = '') => {
                 const container = document.getElementById('alerts-list-container');
                 if(!container) return;
@@ -2380,7 +2456,138 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             const alertSearch = document.getElementById('alert-search-input');
             if(alertSearch) { alertSearch.addEventListener('input', (e) => renderAlerts(e.target.value)); }
 
-            // Lógica Histórico Retiros
+            // 2. Lógica GESTIÓN DE MULTAS (NUEVO: DÍAS Y VALOR)
+            const fineSearch = document.getElementById('fine-manager-search');
+            const fineResults = document.getElementById('fine-manager-results');
+
+            const renderFineResults = (text) => {
+                if (!text || text.length < 2) {
+                    fineResults.innerHTML = `<p style="text-align: center; color: var(--text-secondary); font-size: 0.9em; padding: 10px;">Digite o nome do cliente...</p>`;
+                    return;
+                }
+                const filteredClients = clients.filter(c => c.name.toLowerCase().includes(text.toLowerCase()));
+                
+                if (filteredClients.length === 0) {
+                    fineResults.innerHTML = `<p style="text-align: center; color: var(--text-secondary); font-size: 0.9em; padding: 10px;">Nenhum cliente encontrado.</p>`;
+                    return;
+                }
+
+                fineResults.innerHTML = filteredClients.map(c => {
+                    // Buscar el préstamo activo o el último
+                    let activeLoanIdx = c.loans ? c.loans.findIndex(l => l.status !== 'finished') : -1;
+                    if (activeLoanIdx === -1 && c.loans && c.loans.length > 0) activeLoanIdx = c.loans.length - 1;
+                    const loan = activeLoanIdx >= 0 ? c.loans[activeLoanIdx] : null;
+                    
+                    if (!loan) return ''; // Skip si no hay préstamo
+
+                    const currentFine = loan.lateFeeAmount || 0;
+                    const currentDays = loan.lateFeeDelay || 5; // Default 5 días si no existe
+                    
+                    // Calculamos atraso real para mostrar contexto
+                    const details = calculateLoanDetails(loan);
+                    const realLateDays = details.lateDays || 0;
+                    const lateStatusColor = realLateDays >= currentDays ? '#ef4444' : (realLateDays > 0 ? '#f59e0b' : '#10b981');
+                    
+                    return `
+                    <div class="client-fine-card" style="background-color: var(--bg); border: 1px solid var(--border-color); border-radius: 8px; padding: 10px; display: flex; flex-direction: column; gap: 8px;">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                            <div>
+                                <strong style="font-size: 0.95em; display: block; color: var(--text-primary);">${c.name}</strong>
+                                <span style="font-size: 0.75em; color: ${lateStatusColor}; font-weight: 600;">
+                                    ${realLateDays > 0 ? `${realLateDays} Dias de Atraso` : 'Em Dia'}
+                                </span>
+                            </div>
+                            <button class="btn-edit-fine" data-client-id="${c.id}" data-loan-index="${activeLoanIdx}" data-current-fine="${currentFine}" data-current-days="${currentDays}" style="background: var(--surface); border: 1px solid var(--border-color); color: var(--accent-blue); border-radius: 6px; padding: 6px 10px; font-size: 0.8em; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 4px;">
+                                <i data-lucide="edit-2" style="width: 14px; height: 14px;"></i> Alterar
+                            </button>
+                        </div>
+                        <div style="display: flex; gap: 10px; font-size: 0.85em; color: var(--text-secondary); background-color: var(--surface); padding: 6px; border-radius: 6px;">
+                            <span>Multa: <strong style="color: var(--text-primary);">${money(currentFine)}</strong></span>
+                            <span>Aplica após: <strong style="color: var(--text-primary);">${currentDays} dias</strong></span>
+                        </div>
+                    </div>`;
+                }).join('');
+                lucide.createIcons({nodes: fineResults.querySelectorAll('[data-lucide]')});
+
+                // Listeners para los botones "Alterar"
+                fineResults.querySelectorAll('.btn-edit-fine').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        const card = e.currentTarget.closest('.client-fine-card');
+                        const cId = e.currentTarget.dataset.clientId;
+                        const lIdx = e.currentTarget.dataset.loanIndex;
+                        const currentVal = e.currentTarget.dataset.currentFine;
+                        const currentDays = e.currentTarget.dataset.currentDays;
+                        
+                        // Reemplazar la tarjeta con el modo edición COMPLETO
+                        card.innerHTML = `
+                            <div style="margin-bottom: 8px;">
+                                <strong style="font-size: 0.9em;">Editar Configuração de Multa</strong>
+                            </div>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
+                                <div>
+                                    <label style="font-size: 0.75em; color: var(--text-secondary);">Dias p/ Aplicar</label>
+                                    <input type="number" class="fine-days-input" value="${currentDays}" min="1" style="width: 100%; padding: 6px; border-radius: 6px; border: 1px solid var(--border-color); font-weight: 600;">
+                                </div>
+                                <div>
+                                    <label style="font-size: 0.75em; color: var(--text-secondary);">Valor da Multa</label>
+                                    <input type="number" class="fine-amount-input" value="${currentVal}" step="0.01" style="width: 100%; padding: 6px; border-radius: 6px; border: 1px solid var(--accent-blue); font-weight: 700; color: var(--accent-blue);">
+                                </div>
+                            </div>
+                            <div style="display: flex; gap: 10px;">
+                                <button class="btn-cancel-edit" style="flex: 1; background: transparent; border: 1px solid var(--border-color); color: var(--text-secondary); padding: 6px; border-radius: 6px; cursor: pointer;">Cancelar</button>
+                                <button class="btn-save-fine" style="flex: 1; background: var(--accent-blue); border: none; color: white; border-radius: 6px; padding: 6px; cursor: pointer; font-weight: 600;">Salvar</button>
+                            </div>
+                        `;
+                        
+                        // Cancelar
+                        card.querySelector('.btn-cancel-edit').addEventListener('click', () => {
+                            renderFineResults(fineSearch.value); // Re-renderiza para cancelar
+                        });
+
+                        // Guardar
+                        card.querySelector('.btn-save-fine').addEventListener('click', async () => {
+                            const newDays = parseInt(card.querySelector('.fine-days-input').value) || 5;
+                            const newAmount = parseFloat(card.querySelector('.fine-amount-input').value) || 0;
+                            
+                            // AVISO AMARILLO DE CONFIRMACIÓN DETALLADO
+                            const confirmed = await showConfirmationModal(
+                                'Alterar Multa?', 
+                                `Confirma a configuração?<br><br>
+                                 <b>Dias de Carência:</b> ${newDays} dias<br>
+                                 <b>Valor da Multa:</b> ${money(newAmount)}`, 
+                                'Sim, Salvar', 
+                                'btn-primary', 
+                                'var(--warning-color)', // Color Amarillo
+                                '#000000' // Texto negro
+                            );
+                            
+                            if(!confirmed) return;
+
+                            try {
+                                const clientRef = doc(db, 'companies', currentCompanyId, "clients", cId);
+                                const clientData = allClients.find(c => c.id === cId);
+                                const updatedLoans = JSON.parse(JSON.stringify(clientData.loans));
+                                
+                                // ACTUALIZAMOS AMBOS VALORES
+                                updatedLoans[lIdx].lateFeeDelay = newDays;
+                                updatedLoans[lIdx].lateFeeAmount = newAmount;
+                                
+                                await updateDoc(clientRef, { loans: updatedLoans });
+                                showToast("Configuração de multa atualizada!", "yellow");
+                                renderFineResults(fineSearch.value); // Refrescar lista
+                            } catch(err) {
+                                console.error(err);
+                                showToast("Erro ao salvar.", true);
+                            }
+                        });
+                    });
+                });
+            };
+
+            if(fineSearch) fineSearch.addEventListener('input', (e) => renderFineResults(e.target.value));
+
+
+            // 3. Lógica Histórico Retiros
             const settlementsListContainer = detailView.querySelector('#settlements-history-list');
             const collectorSettlements = allSettlements.filter(s => s.collectorId === collectorId).sort((a, b) => (b.date?.seconds || 0) - (a.date?.seconds || 0)); 
             if (settlementsListContainer) {
@@ -2444,7 +2651,6 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                         const unlockUntil = new Date();
                         unlockUntil.setMinutes(unlockUntil.getMinutes() + 30); 
                         await updateDoc(doc(db, 'collectors', cId), { tempUnlockUntil: Timestamp.fromDate(unlockUntil) });
-                        // Usamos 'yellow' para que salga amarillo
                         showToast(t.appUnlockedSuccess || "App do cobrador desbloqueado!", 'yellow');
                     } catch (error) {
                         console.error("Erro ao desbloquear:", error);
@@ -5849,70 +6055,78 @@ async function submitCollectorReport(collectorId) {
 
         
 
-        // REEMPLAZA ESTA FUNCIÓN COMPLETA (BLOQUE 5)
-        // REEMPLAZA ESTA FUNCIÓN COMPLETA (BLOQUE 5 - Con Traducción Micro Seguro)
-        function showClientDetails(clientId, loanIndex = 0) { 
+             function showClientDetails(clientId, loanIndex = 0) { 
             const client = allClients.find(c => c.id === clientId);
-            // Hacemos esta función global para que el Mapa la pueda llamar
-            window.showClientDetails = showClientDetails;
+            window.showClientDetails = showClientDetails; 
+            
             if (!client) {
                 showToast('Erro: Cliente não encontrado.', true);
                 return;
             }
 
             const detailModal = document.getElementById('clientDetailModal');
+            const t = translations[currentLang] || translations['pt'];
             
             // --- LÓGICA DE SELECCIÓN DE PRÉSTAMO ---
             const displayableLoans = (client.loans || []).filter(l => l.status !== 'finished');
             const activeOrLastFinishedLoans = displayableLoans.length > 0 ? displayableLoans : (client.loans && client.loans.length > 0 ? [client.loans[client.loans.length - 1]] : []);
             
-            const currentLoanIndex = (loanIndex >= 0 && client.loans && loanIndex < client.loans.length && (client.loans[loanIndex].status !== 'finished' || activeOrLastFinishedLoans.some(l => client.loans[loanIndex] === l)))
-                           ? loanIndex
-                           : (activeOrLastFinishedLoans.length > 0 ? client.loans.findIndex(l => l === activeOrLastFinishedLoans[0]) : 0);
-
-            if (!client.loans || !client.loans[currentLoanIndex]) {
-                console.error(`Cliente o préstamo con índice ${currentLoanIndex} no encontrado para ${clientId}`);
-                showToast("Erro ao carregar detalhes do empréstimo.", true);
-                return;
+            let currentLoanIndex = loanIndex;
+            if (loanIndex < 0 || !client.loans[loanIndex] || (activeOrLastFinishedLoans.length > 0 && !activeOrLastFinishedLoans.includes(client.loans[loanIndex]))) {
+                 if (activeOrLastFinishedLoans.length > 0) {
+                     currentLoanIndex = client.loans.indexOf(activeOrLastFinishedLoans[0]);
+                 } else {
+                     currentLoanIndex = 0;
+                 }
             }
-            
+
             const loan = client.loans[currentLoanIndex];
+            if (!loan) { console.error("No se pudo cargar el préstamo."); return; }
+
             const hasMultipleDisplayable = activeOrLastFinishedLoans.length > 1;
-            // --- FIN LÓGICA DE SELECCIÓN ---
             
+            // --- CÁLCULOS FINANCIEROS ---
             const paidAmount = (loan.history || [])
                 .filter(h => h.status === 'approved' || (!h.status && h.date))
                 .reduce((sum, h) => sum + (h.amount || 0), 0) + (loan.initialMigratedAmount || 0);
 
-            const totalAmount = loan.totalLoan || 0;
-            const remainingAmount = Math.max(0, totalAmount - paidAmount) + (loan.lateFeesAccumulated || 0);
-
             const loanDetails = calculateLoanDetails(loan);
-            const currentStatus = loanDetails.status;
-            const statusClass = `status-${currentStatus}`;
-            const statusText = (translations[currentLang] && translations[currentLang][currentStatus]) || currentStatus;
+            const fineAmount = loanDetails.lateFeesAccumulated || 0;
+            const totalAmountWithFine = (loan.totalLoan || 0) + fineAmount;
+            const remainingAmount = Math.max(0, totalAmountWithFine - paidAmount);
 
-            // --- LÓGICA DE VISUALIZACIÓN MICRO SEGURO ---
-            // Si está finalizado, mostramos 0 visualmente (como pediste). Si está activo, mostramos el valor real.
+            // --- 1. TRADUCCIÓN Y ESTADO ---
+            const currentStatus = loanDetails.status;
+            let statusClass = `status-${currentStatus}`;
+            
+            const statusMap = {
+                'paid': { pt: 'EM DIA', es: 'AL DÍA', en: 'UP TO DATE' },
+                'pending': { pt: 'EM DIA', es: 'AL DÍA', en: 'UP TO DATE' },
+                'late': { pt: 'ATRASADO', es: 'ATRASADO', en: 'LATE' },
+                'finished': { pt: 'FINALIZADO', es: 'FINALIZADO', en: 'FINISHED' }
+            };
+
+            let statusText = statusMap[currentStatus] ? statusMap[currentStatus][currentLang] : currentStatus.toUpperCase();
+
+            if (currentStatus === 'pending' || currentStatus === 'paid') statusClass = 'status-paid';
+
+            if (currentStatus === 'late' && loanDetails.lateDays > 0) {
+                const daysLabel = { pt: 'dias', es: 'días', en: 'days' }[currentLang] || 'dias';
+                statusText += ` (${loanDetails.lateDays} ${daysLabel})`;
+            }
+
             const displayMicroInsurance = currentStatus === 'finished' ? 0 : (loan.microInsurance || 0);
 
-            // --- HISTORIAL DE PAGOS ---
+            // --- HISTORIAL ---
             const historyHtml = (loan.history && loan.history.length > 0) ? 
                 [...loan.history].sort((a,b) => (b.date?.seconds || 0) - (a.date?.seconds || 0)).map((p) => {
                     const originalIndex = loan.history.indexOf(p);
                     let dateStr = 'N/A';
-                    if (p.date?.seconds) {
-                        dateStr = new Date(p.date.seconds * 1000).toLocaleDateString();
-                    }
-                    return `
-                    <div class="payment-history-item" data-history-index="${originalIndex}">
-                        <span>${dateStr}</span>
-                        <strong>${money(p.amount)}</strong>
-                    </div>
-                    `
+                    if (p.date?.seconds) dateStr = new Date(p.date.seconds * 1000).toLocaleDateString(currentLang === 'pt' ? 'pt-BR' : 'es-ES');
+                    return `<div class="payment-history-item" data-history-index="${originalIndex}"><span>${dateStr}</span><strong>${money(p.amount)}</strong></div>`;
                 }).join('') : '<p style="color: var(--text-secondary); padding: 10px;">Nenhum histórico de pagamento.</p>';
             
-            // --- GALERÍA DE DOCUMENTOS ---
+            // --- DOCUMENTOS ---
             const docsHtml = (client.documents && client.documents.length > 0) ? `
                 <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 12px; margin-top: 10px;">
                     ${client.documents.map(doc => {
@@ -5920,30 +6134,50 @@ async function submitCollectorReport(collectorId) {
                         return `
                             <div class="kpi-card doc-preview-trigger" data-doc-url="${doc.url}" data-doc-name="${doc.name}" style="padding: 10px; height: 100%; display: flex; flex-direction: column; align-items: center; text-align: center; border: 1px solid var(--border-color); transition: transform 0.2s; cursor: pointer;">
                                 <div style="width: 100%; height: 80px; background-color: var(--bg); border-radius: 6px; margin-bottom: 8px; display: flex; align-items: center; justify-content: center; overflow: hidden;">
-                                    ${isImage 
-                                        ? `<img src="${doc.url}" style="width: 100%; height: 100%; object-fit: cover;">`
-                                        : `<i data-lucide="file-text" style="width: 32px; height: 32px; color: var(--text-secondary);"></i>`
-                                    }
+                                    ${isImage ? `<img src="${doc.url}" style="width: 100%; height: 100%; object-fit: cover;">` : `<i data-lucide="file-text" style="width: 32px; height: 32px; color: var(--text-secondary);"></i>`}
                                 </div>
                                 <span style="font-size: 0.75em; font-weight: 600; width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${doc.name}</span>
-                                <span style="font-size: 0.7em; color: var(--accent-blue); margin-top: 4px; font-weight: 500;">
-                                    ${isImage ? 'Visualizar' : 'Baixar/Abrir'}
-                                </span>
-                            </div>
-                        `;
+                            </div>`;
                     }).join('')}
-                </div>
-            ` : '<div style="padding: 20px; text-align: center; border: 1px dashed var(--border-color); border-radius: 8px; color: var(--text-secondary); background-color: var(--bg);"><i data-lucide="folder-open" style="width: 24px; height: 24px; margin-bottom: 5px; opacity: 0.5;"></i><p style="margin: 0;">Nenhum documento anexado.</p></div>';
+                </div>` : '<div style="padding: 20px; text-align: center; border: 1px dashed var(--border-color); border-radius: 8px; color: var(--text-secondary); background-color: var(--bg);"><i data-lucide="folder-open" style="width: 24px; height: 24px; margin-bottom: 5px; opacity: 0.5;"></i><p style="margin: 0;">Nenhum documento anexado.</p></div>';
             
-            // --- VALOR DE CUOTA Y PICO ---
             let picoValue = 0;
             const instVal = loan.originalInstallmentAmount || 0;
             if (instVal > 0 && paidAmount > 0) {
                 const remainder = paidAmount % instVal;
-                if (remainder > 0.05 && (instVal - remainder) > 0.05) {
-                    picoValue = remainder;
-                }
+                if (remainder > 0.05 && (instVal - remainder) > 0.05) picoValue = remainder;
             }
+
+            // --- 3. PREPARACIÓN DEL CHAT ---
+            const chatTitle = currentLang === 'es' ? 'Chat con el Cobrador' : (currentLang === 'en' ? 'Chat with Collector' : 'Chat com o Cobrador');
+            const chatPlaceholder = currentLang === 'es' ? 'Escribe un mensaje...' : (currentLang === 'en' ? 'Type a message...' : 'Digite uma mensagem...');
+            const historyTitle = currentLang === 'es' ? 'Historial de Pagos' : (currentLang === 'en' ? 'Payment History' : 'Histórico de Pagamentos');
+            
+            // Obtener historial de mensajes (Array) o fallback si no existe
+            // Si solo hay 'notes' (texto antiguo), lo convertimos visualmente en un mensaje
+            let messages = loan.chatHistory || [];
+            
+            // Si no hay historial pero hay nota antigua, la mostramos como mensaje del admin
+            if (messages.length === 0 && loan.notes && loan.notes.trim() !== '') {
+                messages.push({
+                    sender: 'admin',
+                    text: loan.notes,
+                    timestamp: new Date() // Fecha aproximada
+                });
+            }
+
+            // Generar HTML de las burbujas
+            const chatBubblesHtml = messages.map(msg => {
+                const isAdmin = msg.sender === 'admin';
+                const time = msg.timestamp ? new Date(msg.timestamp.seconds ? msg.timestamp.seconds * 1000 : msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '';
+                return `
+                    <div class="chat-bubble ${isAdmin ? 'admin' : 'collector'}">
+                        ${msg.text}
+                        <span class="chat-time">${time}</span>
+                    </div>
+                `;
+            }).join('') || `<div style="text-align:center; color:gray; font-size:0.8em; margin-top:10px;">${currentLang === 'es' ? 'Inicia la conversación...' : 'Inicie a conversa...'}</div>`;
+
 
             detailModal.innerHTML = `
                 <header class="modal-header">
@@ -5952,39 +6186,29 @@ async function submitCollectorReport(collectorId) {
                     <button id="editClientBtn" data-client-id="${client.id}" data-loan-index="${currentLoanIndex}"><i data-lucide="edit"></i></button>
                 </header>
                 
-                ${hasMultipleDisplayable ? `
-                <div class="loan-tabs-wrapper"> 
-                    <div class="loan-tabs-container" id="loan-tabs-container">
-                        ${client.loans.map((l, index) => {
-                            const isRelevant = activeOrLastFinishedLoans.some(relevantLoan => client.loans[index] === relevantLoan);
-                            if (isRelevant || index === currentLoanIndex) {
-                                return `<button class="loan-tab ${index === currentLoanIndex ? 'active' : ''}" data-loan-index="${index}">
-                                            Préstamo ${index + 1} ${l.status === 'finished' ? '(Finalizado)' : ''}
-                                        </button>`;
-                            }
-                            return '';
-                        }).join('')}
-                    </div>
-                </div>` : ''}
+                ${hasMultipleDisplayable ? `<div class="loan-tabs-wrapper"><div class="loan-tabs-container" id="loan-tabs-container">${client.loans.map((l, index) => (activeOrLastFinishedLoans.includes(l) || index === currentLoanIndex) ? `<button class="loan-tab ${index === currentLoanIndex ? 'active' : ''}" data-loan-index="${index}">Préstamo ${index + 1} ${l.status === 'finished' ? '(Finalizado)' : ''}</button>` : '').join('')}</div></div>` : ''}
 
                 <div class="modal-content-wrapper container">
+                    <!-- ESTADO -->
                     <div class="kpi-card" style="text-align: center; margin-bottom: 20px;">
                         <h3 class="kpi-title" style="justify-content: center;">Estado do Préstamo ${currentLoanIndex + 1}</h3>
-                        <span class="payment-status ${statusClass}" style="font-size: 1.2em; font-weight: 600; padding: 8px 20px;">
-                            ${statusText}
-                        </span>
+                        <span class="payment-status ${statusClass}" style="font-size: 1.2em; font-weight: 600; padding: 8px 20px;">${statusText}</span>
                     </div>
                     
                     <section class="kpi-grid-profile" style="margin-bottom: 30px;">
-                        <div class="kpi-card"><h3 class="kpi-title"><i data-lucide="coins"></i> <span data-lang-key="totalValue">Valor Total</span></h3><p class="kpi-value">${money(totalAmount)}</p></div>
+                        <div class="kpi-card"><h3 class="kpi-title"><i data-lucide="coins"></i> <span data-lang-key="totalValue">Valor Total</span></h3><p class="kpi-value">${money(totalAmountWithFine)}</p></div>
                         <div class="kpi-card"><h3 class="kpi-title"><i data-lucide="receipt"></i> <span data-lang-key="installmentValue">Valor da Parcela</span></h3><p class="kpi-value" style="color: var(--accent-purple);">${money(loan.originalInstallmentAmount)}</p></div>
                         <div class="kpi-card" style="border-color: var(--accent-orange); border-width: 1px;">
                             <h3 class="kpi-title"><i data-lucide="trending-up" style="color: var(--accent-orange);"></i> Pico</h3>
                             <p class="kpi-value" style="color: var(--accent-orange);">${money(picoValue)}</p>
                         </div>
                         <div class="kpi-card"><h3 class="kpi-title"><i data-lucide="trending-up"></i> <span data-lang-key="totalPaid">Pago</span></h3><p class="kpi-value green">${money(paidAmount)}</p></div>
-                       
-                        <!-- TARJETA MICRO SEGURO (Muestra 0 si finalizado, pero siempre visible) -->
+                        
+                        <div class="kpi-card" style="border-color: #ef4444; border-width: 1px;">
+                            <h3 class="kpi-title"><i data-lucide="alert-triangle" style="color: #ef4444;"></i> Multa</h3>
+                            <p class="kpi-value" style="color: #ef4444;">${money(fineAmount)}</p>
+                        </div>
+
                         <div class="kpi-card" style="background-color: color-mix(in srgb, #0ea5e9 10%, var(--surface)); border-color: #0ea5e9;">
                            <h3 class="kpi-title"><i data-lucide="shield-check" style="color: #0ea5e9;"></i> <span data-lang-key="microInsurance">Micro Seguro</span></h3>
                            <p class="kpi-value" style="color: #0ea5e9;">${money(displayMicroInsurance)}</p>
@@ -6003,10 +6227,36 @@ async function submitCollectorReport(collectorId) {
                         ${docsHtml}
                     </section>
 
+                    <!-- 2. NUEVA SECCIÓN: CHAT (TIPO WHATSAPP) -->
+                    <section style="margin-top: 30px; background-color: var(--surface); padding: 15px; border-radius: 12px; border: 1px solid var(--border-color);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                            <h2 class="section-title" style="border: none; margin: 0; padding: 0; color: var(--accent-blue); font-size: 1.1em;">
+                                <i data-lucide="message-circle" style="width: 20px; height: 20px; vertical-align: middle;"></i> ${chatTitle}
+                            </h2>
+                            <!-- BOTÓN PAPELERA (CANASTA) -->
+                            <button id="clear-chat-btn" style="background: none; border: none; color: var(--danger-color); cursor: pointer;" title="Borrar Chat">
+                                <i data-lucide="trash-2" style="width: 20px; height: 20px;"></i>
+                            </button>
+                        </div>
+                        
+                        <div id="chat-history-container" class="chat-container">
+                            ${chatBubblesHtml}
+                        </div>
+
+                        <div class="chat-input-area">
+                            <input type="text" id="chat-input-field" placeholder="${chatPlaceholder}" autocomplete="off">
+                            <button id="send-chat-btn" class="btn-primary" style="padding: 10px; border-radius: 50%; width: 45px; height: 45px; display: flex; align-items: center; justify-content: center;">
+                                <i data-lucide="send" style="width: 20px; height: 20px; margin-left: 2px;"></i>
+                            </button>
+                        </div>
+                    </section>
+
                     <section style="margin-top: 20px;">
-                        <h2 class="section-title">Histórico de Pagamentos (Préstamo ${currentLoanIndex + 1})</h2>
+                        <h2 class="section-title">${historyTitle} (Préstamo ${currentLoanIndex + 1})</h2>
                         <div class="item-list" id="client-payment-history-list">${historyHtml}</div>
                     </section>
+
+                    <div style="height: 60px;"></div>
                 </div>
             `;
 
@@ -6014,7 +6264,109 @@ async function submitCollectorReport(collectorId) {
             detailModal.classList.add('active');
             lucide.createIcons({ nodes: detailModal.querySelectorAll('[data-lucide]') });
             applyLanguage(currentLang);
+            
+            // Scroll al fondo del chat
+            const chatContainer = document.getElementById('chat-history-container');
+            if(chatContainer) chatContainer.scrollTop = chatContainer.scrollHeight;
 
+            // --- Lógica del Chat ---
+            const sendChatBtn = document.getElementById('send-chat-btn');
+            const chatInput = document.getElementById('chat-input-field');
+            const clearChatBtn = document.getElementById('clear-chat-btn');
+
+            if (sendChatBtn && chatInput) {
+                const sendMessage = async () => {
+                    const text = chatInput.value.trim();
+                    if (!text) return;
+
+                    // Deshabilitar temporalmente
+                    chatInput.disabled = true;
+                    sendChatBtn.disabled = true;
+
+                    try {
+                        const clientRef = doc(db, 'companies', currentCompanyId, "clients", clientId);
+                        
+                        const newMessage = {
+                            sender: 'admin',
+                            text: text,
+                            timestamp: new Date() // Guardamos fecha local, Firestore la convierte
+                        };
+
+                        const updatedLoans = JSON.parse(JSON.stringify(client.loans));
+                        
+                        // 1. Inicializar array si no existe
+                        if (!updatedLoans[currentLoanIndex].chatHistory) {
+                            updatedLoans[currentLoanIndex].chatHistory = [];
+                        }
+                        
+                        // 2. Agregar mensaje al historial
+                        updatedLoans[currentLoanIndex].chatHistory.push(newMessage);
+                        
+                        // 3. Actualizar campo 'notes' para compatibilidad con App Cobrador antigua
+                        updatedLoans[currentLoanIndex].notes = text; 
+
+                        await updateDoc(clientRef, { loans: updatedLoans });
+
+                        // 4. Enviar notificación (Campanita)
+                        if (client.collectorId) {
+                            const notifTitle = currentLang === 'es' ? 'Mensaje del Admin' : 'Mensagem do Admin';
+                            await sendNotificationToCollector(client.collectorId, notifTitle, `Nova mensagem sobre ${client.name}: "${text}"`, 'admin_note', 'message-circle', clientId);
+                        }
+
+                        // Limpiar input y re-enfocar
+                        chatInput.value = '';
+                        // La UI se actualizará sola gracias al listener onSnapshot, pero podemos forzar scroll
+                        setTimeout(() => {
+                             const cContainer = document.getElementById('chat-history-container');
+                             if(cContainer) cContainer.scrollTop = cContainer.scrollHeight;
+                        }, 500);
+
+                    } catch (error) {
+                        console.error("Erro ao enviar mensagem:", error);
+                        showToast("Erro ao enviar.", true);
+                    } finally {
+                        chatInput.disabled = false;
+                        sendChatBtn.disabled = false;
+                        chatInput.focus();
+                    }
+                };
+
+                sendChatBtn.addEventListener('click', sendMessage);
+                chatInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') sendMessage();
+                });
+            }
+
+            // Lógica Botón Papelera (Borrar Chat)
+            if (clearChatBtn) {
+                clearChatBtn.addEventListener('click', async () => {
+                    const confirmed = await showConfirmationModal(
+                        currentLang === 'es' ? '¿Borrar Chat?' : 'Limpar Chat?',
+                        currentLang === 'es' ? '¿Estás seguro de borrar todo el historial de mensajes con este cliente?' : 'Tem certeza que deseja apagar todo o histórico de mensagens deste cliente?',
+                        currentLang === 'es' ? 'Sí, Borrar' : 'Sim, Apagar',
+                        'btn-danger'
+                    );
+
+                    if (!confirmed) return;
+
+                    try {
+                        const clientRef = doc(db, 'companies', currentCompanyId, "clients", clientId);
+                        const updatedLoans = JSON.parse(JSON.stringify(client.loans));
+                        
+                        // Limpiar historial y notas
+                        updatedLoans[currentLoanIndex].chatHistory = [];
+                        updatedLoans[currentLoanIndex].notes = "";
+
+                        await updateDoc(clientRef, { loans: updatedLoans });
+                        showToast(currentLang === 'es' ? 'Chat borrado.' : 'Chat limpo.');
+                    } catch (error) {
+                        console.error("Erro ao limpar chat:", error);
+                        showToast("Erro ao limpar.", true);
+                    }
+                });
+            }
+
+            // --- LÓGICA DE VISOR DE IMÁGENES ---
             detailModal.querySelectorAll('.doc-preview-trigger').forEach(trigger => {
                 trigger.addEventListener('click', () => {
                     const url = trigger.dataset.docUrl;
@@ -6065,29 +6417,24 @@ async function submitCollectorReport(collectorId) {
                 });
             });
 
+            // --- LISTENERS GENERALES ---
             detailModal.querySelector('#closeClientDetail').addEventListener('click', () => window.history.back());
-            detailModal.querySelector('#editClientBtn').addEventListener('click', (e) => { showClientFormModal(e.currentTarget.dataset.clientId); });
+            detailModal.querySelector('#editClientBtn').addEventListener('click', () => showClientFormModal(clientId));
+            
             const historyList = detailModal.querySelector('#client-payment-history-list');
             if (historyList) {
                 historyList.addEventListener('click', (e) => {
                     const item = e.target.closest('.payment-history-item[data-history-index]');
-                    if (item) {
-                        const hIndex = parseInt(item.dataset.historyIndex, 10);
-                        if (!isNaN(hIndex)) {
-                            showPaymentDetailModal(clientId, currentLoanIndex, hIndex);
-                        }
-                    }
+                    if (item) showPaymentDetailModal(clientId, currentLoanIndex, parseInt(item.dataset.historyIndex, 10));
                 });
             }
             if (hasMultipleDisplayable) {
                 detailModal.querySelectorAll('.loan-tab').forEach(tab => {
-                    tab.addEventListener('click', (e) => {
-                        const newLoanIndex = parseInt(e.currentTarget.dataset.loanIndex, 10);
-                        showClientDetails(clientId, newLoanIndex);
-                    });
+                    tab.addEventListener('click', (e) => showClientDetails(clientId, parseInt(e.currentTarget.dataset.loanIndex, 10)));
                 });
             }
-        }
+        } 
+        
 
 
         /* === INICIO DEL CÓDIGO A AÑADIR (BLOQUE 4) === */
@@ -8093,3 +8440,4 @@ async function showRefinanceVerificationModal(clientId) {
     </script>
 </body>
     </html>
+
