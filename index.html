@@ -1236,6 +1236,68 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
         border: 1px solid var(--border-color);
     }
 
+        /* === NUEVOS ESTILOS: TARJETA CLIENTE AVANZADA === */
+.client-card-modern {
+    background-color: var(--surface);
+    border-radius: 12px;
+    padding: 15px;
+    margin-bottom: 12px;
+    box-shadow: var(--card-shadow);
+    border: 1px solid var(--border-color);
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.2s;
+    cursor: pointer;
+}
+.client-card-modern:hover { transform: translateY(-2px); }
+
+.card-header-modern {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px dashed var(--border-color);
+}
+.client-info-modern { display: flex; align-items: center; gap: 10px; }
+.client-info-modern img { width: 42px; height: 42px; border-radius: 50%; object-fit: cover; border: 2px solid var(--bg); }
+.client-name-modern { font-weight: 700; font-size: 1em; color: var(--text-primary); margin: 0; }
+.loan-amount-modern { font-size: 0.85em; color: var(--text-secondary); display: block; }
+
+.status-badge-modern {
+    font-size: 0.75em; font-weight: 700; text-transform: uppercase;
+    padding: 4px 10px; border-radius: 20px; letter-spacing: 0.5px;
+}
+
+.card-body-modern { display: flex; align-items: center; gap: 20px; }
+
+/* RUEDA DE PROGRESO */
+.progress-wheel-container { position: relative; width: 70px; height: 70px; flex-shrink: 0; }
+.progress-wheel {
+    width: 100%; height: 100%; border-radius: 50%;
+    display: flex; justify-content: center; align-items: center;
+    position: relative;
+}
+.inner-wheel {
+    width: 85%; height: 85%; background-color: var(--surface); border-radius: 50%;
+    display: flex; flex-direction: column; justify-content: center; align-items: center;
+    z-index: 2;
+}
+.wheel-text { font-weight: 800; font-size: 0.95em; color: var(--text-primary); line-height: 1; }
+.wheel-label { font-size: 0.55em; text-transform: uppercase; color: var(--text-secondary); margin-top: 2px; }
+
+.card-details-modern { flex-grow: 1; display: flex; flex-direction: column; gap: 6px; }
+.date-row { font-size: 0.8em; color: var(--text-secondary); display: flex; justify-content: space-between; }
+.date-row strong { color: var(--text-primary); }
+.status-detail-row { font-size: 0.85em; font-weight: 700; margin-top: 4px; display: flex; align-items: center; gap: 5px; }
+
+.card-footer-modern {
+    margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border-color);
+    display: flex; justify-content: space-between; align-items: center;
+}
+.address-text { font-size: 0.8em; color: var(--text-secondary); display: flex; align-items: center; gap: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px; }
+.fine-badge { color: var(--danger-color); font-weight: 700; font-size: 0.8em; background: rgba(239, 68, 68, 0.1); padding: 2px 8px; border-radius: 4px; }
+
 
     </style>
 </head>
@@ -1535,6 +1597,12 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             accessPanel: 'Acceder al Panel',
             emailLabel: 'Correo Electrónico',
             passwordLabel: 'Contraseña',
+            fineManagerTitle: 'Gestão de Multas',
+            fineManagerDesc: 'Busque um cliente para configurar dias de atraso e valor da multa.',
+            searchClientPlaceholder: 'Buscar cliente...',
+            chatAppCollector: 'Chat App Cobrador',
+            fineLabel: 'Multa',
+            insuranceLabelShort: 'Seguro',
         },  
 
         es: {
@@ -1678,6 +1746,12 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             accessPanel: 'Access Dashboard',
             emailLabel: 'Email',
             passwordLabel: 'Password',
+            fineManagerTitle: 'Gestión de Multas',
+            fineManagerDesc: 'Busque un cliente para configurar días de retraso y valor de multa.',
+            searchClientPlaceholder: 'Buscar cliente...',
+            chatAppCollector: 'Chat App Cobrador',
+            fineLabel: 'Multa',
+            insuranceLabelShort: 'Seguro',
         },
         en: {
             microInsurance: 'Micro Insurance',
@@ -1803,6 +1877,12 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             capitalOnHandLabel: 'Capital on Hand',
             microInsuranceLabelSimple: 'Micro Insurance',
             appUnlockedSuccess: 'Collector app unlocked!', // Mensaje corregido
+            fineManagerTitle: 'Fine Management',
+            fineManagerDesc: 'Search for a client to configure delay days and fine amount.',
+            searchClientPlaceholder: 'Search client...',
+            chatAppCollector: 'Collector App Chat',
+            fineLabel: 'Fine',
+            insuranceLabelShort: 'Insurance',
         }
     };
 
@@ -2347,7 +2427,13 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                 const sortedClients = clients.map(client => {
                     const loansWithStatus = (client.loans || []).map((loan, index) => {
                         const details = calculateLoanDetails(loan);
-                        return { ...loan, status: details.status, lateDays: details.lateDays, originalIndex: index };
+                        return { 
+                            ...loan, 
+                            status: details.status, 
+                            lateDays: details.lateDays, 
+                            lateFeesAccumulated: details.lateFeesAccumulated,
+                            originalIndex: index 
+                        };
                     });
                     
                     let displayLoan = loansWithStatus.find(l => l.status === 'late') || 
@@ -2361,32 +2447,141 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                 }).sort((a, b) => a.client.name.localeCompare(b.client.name));
 
                 clientsListHtml = sortedClients.map(({ client, displayLoan, hasMultipleActive, activeLoansCount }) => {
-                    const statusClass = `status-${displayLoan.status}`;
-                    const statusText = (translations[currentLang] && translations[currentLang][displayLoan.status]) || displayLoan.status;
+                    // --- CÁLCULOS PARA LA TARJETA ---
+                    const details = calculateLoanDetails(displayLoan); 
+                    const statusKey = details.status;
+                    
+                    // Colores y Textos según estado
+                    let statusColor = 'var(--text-secondary)';
+                    let statusText = 'FINALIZADO';
+                    let progressColor = 'var(--text-secondary)';
+
+                    if (statusKey === 'paid' || statusKey === 'pending') {
+                        statusColor = 'var(--accent-green)'; 
+                        statusText = 'EM DIA';
+                        progressColor = 'var(--accent-green)';
+                    } else if (statusKey === 'late') {
+                        statusColor = 'var(--danger-color)';
+                        // AQUI MOSTRAMOS CLARAMENTE LOS DÍAS DE ATRASO EN EL TÍTULO
+                        statusText = `ATRASADO (${details.lateDays}d)`;
+                        progressColor = 'var(--danger-color)';
+                    } else if (statusKey === 'finished') {
+                        statusColor = '#3b82f6'; // Azul
+                        progressColor = '#3b82f6';
+                    }
+
+                    // Foto
                     const cInitial = (client.name || 'C').charAt(0).toUpperCase();
                     const cPhoto = client.profilePictureUrl || ('https://placehold.co/80x80/3b82f6/FFFFFF?text=' + cInitial);
-                    
-                    const lateDays = displayLoan.lateDays || 0;
-                    const reputationScore = Math.max(0, 10 - lateDays);
-                    let repClass = reputationScore === 10 ? 'rep-perfect' : (reputationScore >= 7 ? 'rep-good' : (reputationScore >= 3 ? 'rep-regular' : 'rep-bad'));
-                    
-                    const multipleIndicator = hasMultipleActive 
-                        ? `<span style="font-size: 0.75em; color: var(--accent-purple); font-weight: 600; margin-left: 5px;">(${activeLoansCount} Préstamos)</span>` : '';
 
+                    // Fechas
+                    let startDateStr = '--/--';
+                    let endDateStr = '--/--';
+                    if (displayLoan.startDate && displayLoan.startDate.seconds) {
+                        const sd = new Date(displayLoan.startDate.seconds * 1000);
+                        startDateStr = sd.toLocaleDateString(currentLang === 'pt' ? 'pt-BR' : 'es-ES');
+                        
+                        // Cálculo estimado fecha final
+                        const daysToAdd = (parseInt(displayLoan.installments) || 20) * (displayLoan.paymentFrequency === 'weekly' ? 7 : 1);
+                        const ed = new Date(sd);
+                        ed.setDate(ed.getDate() + daysToAdd);
+                        endDateStr = ed.toLocaleDateString(currentLang === 'pt' ? 'pt-BR' : 'es-ES');
+                    }
+
+                    // Progreso (Rueda)
+                    let totalInst = 0;
+                    let paidInst = 0;
+                    
+                    if (displayLoan.installments && typeof displayLoan.installments === 'string' && displayLoan.installments.includes('/')) {
+                        const parts = displayLoan.installments.split('/');
+                        paidInst = parseInt(parts[0]) || 0;
+                        totalInst = parseInt(parts[1]) || 0;
+                    } else {
+                        totalInst = parseInt(displayLoan.installments) || 0;
+                        const totalPaidVal = (displayLoan.history || []).reduce((acc, h) => acc + (h.amount||0), 0);
+                        const instVal = displayLoan.originalInstallmentAmount || 1;
+                        paidInst = Math.floor(totalPaidVal / instVal);
+                        if (paidInst > totalInst) paidInst = totalInst;
+                    }
+                    
+                    const progressPercent = totalInst > 0 ? (paidInst / totalInst) * 100 : 0;
+
+                    // Valores para mostrar
+                    const fineVal = displayLoan.lateFeesAccumulated || 0;
+                    const insVal = parseFloat(displayLoan.microInsurance) || 0;
+
+                    // --- HTML DE LA TARJETA (DISEÑO FINAL MEJORADO: RUEDA GRANDE + DÍAS ATRASO) ---
                     return `
-                        <div class="client-card" data-client-id="${client.id}" data-loan-index="${displayLoan.originalIndex}">
-                            <div class="item-avatar"><img src="${cPhoto}" alt="Foto" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover;"></div>
-                            <div class="item-info">
-                                <h4 class="item-name" style="font-size: 0.95em;">${client.name}${multipleIndicator}</h4>
-                                <p class="item-subtext" style="font-size: 0.85em;">${client.address || 'Endereço não informado'}</p>
+                        <div class="client-card client-card-modern" data-client-id="${client.id}" data-loan-index="${displayLoan.originalIndex}" 
+                             style="border-left: 4px solid ${statusColor}; cursor: pointer; display: flex; align-items: center; padding: 15px; gap: 12px; background-color: var(--surface); border-radius: 12px; margin-bottom: 12px; border: 1px solid var(--border-color); position: relative; transition: transform 0.2s, box-shadow 0.2s;">
+                            
+                            <!-- 1. FOTO -->
+                            <div style="flex-shrink: 0;"> 
+                                <img src="${cPhoto}" alt="Foto" style="width: 50px; height: 50px; border-radius: 50%; object-fit: cover; border: 2px solid var(--bg); box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
                             </div>
-                            <div class="item-details" style="text-align: right;">
-                                <span class="item-detail-value" style="font-size: 1em;">${money(displayLoan.amount)}</span>
-                                <div style="display: flex; gap: 8px; align-items: center; margin-top: 5px;">
-                                   <span class="reputation-score ${repClass}" style="font-size: 0.75em;">★ ${reputationScore}/10</span>
-                                   <span class="payment-status ${statusClass}" style="font-size: 0.75em;">${statusText}</span> 
+
+                            <!-- 2. INFO (Nombre > Dirección > Parcela) -->
+                            <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 4px; min-width: 0;">
+                                <!-- Nombre -->
+                                <h4 class="client-name-modern" style="margin: 0; font-size: 1em; color: var(--text-primary); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${client.name}</h4>
+                                
+                                <!-- Dirección -->
+                                <div style="font-size: 0.8em; color: var(--text-secondary); display: flex; align-items: center; gap: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                                    <i data-lucide="map-pin" style="width: 12px; height: 12px;"></i> ${client.address || 'Sem endereço'}
+                                </div>
+
+                                <!-- Valor Parcela -->
+                                <div style="font-size: 0.9em; font-weight: 700; color: var(--text-primary); margin-top: 2px;">
+                                    Parcela: ${money(displayLoan.originalInstallmentAmount)}
                                 </div>
                             </div>
+
+                            <!-- 3. RUEDA GRANDE Y ESTADO (CENTRADOS) -->
+                            <div style="display: flex; flex-direction: column; align-items: center; gap: 5px; flex-shrink: 0; padding: 0 10px;">
+                                <!-- Rueda Bonita AUMENTADA (65px) -->
+                                <div class="progress-wheel-container" style="width: 65px; height: 65px;">
+                                    <div class="progress-wheel" style="background: conic-gradient(${progressColor} ${progressPercent}%, var(--bg) 0%);">
+                                        <div class="inner-wheel">
+                                            <span class="wheel-text" style="font-size: 0.9em;">${paidInst}/${totalInst}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <!-- Estado CON DÍAS DE ATRASO -->
+                                <span style="font-size: 0.7em; font-weight: 700; text-transform: uppercase; color: ${statusColor}; white-space: nowrap; text-align: center;">
+                                    ${statusKey === 'late' ? `ATRASADO (${details.lateDays}d)` : (statusKey === 'paid' || statusKey === 'pending' ? 'EM DIA' : 'FIM')}
+                                </span>
+                            </div>
+
+                            <!-- 4. FECHAS Y VALORES (Derecha) -->
+                            <div style="display: flex; flex-direction: column; gap: 8px; font-size: 0.8em; flex-shrink: 0; border-left: 1px dashed var(--border-color); padding-left: 12px;">
+                                
+                                <!-- Inicio + Multa -->
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <div style="display: flex; flex-direction: column; line-height: 1.1;">
+                                        <span style="color: var(--text-secondary); font-size: 0.85em;">Início</span>
+                                        <strong style="color: var(--text-primary);">${startDateStr}</strong>
+                                    </div>
+                                    ${fineVal > 0 ? `<div style="background: rgba(239, 68, 68, 0.1); color: var(--danger-color); font-weight: 700; padding: 2px 6px; border-radius: 4px; font-size: 0.85em; text-align: center; line-height: 1.1;">Multa<br>${money(fineVal)}</div>` : ''}
+                                </div>
+
+                                <!-- Final + Seguro -->
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <div style="display: flex; flex-direction: column; line-height: 1.1;">
+                                        <span style="color: var(--text-secondary); font-size: 0.85em;">Final</span>
+                                        <strong style="color: var(--text-primary);">${endDateStr}</strong>
+                                    </div>
+                                    ${insVal > 0 ? `<div style="background: rgba(14, 165, 233, 0.1); color: #0ea5e9; font-weight: 700; padding: 2px 6px; border-radius: 4px; font-size: 0.85em; text-align: center; line-height: 1.1;">Seguro<br>${money(insVal)}</div>` : ''}
+                                </div>
+                            </div>
+
+                            <!-- 5. CHAT APP COBRADOR (Destacado) -->
+                            <div style="flex-shrink: 0; margin-left: 5px;">
+                                 <div style="color: var(--accent-blue); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 6px 10px; background-color: var(--bg); border-radius: 8px; border: 1px solid var(--border-color);">
+                                    <i data-lucide="message-circle" style="width: 20px; height: 20px;"></i>
+                                    <span style="font-size: 0.65em; font-weight: 700; text-align: center; line-height: 1.1;">Chat App<br>Cobrador</span>
+                                 </div>
+                            </div>
+
                         </div>
                     `;
                 }).join('');
@@ -2452,23 +2647,34 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                     </div>
 
                     <!-- NUEVA SECCIÓN MEJORADA: GESTIÓN DE MULTAS (CON DÍAS Y VALOR) -->
+                    <!-- SECCIÓN GESTIÓN DE MULTAS (TRADUCIDA) -->
                     <div class="kpi-card" style="margin-bottom: 30px; border-color: #f59e0b; background-color: var(--surface);">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">
                             <h3 class="kpi-title" style="color: #f59e0b; margin: 0; font-size: 1em;">
-                                <i data-lucide="gavel"></i> Gestão de Multas
+                                <i data-lucide="gavel"></i> ${t.fineManagerTitle || 'Gestão de Multas'}
                             </h3>
                         </div>
                         <p style="font-size: 0.85em; color: var(--text-secondary); margin-bottom: 10px;">
-                            Busque um cliente para configurar dias de atraso e valor da multa.
+                            ${t.fineManagerDesc || 'Busque um cliente para configurar dias de atraso e valor da multa.'}
                         </p>
                         <div class="search-bar-wrapper" style="margin-bottom: 10px;">
-                            <input type="text" id="fine-manager-search" placeholder="Buscar cliente..." style="padding: 8px 12px 8px 35px; font-size: 0.9em;">
+                            <input type="text" id="fine-manager-search" placeholder="${t.searchClientPlaceholder || 'Buscar cliente...'}" style="padding: 8px 12px 8px 35px; font-size: 0.9em;">
                             <i class="icon" data-lucide="search" style="width: 16px; left: 10px;"></i>
                         </div>
                         <div id="fine-manager-results" style="max-height: 250px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;">
-                            <p style="text-align: center; color: var(--text-secondary); font-size: 0.9em; padding: 10px;">Digite o nome do cliente...</p>
+                            <p style="text-align: center; color: var(--text-secondary); font-size: 0.9em; padding: 10px;">${t.searchClientPlaceholder || 'Digite...'}</p>
                         </div>
                     </div>
+
+                    <h2 class="section-title">Clientes</h2>
+                    
+                    <!-- NUEVO BUSCADOR DE CLIENTES -->
+                    <div class="search-bar-wrapper" style="margin-bottom: 15px;">
+                        <input type="text" id="client-list-search" placeholder="${t.searchClientPlaceholder || 'Buscar cliente...'}" style="padding: 10px 12px 10px 40px; font-size: 0.95em; border-radius: 8px; border: 1px solid var(--border-color); background-color: var(--bg); width: 100%;">
+                        <i class="icon" data-lucide="search" style="width: 18px; left: 12px; top: 50%; transform: translateY(-50%); position: absolute; color: var(--text-secondary);"></i>
+                    </div>
+                    
+                    <div class="item-list" id="clients-list-container">${clientsListHtml}</div>
                     <!-- FIN NUEVA SECCIÓN -->
 
                     <h2 class="section-title">Clientes</h2>
@@ -2702,6 +2908,29 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             }
             
             detailView.classList.add('active');
+            // --- INICIO: CÓDIGO DEL BUSCADOR DE CLIENTES ---
+            const clientSearchInput = detailView.querySelector('#client-list-search');
+            if (clientSearchInput) {
+                clientSearchInput.addEventListener('input', (e) => {
+                    const term = e.target.value.toLowerCase();
+                    const cards = detailView.querySelectorAll('.client-card'); // Busca todas las tarjetas
+                    
+                    cards.forEach(card => {
+                        // Busca el nombre dentro de la nueva estructura
+                        const nameEl = card.querySelector('.client-name-modern'); 
+                        if (nameEl) {
+                            const name = nameEl.textContent.toLowerCase();
+                            // Si el nombre incluye lo que escribes, muestra la tarjeta, si no, la oculta
+                            if (name.includes(term)) {
+                                card.style.display = ''; 
+                            } else {
+                                card.style.display = 'none'; 
+                            }
+                        }
+                    });
+                });
+            }
+            // --- FIN: CÓDIGO DEL BUSCADOR ---
             lucide.createIcons({nodes: detailView.querySelectorAll('[data-lucide]')});
             applyLanguage(currentLang);
 
@@ -3353,14 +3582,16 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
             const today = new Date();
             today.setHours(0, 0, 0, 0);
 
+            // CORREÇÃO CRÍTICA: Calcular sempre desde o INÍCIO do empréstimo.
+            // Isso garante que o "Total Pago" seja comparado com o "Total Devido Acumulado" desde o dia 1.
             let lastRelevantDate;
-            if (loan.history && loan.history.length > 0) {
-                const sortedHistory = [...loan.history]
-                    .filter(h => h.date?.seconds && h.status !== 'pending_verification' && h.status !== 'postponed')
-                    .sort((a, b) => b.date.seconds - a.date.seconds);
-                if (sortedHistory.length > 0) {
-                    lastRelevantDate = new Date(sortedHistory[0].date.seconds * 1000);
-                }
+            if (loan.startDate?.seconds) {
+                lastRelevantDate = new Date(loan.startDate.seconds * 1000);
+            } else if (loan.history && loan.history.length > 0) {
+                // Fallback (apenas se não houver data de início salva)
+                const sortedHistory = [...loan.history].sort((a, b) => a.date.seconds - b.date.seconds);
+                lastRelevantDate = new Date(sortedHistory[0].date.seconds * 1000);
+            
             }
             if (!lastRelevantDate && loan.startDate?.seconds) {
                 lastRelevantDate = new Date(loan.startDate.seconds * 1000);
@@ -3415,11 +3646,21 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
                 checkDate.setDate(checkDate.getDate() + 1);
             }
 
+                // === LÓGICA DE MULTA FIJA (CORRECCIÓN) ===
+            // Si existe un valor de multa configurado y se superaron los días de tolerancia
+            if (loan.lateFeeAmount && loan.lateFeeAmount > 0) {
+                const delayDays = loan.lateFeeDelay || 0; // Días de gracia (ej: 5)
+                if (accumulatedLateDays >= delayDays) {
+                    accumulatedLateFees += parseFloat(loan.lateFeeAmount);
+                }
+            }
+
             details.lateDays = accumulatedLateDays;
             details.lateFeesAccumulated = accumulatedLateFees;
             
-            if (accumulatedLateDays > 1) {
-                details.status = 'late';
+            // Si tiene CUALQUIER día de atraso (mayor a 0), ya es Late
+            if (accumulatedLateDays > 0) {
+               details.status = 'late';
             } else if (details.amountDueToday > 0) {
                 const expectedTotalNow = (installmentsDueCount + 1) * installmentAmount;
                 if (currentTotalPaid < (expectedTotalNow - 0.05)) {
@@ -6336,7 +6577,7 @@ async function submitCollectorReport(collectorId) {
                 </div>
             `;
 
-            history.pushState({ modal: 'clientDetailView', clientId: clientId, loanIndex: currentLoanIndex }, `Details for ${client.name}`, `#client/${clientId}/${currentLoanIndex}`);
+            //history.pushState({ modal: 'clientDetailView', clientId: clientId, loanIndex: currentLoanIndex }, `Details for ${client.name}`, `#client/${clientId}/${currentLoanIndex}`);
             detailModal.classList.add('active');
             lucide.createIcons({ nodes: detailModal.querySelectorAll('[data-lucide]') });
             applyLanguage(currentLang);
@@ -6461,7 +6702,7 @@ async function submitCollectorReport(collectorId) {
                 });
             });
 
-            detailModal.querySelector('#closeClientDetail').addEventListener('click', () => window.history.back());
+            detailModal.querySelector('#closeClientDetail').addEventListener('click', () => detailModal.classList.remove('active'));
             detailModal.querySelector('#editClientBtn').addEventListener('click', () => showClientFormModal(clientId));
             
             const historyList = detailModal.querySelector('#client-payment-history-list');
@@ -8529,3 +8770,4 @@ async function showRefinanceVerificationModal(clientId) {
     </script>
 </body>
     </html>
+
