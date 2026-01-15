@@ -2451,41 +2451,46 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                     const details = calculateLoanDetails(displayLoan); 
                     const statusKey = details.status;
                     
-                    // Colores y Textos según estado
+                    // TRADUCCIONES DE ESTADO (CORREGIDO)
+                    const statusDict = {
+                        'paid': { pt: 'EM DIA', es: 'AL DÍA', en: 'ON TIME' },
+                        'pending': { pt: 'EM DIA', es: 'AL DÍA', en: 'ON TIME' },
+                        'late': { pt: 'ATRASADO', es: 'ATRASADO', en: 'LATE' },
+                        'finished': { pt: 'FINALIZADO', es: 'FINALIZADO', en: 'FINISHED' }
+                    };
+                    const lang = currentLang || 'pt';
+                    let statusLabel = statusDict[statusKey] ? statusDict[statusKey][lang] : '---';
+
+                    // Colores y Lógica Visual
                     let statusColor = 'var(--text-secondary)';
-                    let statusText = 'FINALIZADO';
                     let progressColor = 'var(--text-secondary)';
+                    let cardBorderColor = 'var(--border-color)';
 
                     if (statusKey === 'paid' || statusKey === 'pending') {
                         statusColor = 'var(--accent-green)'; 
-                        statusText = 'EM DIA';
                         progressColor = 'var(--accent-green)';
+                        cardBorderColor = 'var(--accent-green)';
                     } else if (statusKey === 'late') {
                         statusColor = 'var(--danger-color)';
-                        // AQUI MOSTRAMOS CLARAMENTE LOS DÍAS DE ATRASO EN EL TÍTULO
-                        statusText = `ATRASADO (${details.lateDays}d)`;
+                        // Agregamos días de atraso al texto
+                        const daysText = lang === 'es' ? 'días' : 'dias';
+                        statusLabel = `${statusLabel} (${details.lateDays}${daysText[0]})`; 
                         progressColor = 'var(--danger-color)';
+                        cardBorderColor = 'var(--danger-color)';
                     } else if (statusKey === 'finished') {
                         statusColor = '#3b82f6'; // Azul
                         progressColor = '#3b82f6';
+                        cardBorderColor = '#3b82f6';
                     }
 
                     // Foto
                     const cInitial = (client.name || 'C').charAt(0).toUpperCase();
                     const cPhoto = client.profilePictureUrl || ('https://placehold.co/80x80/3b82f6/FFFFFF?text=' + cInitial);
 
-                    // Fechas
+                    // Fechas (Formato Corto)
                     let startDateStr = '--/--';
-                    let endDateStr = '--/--';
                     if (displayLoan.startDate && displayLoan.startDate.seconds) {
-                        const sd = new Date(displayLoan.startDate.seconds * 1000);
-                        startDateStr = sd.toLocaleDateString(currentLang === 'pt' ? 'pt-BR' : 'es-ES');
-                        
-                        // Cálculo estimado fecha final
-                        const daysToAdd = (parseInt(displayLoan.installments) || 20) * (displayLoan.paymentFrequency === 'weekly' ? 7 : 1);
-                        const ed = new Date(sd);
-                        ed.setDate(ed.getDate() + daysToAdd);
-                        endDateStr = ed.toLocaleDateString(currentLang === 'pt' ? 'pt-BR' : 'es-ES');
+                        startDateStr = new Date(displayLoan.startDate.seconds * 1000).toLocaleDateString(currentLang === 'pt' ? 'pt-BR' : 'es-ES', {day:'2-digit', month:'2-digit'});
                     }
 
                     // Progreso (Rueda)
@@ -2506,80 +2511,75 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                     
                     const progressPercent = totalInst > 0 ? (paidInst / totalInst) * 100 : 0;
 
-                    // Valores para mostrar
-                    const fineVal = displayLoan.lateFeesAccumulated || 0;
-                    const insVal = parseFloat(displayLoan.microInsurance) || 0;
-
-                    // --- HTML DE LA TARJETA (DISEÑO FINAL MEJORADO: RUEDA GRANDE + DÍAS ATRASO) ---
+                    // --- DISEÑO GRID (SOLUCIÓN DEFINITIVA DE SUPERPOSICIÓN) ---
+                    // Estructura: 
+                    // [ FOTO ]  [ INFO PRINCIPAL ....... ]  [ RUEDA ]
                     return `
                         <div class="client-card client-card-modern" data-client-id="${client.id}" data-loan-index="${displayLoan.originalIndex}" 
-                             style="border-left: 4px solid ${statusColor}; cursor: pointer; display: flex; align-items: center; padding: 15px; gap: 12px; background-color: var(--surface); border-radius: 12px; margin-bottom: 12px; border: 1px solid var(--border-color); position: relative; transition: transform 0.2s, box-shadow 0.2s;">
+                             style="
+                                display: grid; 
+                                grid-template-columns: auto 1fr auto; 
+                                gap: 15px; 
+                                align-items: center; 
+                                padding: 15px; 
+                                background-color: var(--surface); 
+                                border-radius: 12px; 
+                                margin-bottom: 12px; 
+                                border: 1px solid var(--border-color); 
+                                border-left: 4px solid ${cardBorderColor};
+                                position: relative; 
+                                cursor: pointer;
+                                transition: transform 0.2s;
+                             ">
                             
-                            <!-- 1. FOTO -->
-                            <div style="flex-shrink: 0;"> 
-                                <img src="${cPhoto}" alt="Foto" style="width: 50px; height: 50px; border-radius: 50%; object-fit: cover; border: 2px solid var(--bg); box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+                            <!-- COLUMNA 1: FOTO -->
+                            <div style="position: relative;"> 
+                                <img src="${cPhoto}" alt="Foto" style="width: 55px; height: 55px; border-radius: 50%; object-fit: cover; border: 2px solid var(--bg); box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+                                ${activeLoansCount > 1 ? `<span style="position: absolute; bottom: -2px; right: -2px; background: var(--accent-blue); color: white; font-size: 0.65em; font-weight: bold; padding: 2px 5px; border-radius: 10px; border: 2px solid var(--surface);">+${activeLoansCount-1}</span>` : ''}
                             </div>
 
-                            <!-- 2. INFO (Nombre > Dirección > Parcela) -->
-                            <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 4px; min-width: 0;">
-                                <!-- Nombre -->
-                                <h4 class="client-name-modern" style="margin: 0; font-size: 1em; color: var(--text-primary); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${client.name}</h4>
+                            <!-- COLUMNA 2: INFORMACIÓN (Flexible, sin superponerse) -->
+                            <div style="display: flex; flex-direction: column; gap: 4px; overflow: hidden;">
+                                <!-- Nombre y Chat -->
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <h4 class="client-name-modern" style="margin: 0; font-size: 1em; color: var(--text-primary); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${client.name}</h4>
+                                </div>
                                 
                                 <!-- Dirección -->
                                 <div style="font-size: 0.8em; color: var(--text-secondary); display: flex; align-items: center; gap: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                                    <i data-lucide="map-pin" style="width: 12px; height: 12px;"></i> ${client.address || 'Sem endereço'}
+                                    <i data-lucide="map-pin" style="width: 12px; height: 12px; flex-shrink: 0;"></i> ${client.address || 'Sem endereço'}
                                 </div>
 
-                                <!-- Valor Parcela -->
-                                <div style="font-size: 0.9em; font-weight: 700; color: var(--text-primary); margin-top: 2px;">
-                                    Parcela: ${money(displayLoan.originalInstallmentAmount)}
+                                <!-- Detalles Financieros (Parcela y Fecha) -->
+                                <div style="display: flex; align-items: center; gap: 10px; margin-top: 2px;">
+                                    <span style="font-size: 0.85em; font-weight: 700; color: var(--text-primary); background: var(--bg); padding: 2px 6px; border-radius: 4px;">
+                                        ${money(displayLoan.originalInstallmentAmount)}
+                                    </span>
+                                    <span style="font-size: 0.75em; color: var(--text-secondary);">
+                                        Início: ${startDateStr}
+                                    </span>
                                 </div>
                             </div>
 
-                            <!-- 3. RUEDA GRANDE Y ESTADO (CENTRADOS) -->
-                            <div style="display: flex; flex-direction: column; align-items: center; gap: 5px; flex-shrink: 0; padding: 0 10px;">
-                                <!-- Rueda Bonita AUMENTADA (65px) -->
-                                <div class="progress-wheel-container" style="width: 65px; height: 65px;">
+                            <!-- COLUMNA 3: RUEDA Y ESTADO (Fijo a la derecha) -->
+                            <div style="display: flex; flex-direction: column; align-items: center; gap: 5px; width: 70px;">
+                                <!-- Rueda -->
+                                <div class="progress-wheel-container" style="width: 55px; height: 55px;">
                                     <div class="progress-wheel" style="background: conic-gradient(${progressColor} ${progressPercent}%, var(--bg) 0%);">
-                                        <div class="inner-wheel">
-                                            <span class="wheel-text" style="font-size: 0.9em;">${paidInst}/${totalInst}</span>
+                                        <div class="inner-wheel" style="width: 88%; height: 88%;">
+                                            <span class="wheel-text" style="font-size: 0.85em;">${paidInst}/${totalInst}</span>
                                         </div>
                                     </div>
                                 </div>
-                                <!-- Estado CON DÍAS DE ATRASO -->
-                                <span style="font-size: 0.7em; font-weight: 700; text-transform: uppercase; color: ${statusColor}; white-space: nowrap; text-align: center;">
-                                    ${statusKey === 'late' ? `ATRASADO (${details.lateDays}d)` : (statusKey === 'paid' || statusKey === 'pending' ? 'EM DIA' : 'FIM')}
+                                <!-- Estado -->
+                                <span style="font-size: 0.65em; font-weight: 800; text-transform: uppercase; color: ${statusColor}; text-align: center; line-height: 1;">
+                                    ${statusLabel}
                                 </span>
                             </div>
 
-                            <!-- 4. FECHAS Y VALORES (Derecha) -->
-                            <div style="display: flex; flex-direction: column; gap: 8px; font-size: 0.8em; flex-shrink: 0; border-left: 1px dashed var(--border-color); padding-left: 12px;">
-                                
-                                <!-- Inicio + Multa -->
-                                <div style="display: flex; align-items: center; gap: 8px;">
-                                    <div style="display: flex; flex-direction: column; line-height: 1.1;">
-                                        <span style="color: var(--text-secondary); font-size: 0.85em;">Início</span>
-                                        <strong style="color: var(--text-primary);">${startDateStr}</strong>
-                                    </div>
-                                    ${fineVal > 0 ? `<div style="background: rgba(239, 68, 68, 0.1); color: var(--danger-color); font-weight: 700; padding: 2px 6px; border-radius: 4px; font-size: 0.85em; text-align: center; line-height: 1.1;">Multa<br>${money(fineVal)}</div>` : ''}
-                                </div>
-
-                                <!-- Final + Seguro -->
-                                <div style="display: flex; align-items: center; gap: 8px;">
-                                    <div style="display: flex; flex-direction: column; line-height: 1.1;">
-                                        <span style="color: var(--text-secondary); font-size: 0.85em;">Final</span>
-                                        <strong style="color: var(--text-primary);">${endDateStr}</strong>
-                                    </div>
-                                    ${insVal > 0 ? `<div style="background: rgba(14, 165, 233, 0.1); color: #0ea5e9; font-weight: 700; padding: 2px 6px; border-radius: 4px; font-size: 0.85em; text-align: center; line-height: 1.1;">Seguro<br>${money(insVal)}</div>` : ''}
-                                </div>
-                            </div>
-
-                            <!-- 5. CHAT APP COBRADOR (Destacado) -->
-                            <div style="flex-shrink: 0; margin-left: 5px;">
-                                 <div style="color: var(--accent-blue); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 6px 10px; background-color: var(--bg); border-radius: 8px; border: 1px solid var(--border-color);">
-                                    <i data-lucide="message-circle" style="width: 20px; height: 20px;"></i>
-                                    <span style="font-size: 0.65em; font-weight: 700; text-align: center; line-height: 1.1;">Chat App<br>Cobrador</span>
-                                 </div>
+                            <!-- BOTÓN CHAT (Absoluto arriba derecha, discreto) -->
+                            <div style="position: absolute; top: 10px; right: 10px; display: ${displayLoan.notes || (displayLoan.chatHistory && displayLoan.chatHistory.length > 0) ? 'flex' : 'none'}; align-items: center; justify-content: center; background: var(--bg); border: 1px solid var(--border-color); border-radius: 50%; width: 24px; height: 24px;">
+                                <i data-lucide="message-circle" style="width: 14px; height: 14px; color: var(--accent-blue);"></i>
                             </div>
 
                         </div>
@@ -3553,45 +3553,27 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
             if (!loan || !loan.totalLoan) return details;
 
             // === LÓGICA ESTRICTA (CERO DEUDA) ===
-            
-            // A. Verificación Matemática:
-            // Usamos 0.02 (2 centavos) solo como margen técnico por decimales de JS.
-            // Si la diferencia es mayor a 2 centavos, NO se considera finalizado.
             if (currentTotalPaid >= (loan.totalLoan - 0.02)) {
                 details.status = 'finished';
                 return details;
             }
-
-            // B. Verificación de Base de Datos:
-            // Si la BD dice "finished" pero hay deuda real, IGNORAMOS la BD.
             if (loan.status === 'finished') {
                 const debt = loan.totalLoan - currentTotalPaid;
-                
-                // Si debe dinero real (más de 2 centavos), el sistema lo "reabre" forzosamente
-                // para que puedas cobrar ese saldo.
-                if (debt > 0.02) {
-                    // Continuamos abajo para calcular si está Pending o Late
-                } else {
-                    // Si la deuda es ridícula (0.00001), aceptamos que finalizó.
+                if (debt <= 0.02) {
                     details.status = 'finished';
                     return details;
                 }
             }
-            // =====================================
 
             const today = new Date();
             today.setHours(0, 0, 0, 0);
 
-            // CORREÇÃO CRÍTICA: Calcular sempre desde o INÍCIO do empréstimo.
-            // Isso garante que o "Total Pago" seja comparado com o "Total Devido Acumulado" desde o dia 1.
             let lastRelevantDate;
             if (loan.startDate?.seconds) {
                 lastRelevantDate = new Date(loan.startDate.seconds * 1000);
             } else if (loan.history && loan.history.length > 0) {
-                // Fallback (apenas se não houver data de início salva)
                 const sortedHistory = [...loan.history].sort((a, b) => a.date.seconds - b.date.seconds);
                 lastRelevantDate = new Date(sortedHistory[0].date.seconds * 1000);
-            
             }
             if (!lastRelevantDate && loan.startDate?.seconds) {
                 lastRelevantDate = new Date(loan.startDate.seconds * 1000);
@@ -3602,6 +3584,10 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
             lastRelevantDate.setHours(0, 0, 0, 0);
 
             let checkDate = new Date(lastRelevantDate);
+            
+            // Sincronización +1 día (Mantenemos esto)
+            checkDate.setDate(checkDate.getDate() + 1); 
+
             let accumulatedLateDays = 0;
             let accumulatedLateFees = 0;
             const dailyLateRate = (loan.lateFeeRate || 0) / 100;
@@ -3627,7 +3613,6 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
                         const expectedPaidByThisDate = installmentsDueCount * installmentAmount;
                         const outstandingDueAmount = Math.max(0, expectedPaidByThisDate - currentTotalPaid);
 
-                        // Si debe aunque sea 5 centavos, genera atraso
                         if (outstandingDueAmount > 0.05) { 
                             if (dailyLateRate > 0) {
                                 accumulatedLateFees += (outstandingDueAmount * dailyLateRate);
@@ -3646,11 +3631,15 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
                 checkDate.setDate(checkDate.getDate() + 1);
             }
 
-                // === LÓGICA DE MULTA FIJA (CORRECCIÓN) ===
-            // Si existe un valor de multa configurado y se superaron los días de tolerancia
+            // === CORRECCIÓN DE MULTA: ACTIVAR AL 5º DÍA (SUPERAR EL LÍMITE) ===
             if (loan.lateFeeAmount && loan.lateFeeAmount > 0) {
-                const delayDays = loan.lateFeeDelay || 0; // Días de gracia (ej: 5)
-                if (accumulatedLateDays >= delayDays) {
+                const delayDays = parseInt(loan.lateFeeDelay) || 0;
+                
+                // CAMBIO: Usamos '>' (Mayor que) en lugar de '>=' (Mayor o igual)
+                // Si delay es 4: 
+                // - Con 4 días: 4 > 4 es Falso (No multa).
+                // - Con 5 días: 5 > 4 es Verdadero (Multa activa).
+                if (accumulatedLateDays > delayDays) {
                     accumulatedLateFees += parseFloat(loan.lateFeeAmount);
                 }
             }
@@ -3658,7 +3647,6 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
             details.lateDays = accumulatedLateDays;
             details.lateFeesAccumulated = accumulatedLateFees;
             
-            // Si tiene CUALQUIER día de atraso (mayor a 0), ya es Late
             if (accumulatedLateDays > 0) {
                details.status = 'late';
             } else if (details.amountDueToday > 0) {
@@ -8770,4 +8758,3 @@ async function showRefinanceVerificationModal(clientId) {
     </script>
 </body>
     </html>
-
