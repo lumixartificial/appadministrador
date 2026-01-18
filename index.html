@@ -6323,6 +6323,10 @@ async function submitCollectorReport(collectorId) {
             // --- 1. ACTIVAR MEMORIA GLOBAL ---
             currentDetailClientId = clientId;
             currentDetailLoanIndex = loanIndex;
+            
+            if (!isUpdate) {
+                console.log(`[DIAG-STATE] Navegando a detalles: Cliente ${clientId}`);
+            }
 
             if (!client) {
                 showToast('Erro: Cliente não encontrado.', true);
@@ -6354,15 +6358,36 @@ async function submitCollectorReport(collectorId) {
             const loan = allLoans[currentLoanIndex] || {};
             const hasMultipleLoans = allLoans.length > 1;
 
+            // --- CÁLCULOS FINANCIEROS COMPLETOS ---
             const paidAmount = (loan.history || []).filter(h => h.status !== 'pending_verification' && h.status !== 'rejected' && h.status !== 'postponed' && h.method !== 'migration').reduce((sum, h) => sum + (h.amount || 0), 0) + (loan.initialMigratedAmount || 0);
+            
             const loanDetails = calculateLoanDetails(loan);
-            const totalAmountWithFine = (loan.totalLoan || 0) + (loanDetails.lateFeesAccumulated || 0);
+            const fineAmount = loanDetails.lateFeesAccumulated || 0;
+            const totalAmountWithFine = (loan.totalLoan || 0) + fineAmount;
             const remainingAmount = Math.max(0, totalAmountWithFine - paidAmount);
             const currentStatus = loanDetails.status;
             
+            // Cálculo de Pico (Pago parcial de cuota)
+            let picoValue = 0;
+            const instVal = loan.originalInstallmentAmount || 0;
+            if (instVal > 0 && paidAmount > 0) {
+                const remainder = paidAmount % instVal;
+                // Si sobra más de 5 centavos y falta más de 5 centavos para completar, es un pico
+                if (remainder > 0.05 && (instVal - remainder) > 0.05) picoValue = remainder;
+            }
+
+            const displayMicroInsurance = currentStatus === 'finished' ? 0 : (loan.microInsurance || 0);
+
+            // --- TEXTOS ---
             let statusText = { 'paid': 'EM DIA', 'pending': 'EM DIA', 'late': 'ATRASADO', 'finished': 'FINALIZADO' }[currentStatus] || currentStatus.toUpperCase();
             if (currentStatus === 'late' && loanDetails.lateDays > 0) statusText += ` (${loanDetails.lateDays}d)`;
             let statusClass = (currentStatus === 'paid' || currentStatus === 'pending') ? 'status-paid' : `status-${currentStatus}`;
+
+            const labels = {
+                pt: { chatTitle: 'Chat com Cobrador', placeholder: 'Escreva uma mensagem...', pico: 'Pico', installment: 'Valor da Parcela', fine: 'Multa', insurance: 'Micro Seguro', total: 'Valor Total', paid: 'Pago', remaining: 'Resta' },
+                es: { chatTitle: 'Chat con Cobrador', placeholder: 'Escribe un mensaje...', pico: 'Pico', installment: 'Valor Parcela', fine: 'Multa', insurance: 'Micro Seguro', total: 'Valor Total', paid: 'Pagado', remaining: 'Resta' },
+                en: { chatTitle: 'Chat with Collector', placeholder: 'Type a message...', pico: 'Partial', installment: 'Installment', fine: 'Fine', insurance: 'Micro Insurance', total: 'Total Value', paid: 'Paid', remaining: 'Balance' }
+            }[currentLang] || { chatTitle: 'Chat', placeholder: '...' };
 
             const historyHtml = (loan.history && loan.history.length > 0) ? 
                 loan.history.map((p, i) => ({ ...p, originalIndex: i })).sort((a, b) => (b.date?.seconds || 0) - (a.date?.seconds || 0))
@@ -6371,6 +6396,17 @@ async function submitCollectorReport(collectorId) {
                     return `<div class="payment-history-item" data-history-index="${p.originalIndex}"><span>${dateStr}</span><strong>${money(p.amount)}</strong></div>`;
                 }).join('') : '<p style="color: var(--text-secondary); padding: 10px;">Nenhum histórico.</p>';
             
+            // --- CHAT ---
+            let messages = loan.chatHistory || [];
+            if (messages.length === 0 && loan.notes && loan.notes.trim() !== '') {
+                messages.push({ sender: 'admin', text: loan.notes, timestamp: new Date() });
+            }
+            const chatBubblesHtml = messages.map(msg => {
+                const isAdmin = msg.sender === 'admin';
+                const time = msg.timestamp ? new Date(msg.timestamp.seconds ? msg.timestamp.seconds * 1000 : msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '';
+                return `<div class="chat-bubble ${isAdmin ? 'admin' : 'collector'}">${msg.text}<span class="chat-time">${time}</span></div>`;
+            }).join('') || `<div style="text-align:center; color:gray; font-size:0.8em; margin-top:10px;">${labels.placeholder}</div>`;
+
             const renderTabs = () => !hasMultipleLoans ? '' : `<div class="loan-tabs-wrapper"><div class="loan-tabs-container">${allLoans.map((l, i) => `<button class="loan-tab ${i === currentLoanIndex ? 'active' : ''}" data-loan-index="${i}">Préstamo ${i + 1}</button>`).join('')}</div></div>`;
 
             clientDetailView.innerHTML = `
@@ -6384,6 +6420,7 @@ async function submitCollectorReport(collectorId) {
                         <h3 class="kpi-title" style="justify-content: center;">Estado Atual</h3>
                         <span class="payment-status ${statusClass}" style="font-size: 1.2em; font-weight: 600; padding: 8px 20px;">${statusText}</span>
                     </div>
+
                     <div class="kpi-card" style="margin-bottom: 30px; border-color: var(--border-color);">
                         <h3 class="kpi-title" style="border-bottom: 1px solid var(--border-color); padding-bottom: 10px; margin-bottom: 15px; color: var(--accent-blue);">
                             <i data-lucide="user"></i> ${t.personalData || 'Dados Pessoais'}
@@ -6397,25 +6434,64 @@ async function submitCollectorReport(collectorId) {
                             ${waUrl ? `<a href="${waUrl}" target="_blank" class="btn-primary" style="flex:1; display:flex; align-items:center; justify-content:center; gap:8px; background-color:#25D366; border-color:#25D366; color:white; padding:10px; text-decoration:none; border-radius:8px; font-weight:600;"><img src="${whatsappLogoUrl}" style="width:24px; height:24px; filter:brightness(0) invert(1);"> <span>WhatsApp</span></a>` : `<button disabled class="btn-secondary" style="flex:1; opacity:0.5; cursor:not-allowed; display:flex; align-items:center; justify-content:center; gap:6px;"><i data-lucide="message-circle"></i> Sem WhatsApp</button>`}
                         </div>
                     </div>
+
+                    <!-- SECCIÓN FINANCIERA COMPLETA RESTAURADA -->
                     <section class="kpi-grid-profile" style="margin-bottom: 30px;">
-                        <div class="kpi-card"><h3 class="kpi-title"><i data-lucide="coins"></i> Total</h3><p class="kpi-value">${money(totalAmountWithFine)}</p></div>
-                        <div class="kpi-card"><h3 class="kpi-title"><i data-lucide="trending-up"></i> Pago</h3><p class="kpi-value green">${money(paidAmount)}</p></div>
-                        <div class="kpi-card" style="border-color: var(--danger-color);"><h3 class="kpi-title"><i data-lucide="receipt-text"></i> Resta</h3><p class="kpi-value" style="color: var(--danger-color); font-size: 1.4em;">${money(remainingAmount)}</p></div>
+                        <div class="kpi-card"><h3 class="kpi-title"><i data-lucide="coins"></i> ${labels.total}</h3><p class="kpi-value">${money(totalAmountWithFine)}</p></div>
+                        <div class="kpi-card"><h3 class="kpi-title"><i data-lucide="receipt"></i> ${labels.installment}</h3><p class="kpi-value" style="color: var(--accent-purple);">${money(loan.originalInstallmentAmount)}</p></div>
+                        <div class="kpi-card" style="border-color: var(--accent-orange); border-width: 1px;"><h3 class="kpi-title"><i data-lucide="trending-up" style="color: var(--accent-orange);"></i> ${labels.pico}</h3><p class="kpi-value" style="color: var(--accent-orange);">${money(picoValue)}</p></div>
+                        <div class="kpi-card"><h3 class="kpi-title"><i data-lucide="trending-up"></i> ${labels.paid}</h3><p class="kpi-value green">${money(paidAmount)}</p></div>
+                        
+                        <div class="kpi-card" style="border-color: #ef4444; border-width: 1px;"><h3 class="kpi-title"><i data-lucide="alert-triangle" style="color: #ef4444;"></i> ${labels.fine}</h3><p class="kpi-value" style="color: #ef4444;">${money(fineAmount)}</p></div>
+
+                        <div class="kpi-card" style="background-color: color-mix(in srgb, #0ea5e9 10%, var(--surface)); border-color: #0ea5e9;"><h3 class="kpi-title"><i data-lucide="shield-check" style="color: #0ea5e9;"></i> ${labels.insurance}</h3><p class="kpi-value" style="color: #0ea5e9;">${money(displayMicroInsurance)}</p></div>
+
+                        <div class="kpi-card" style="border-color: var(--danger-color);"><h3 class="kpi-title"><i data-lucide="receipt-text"></i> ${labels.remaining}</h3><p class="kpi-value" style="color: var(--danger-color); font-size: 1.4em;">${money(remainingAmount)}</p></div>
                     </section>
+
+                    <!-- SECCIÓN CHAT RESTAURADA -->
+                    <section style="margin-top: 20px; margin-bottom: 20px;">
+                         <div class="kpi-card" style="border-color: var(--border-color); border-width: 1px;">
+                           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                               <h3 class="kpi-title" style="color: var(--accent-purple); font-weight: 700; font-size: 1.1em; margin: 0;">
+                                    <i data-lucide="message-circle"></i> ${labels.chatTitle}
+                               </h3>
+                               <button id="clear-chat-btn" style="background:none; border:none; color:var(--danger-color); cursor:pointer;" title="Limpar">
+                                    <i data-lucide="trash-2" style="width:18px; height:18px;"></i>
+                               </button>
+                           </div>
+                           
+                           <div id="chat-history-container" class="chat-container">
+                                ${chatBubblesHtml}
+                           </div>
+
+                           <div class="chat-input-area">
+                                <input type="text" id="chat-input-field" placeholder="${labels.placeholder}" autocomplete="off">
+                                <button id="send-chat-btn" class="btn-primary" style="padding: 10px; border-radius: 50%; width: 45px; height: 45px; display: flex; align-items: center; justify-content: center;">
+                                    <i data-lucide="send" style="width: 20px; height: 20px; margin-left: 2px;"></i>
+                                </button>
+                           </div>
+                       </div>
+                    </section>
+
                     <section style="margin-top: 20px;"><h2 class="section-title">Histórico</h2><div class="item-list">${historyHtml}</div></section>
                     <div style="height: 60px;"></div>
                 </div>`;
 
-            // --- 3. GUARDAR ESTADO EN EL NAVEGADOR (EVITA SALIRSE) ---
+            // --- 3. GUARDAR ESTADO EN EL NAVEGADOR ---
             if (!isUpdate) {
                 history.pushState({ modal: 'clientDetailModal', clientId: clientId, loanIndex: currentLoanIndex }, `Details`, `#client/${clientId}/${currentLoanIndex}`);
                 clientDetailView.classList.add('active');
             }
-            // ---------------------------------------------------------
 
             lucide.createIcons({ nodes: clientDetailView.querySelectorAll('[data-lucide]') });
             applyLanguage(currentLang);
+            
+            // --- SCROLL CHAT ---
+            const chatContainer = document.getElementById('chat-history-container');
+            if(chatContainer) chatContainer.scrollTop = chatContainer.scrollHeight;
 
+            // --- LISTENERS GENERALES ---
             clientDetailView.querySelector('#closeClientDetail').addEventListener('click', () => window.history.back());
             clientDetailView.querySelector('#editClientBtnCard').addEventListener('click', () => showClientFormModal(clientId, false, currentLoanIndex));
             
@@ -6428,6 +6504,82 @@ async function submitCollectorReport(collectorId) {
                     showPaymentDetailModal(clientId, currentLoanIndex, hIndex);
                 });
             });
+
+            // --- LISTENERS DEL CHAT (RESTAURADOS) ---
+            const sendChatBtn = document.getElementById('send-chat-btn');
+            const chatInput = document.getElementById('chat-input-field');
+            const clearChatBtn = document.getElementById('clear-chat-btn');
+
+            // --- LÓGICA DE CHAT Y NOTIFICACIONES ---
+            if (sendChatBtn && chatInput) {
+                const sendMessage = async () => {
+                    const text = chatInput.value.trim();
+                    if (!text) return;
+                    
+                    chatInput.disabled = true; 
+                    sendChatBtn.disabled = true;
+                    
+                    try {
+                        const clientRef = doc(db, 'companies', currentCompanyId, "clients", clientId);
+                        const newMessage = { sender: 'admin', text: text, timestamp: new Date() };
+                        
+                        // Actualizar historial local y DB
+                        const updatedLoans = JSON.parse(JSON.stringify(allLoans));
+                        if (!updatedLoans[currentLoanIndex].chatHistory) updatedLoans[currentLoanIndex].chatHistory = [];
+                        
+                        updatedLoans[currentLoanIndex].chatHistory.push(newMessage);
+                        updatedLoans[currentLoanIndex].notes = text; 
+                        
+                        await updateDoc(clientRef, { loans: updatedLoans });
+
+                        // --- [CORRECCIÓN] ENVIAR NOTIFICACIÓN AL COBRADOR ---
+                        if (client.collectorId) {
+                            // Detectar idioma para el título de la notificación
+                            const notifTitle = currentLang === 'es' ? 'Mensaje del Admin' : (currentLang === 'en' ? 'Admin Message' : 'Mensagem do Admin');
+                            const notifBody = `${client.name}: "${text}"`;
+                            
+                            // Llamamos a la función de notificación global
+                            // 'message' es el tipo, 'message-circle' es el icono
+                            await sendNotificationToCollector(client.collectorId, notifTitle, notifBody, 'message', 'message-circle', clientId);
+                        }
+                        // ----------------------------------------------------
+
+                        chatInput.value = '';
+                        setTimeout(() => { 
+                            const c = document.getElementById('chat-history-container'); 
+                            if(c) c.scrollTop = c.scrollHeight; 
+                        }, 500);
+
+                    } catch (error) { 
+                        console.error(error); 
+                        showToast("Erro ao enviar mensagem.", true); 
+                    } finally { 
+                        chatInput.disabled = false; 
+                        sendChatBtn.disabled = false; 
+                        chatInput.focus(); 
+                    }
+                };
+
+                sendChatBtn.addEventListener('click', sendMessage);
+                chatInput.addEventListener('keypress', (e) => { 
+                    if (e.key === 'Enter') sendMessage(); 
+                });
+            }
+
+            if (clearChatBtn) {
+                clearChatBtn.addEventListener('click', async () => {
+                    const confirmed = await showConfirmationModal('Limpar Chat?', 'Deseja limpar todo o histórico de mensagens?', 'Limpar', 'btn-danger');
+                    if (!confirmed) return;
+                    try {
+                        const clientRef = doc(db, 'companies', currentCompanyId, "clients", clientId);
+                        const updatedLoans = JSON.parse(JSON.stringify(allLoans));
+                        updatedLoans[currentLoanIndex].chatHistory = [];
+                        updatedLoans[currentLoanIndex].notes = "";
+                        await updateDoc(clientRef, { loans: updatedLoans });
+                        showToast('Chat limpo.');
+                    } catch (error) { console.error(error); showToast("Erro ao limpar.", true); }
+                });
+            }
         }
         
 
@@ -8339,4 +8491,5 @@ async function showRefinanceVerificationModal(clientId) {
     </script>
 </body>
     </html>
+
 
