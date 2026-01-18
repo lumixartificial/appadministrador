@@ -1449,6 +1449,15 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
         // ... código existente ...
     const translations = {
         pt: {
+            // ... existentes ...
+            appPermissions: 'Permissões do App',
+            allowEditClient: 'Editar Clientes',
+            allowDeletePayment: 'Excluir Pagamentos',
+            permOn: 'ON',
+            permOff: 'OFF',
+            personalData: 'Dados Pessoais',
+            contactClient: 'Contatar',
+            // ... existentes ...
             welcomeAdmin: 'Bem-vindo, Administrador',
             manageTeamDesc: 'Gerencie sua equipe e operações com eficiência.',
             accessPanel: 'Acessar Painel',
@@ -1606,6 +1615,15 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
         },  
 
         es: {
+            // ... existentes ...
+            appPermissions: 'Permissões do App',
+            allowEditClient: 'Editar Clientes',
+            allowDeletePayment: 'Excluir Pagamentos',
+            permOn: 'ON',
+            permOff: 'OFF',
+            personalData: 'Dados Pessoais',
+            contactClient: 'Contatar',
+            // ... existentes ...
             microInsurance: 'Micro Seguro',
             microInsuranceFund: 'Micro Seguro (Fondo)',
             microInsuranceLabel: 'Micro Seguro (Valor a Descontar)',
@@ -1754,6 +1772,15 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             insuranceLabelShort: 'Seguro',
         },
         en: {
+            // ... existentes ...
+            appPermissions: 'App Permissions',
+            allowEditClient: 'Edit Clients',
+            allowDeletePayment: 'Delete Payments',
+            permOn: 'ON',
+            permOff: 'OFF',
+            personalData: 'Personal Data',
+            contactClient: 'Contact',
+            // ... existentes ...
             microInsurance: 'Micro Insurance',
             microInsuranceFund: 'Micro Insurance (Fund)',
             microInsuranceLabel: 'Micro Insurance (Deductible)',
@@ -2421,7 +2448,7 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                 });
             });
 
-            // --- LISTA DE CLIENTES (Vista General) ---
+            // --- LISTA DE CLIENTES ---
             let clientsListHtml = '';
             if (clients.length > 0) {
                 const sortedClients = clients.map(client => {
@@ -2447,11 +2474,8 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                 }).sort((a, b) => a.client.name.localeCompare(b.client.name));
 
                 clientsListHtml = sortedClients.map(({ client, displayLoan, hasMultipleActive, activeLoansCount }) => {
-                    // --- CÁLCULOS PARA LA TARJETA ---
                     const details = calculateLoanDetails(displayLoan); 
                     const statusKey = details.status;
-                    
-                    // TRADUCCIONES DE ESTADO (CORREGIDO)
                     const statusDict = {
                         'paid': { pt: 'EM DIA', es: 'AL DÍA', en: 'ON TIME' },
                         'pending': { pt: 'EM DIA', es: 'AL DÍA', en: 'ON TIME' },
@@ -2460,97 +2484,63 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                     };
                     const lang = currentLang || 'pt';
                     let statusLabel = statusDict[statusKey] ? statusDict[statusKey][lang] : '---';
-
-                    // Colores y Lógica Visual
                     let statusColor = 'var(--text-secondary)';
                     let progressColor = 'var(--text-secondary)';
                     let cardBorderColor = 'var(--border-color)';
 
                     if (statusKey === 'paid' || statusKey === 'pending') {
-                        statusColor = 'var(--accent-green)'; 
-                        progressColor = 'var(--accent-green)';
-                        cardBorderColor = 'var(--accent-green)';
+                        statusColor = 'var(--accent-green)'; progressColor = 'var(--accent-green)'; cardBorderColor = 'var(--accent-green)';
                     } else if (statusKey === 'late') {
                         statusColor = 'var(--danger-color)';
-                        // Agregamos días de atraso al texto
                         const daysText = lang === 'es' ? 'días' : 'dias';
                         statusLabel = `${statusLabel} (${details.lateDays}${daysText[0]})`; 
-                        progressColor = 'var(--danger-color)';
-                        cardBorderColor = 'var(--danger-color)';
+                        progressColor = 'var(--danger-color)'; cardBorderColor = 'var(--danger-color)';
                     } else if (statusKey === 'finished') {
-                        statusColor = '#3b82f6'; // Azul
-                        progressColor = '#3b82f6';
-                        cardBorderColor = '#3b82f6';
+                        statusColor = '#3b82f6'; progressColor = '#3b82f6'; cardBorderColor = '#3b82f6';
                     }
 
-                    // Foto
                     const cInitial = (client.name || 'C').charAt(0).toUpperCase();
                     const cPhoto = client.profilePictureUrl || ('https://placehold.co/80x80/3b82f6/FFFFFF?text=' + cInitial);
-
-                    // Fechas (Formato Corto)
                     let startDateStr = '--/--';
                     if (displayLoan.startDate && displayLoan.startDate.seconds) {
                         startDateStr = new Date(displayLoan.startDate.seconds * 1000).toLocaleDateString(currentLang === 'pt' ? 'pt-BR' : 'es-ES', {day:'2-digit', month:'2-digit'});
                     }
 
-                    // Progreso (Rueda)
-                    let totalInst = 0;
-                    let paidInst = 0;
-                    
+                    // --- CORRECCIÓN RUEDITA ---
+                    let totalInst = 0; let paidInst = 0;
                     if (displayLoan.installments && typeof displayLoan.installments === 'string' && displayLoan.installments.includes('/')) {
                         const parts = displayLoan.installments.split('/');
-                        paidInst = parseInt(parts[0]) || 0;
-                        totalInst = parseInt(parts[1]) || 0;
+                        paidInst = parseInt(parts[0]) || 0; totalInst = parseInt(parts[1]) || 0;
                     } else {
                         totalInst = parseInt(displayLoan.installments) || 0;
                         const totalPaidVal = (displayLoan.history || []).reduce((acc, h) => acc + (h.amount||0), 0);
                         const instVal = displayLoan.originalInstallmentAmount || 1;
                         paidInst = Math.floor(totalPaidVal / instVal);
-                        if (paidInst > totalInst) paidInst = totalInst;
                     }
                     
-                    const progressPercent = totalInst > 0 ? (paidInst / totalInst) * 100 : 0;
+                    // Lógica visual: Si no está finalizado, no mostrar 100% (o cuotas completas)
+                    if (statusKey !== 'finished' && paidInst >= totalInst && totalInst > 0) {
+                        paidInst = totalInst - 1; // Restamos 1 visualmente
+                    }
+                    if (paidInst < 0) paidInst = 0; // Seguridad
 
-                    // --- DISEÑO GRID (SOLUCIÓN DEFINITIVA DE SUPERPOSICIÓN) ---
-                    // Estructura: 
-                    // [ FOTO ]  [ INFO PRINCIPAL ....... ]  [ RUEDA ]
+                    const progressPercent = totalInst > 0 ? (paidInst / totalInst) * 100 : 0;
+                    // --------------------------
+
                     return `
                         <div class="client-card client-card-modern" data-client-id="${client.id}" data-loan-index="${displayLoan.originalIndex}" 
-                             style="
-                                display: grid; 
-                                grid-template-columns: auto 1fr auto; 
-                                gap: 15px; 
-                                align-items: center; 
-                                padding: 15px; 
-                                background-color: var(--surface); 
-                                border-radius: 12px; 
-                                margin-bottom: 12px; 
-                                border: 1px solid var(--border-color); 
-                                border-left: 4px solid ${cardBorderColor};
-                                position: relative; 
-                                cursor: pointer;
-                                transition: transform 0.2s;
-                             ">
-                            
-                            <!-- COLUMNA 1: FOTO -->
+                             style="display: grid; grid-template-columns: auto 1fr auto; gap: 15px; align-items: center; padding: 15px; background-color: var(--surface); border-radius: 12px; margin-bottom: 12px; border: 1px solid var(--border-color); border-left: 4px solid ${cardBorderColor}; position: relative; cursor: pointer; transition: transform 0.2s;">
                             <div style="position: relative;"> 
                                 <img src="${cPhoto}" alt="Foto" style="width: 55px; height: 55px; border-radius: 50%; object-fit: cover; border: 2px solid var(--bg); box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
                                 ${activeLoansCount > 1 ? `<span style="position: absolute; bottom: -2px; right: -2px; background: var(--accent-blue); color: white; font-size: 0.65em; font-weight: bold; padding: 2px 5px; border-radius: 10px; border: 2px solid var(--surface);">+${activeLoansCount-1}</span>` : ''}
                             </div>
-
-                            <!-- COLUMNA 2: INFORMACIÓN (Flexible, sin superponerse) -->
                             <div style="display: flex; flex-direction: column; gap: 4px; overflow: hidden;">
-                                <!-- Nombre y Chat -->
                                 <div style="display: flex; justify-content: space-between; align-items: center;">
                                     <h4 class="client-name-modern" style="margin: 0; font-size: 1em; color: var(--text-primary); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${client.name}</h4>
                                 </div>
-                                
-                                <!-- Dirección -->
                                 <div style="font-size: 0.8em; color: var(--text-secondary); display: flex; align-items: center; gap: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                                     <i data-lucide="map-pin" style="width: 12px; height: 12px; flex-shrink: 0;"></i> ${client.address || 'Sem endereço'}
                                 </div>
-
-                                <!-- Detalles Financieros (Parcela y Fecha) -->
                                 <div style="display: flex; align-items: center; gap: 10px; margin-top: 2px;">
                                     <span style="font-size: 0.85em; font-weight: 700; color: var(--text-primary); background: var(--bg); padding: 2px 6px; border-radius: 4px;">
                                         ${money(displayLoan.originalInstallmentAmount)}
@@ -2560,10 +2550,7 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                                     </span>
                                 </div>
                             </div>
-
-                            <!-- COLUMNA 3: RUEDA Y ESTADO (Fijo a la derecha) -->
                             <div style="display: flex; flex-direction: column; align-items: center; gap: 5px; width: 70px;">
-                                <!-- Rueda -->
                                 <div class="progress-wheel-container" style="width: 55px; height: 55px;">
                                     <div class="progress-wheel" style="background: conic-gradient(${progressColor} ${progressPercent}%, var(--bg) 0%);">
                                         <div class="inner-wheel" style="width: 88%; height: 88%;">
@@ -2571,28 +2558,25 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                                         </div>
                                     </div>
                                 </div>
-                                <!-- Estado -->
-                                <span style="font-size: 0.65em; font-weight: 800; text-transform: uppercase; color: ${statusColor}; text-align: center; line-height: 1;">
-                                    ${statusLabel}
-                                </span>
+                                <span style="font-size: 0.65em; font-weight: 800; text-transform: uppercase; color: ${statusColor}; text-align: center; line-height: 1;">${statusLabel}</span>
                             </div>
-
-                            <!-- BOTÓN CHAT (Absoluto arriba derecha, discreto) -->
                             <div style="position: absolute; top: 10px; right: 10px; display: ${displayLoan.notes || (displayLoan.chatHistory && displayLoan.chatHistory.length > 0) ? 'flex' : 'none'}; align-items: center; justify-content: center; background: var(--bg); border: 1px solid var(--border-color); border-radius: 50%; width: 24px; height: 24px;">
                                 <i data-lucide="message-circle" style="width: 14px; height: 14px; color: var(--accent-blue);"></i>
                             </div>
-
-                        </div>
-                    `;
+                        </div>`;
                 }).join('');
             } else {
                 clientsListHtml = '<p style="padding: 20px; text-align: center; color: var(--text-secondary);">Nenhum cliente para este cobrador.</p>';
             }
 
-            // Textos Alertas
             const alertTitle = currentLang === 'es' ? 'ALERTAS / MENSAJES (App)' : (currentLang === 'en' ? 'ALERTS / MESSAGES' : 'ALERTAS / MENSAGENS (App)');
             const searchPlace = currentLang === 'es' ? 'Buscar alerta...' : (currentLang === 'en' ? 'Search alert...' : 'Buscar alerta...');
             const noAlerts = currentLang === 'es' ? 'Sin alertas pendientes.' : (currentLang === 'en' ? 'No pending alerts.' : 'Sem alertas pendentes.');
+
+            // --- PERMISOS ACTUALES ---
+            const perm = collector.permissions || {};
+            const canEdit = perm.allowEditClient === true;
+            const canDelete = perm.allowDeletePayment === true;
 
             detailView.innerHTML = `
                 <header class="modal-header">
@@ -2631,6 +2615,56 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                         <div class="kpi-card"><h3 class="kpi-title" style="font-size: 0.8em; color: #0ea5e9;"><i data-lucide="shield-check" style="width: 14px; height: 14px; margin-right: 5px;"></i><span data-lang-key="microInsurance">Micro Seguro</span></h3><p class="kpi-value" style="color: #0ea5e9;">${money(collectorTotalInsurance)}</p></div>
                     </section>
 
+                    <!-- SECCIÓN PERMISOS (NUEVO) -->
+                    <div class="kpi-card" style="margin-bottom: 30px; border-color: var(--text-secondary); background-color: var(--surface);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">
+                            <h3 class="kpi-title" style="margin: 0; font-size: 1em; color: var(--text-primary);">
+                                <i data-lucide="lock" style="width: 18px; height: 18px; margin-right: 5px;"></i> 
+                                <span data-lang-key="appPermissions">Permissões do App</span>
+                            </h3>
+                        </div>
+                        <div style="display: flex; flex-direction: column; gap: 15px;">
+                            <!-- TOGGLE: Editar Clientes -->
+                            <div style="display: flex; align-items: center; justify-content: space-between;">
+                                <div style="display: flex; align-items: center; gap: 10px;">
+                                    <div style="background-color: ${canEdit ? 'var(--accent-blue)' : 'var(--bg)'}; padding: 8px; border-radius: 50%; color: ${canEdit ? 'white' : 'var(--text-secondary)'};">
+                                        <i data-lucide="edit" style="width: 18px; height: 18px;"></i>
+                                    </div>
+                                    <span style="font-weight: 600;" data-lang-key="allowEditClient">Editar Clientes</span>
+                                </div>
+                                <label class="toggle-switch">
+                                    <span style="font-size: 0.8em; font-weight: 700; margin-right: 8px; color: ${canEdit ? 'var(--accent-green)' : 'var(--text-secondary)'};">
+                                        ${canEdit ? (t.permOn || 'ON') : (t.permOff || 'OFF')}
+                                    </span>
+                                    <div class="switch">
+                                        <input type="checkbox" id="perm-edit-toggle" ${canEdit ? 'checked' : ''}>
+                                        <span class="slider"></span>
+                                    </div>
+                                </label>
+                            </div>
+
+                            <!-- TOGGLE: Eliminar Pagos -->
+                            <div style="display: flex; align-items: center; justify-content: space-between;">
+                                <div style="display: flex; align-items: center; gap: 10px;">
+                                    <div style="background-color: ${canDelete ? 'var(--accent-blue)' : 'var(--bg)'}; padding: 8px; border-radius: 50%; color: ${canDelete ? 'white' : 'var(--text-secondary)'};">
+                                        <i data-lucide="trash-2" style="width: 18px; height: 18px;"></i>
+                                    </div>
+                                    <span style="font-weight: 600;" data-lang-key="allowDeletePayment">Excluir Pagamentos</span>
+                                </div>
+                                <label class="toggle-switch">
+                                    <span style="font-size: 0.8em; font-weight: 700; margin-right: 8px; color: ${canDelete ? 'var(--accent-green)' : 'var(--text-secondary)'};">
+                                        ${canDelete ? (t.permOn || 'ON') : (t.permOff || 'OFF')}
+                                    </span>
+                                    <div class="switch">
+                                        <input type="checkbox" id="perm-delete-toggle" ${canDelete ? 'checked' : ''}>
+                                        <span class="slider"></span>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- FIN SECCIÓN PERMISOS -->
+
                     <!-- SECCIÓN ALERTAS -->
                     <div class="kpi-card" style="margin-bottom: 30px; border-color: #dc3545; background-color: var(--surface);">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">
@@ -2646,8 +2680,7 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                         </div>
                     </div>
 
-                    <!-- NUEVA SECCIÓN MEJORADA: GESTIÓN DE MULTAS (CON DÍAS Y VALOR) -->
-                    <!-- SECCIÓN GESTIÓN DE MULTAS (TRADUCIDA) -->
+                    <!-- GESTIÓN DE MULTAS -->
                     <div class="kpi-card" style="margin-bottom: 30px; border-color: #f59e0b; background-color: var(--surface);">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">
                             <h3 class="kpi-title" style="color: #f59e0b; margin: 0; font-size: 1em;">
@@ -2667,18 +2700,11 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                     </div>
 
                     <h2 class="section-title">Clientes</h2>
-                    
-                    <!-- NUEVO BUSCADOR DE CLIENTES -->
                     <div class="search-bar-wrapper" style="margin-bottom: 15px;">
                         <input type="text" id="client-list-search" placeholder="${t.searchClientPlaceholder || 'Buscar cliente...'}" style="padding: 10px 12px 10px 40px; font-size: 0.95em; border-radius: 8px; border: 1px solid var(--border-color); background-color: var(--bg); width: 100%;">
                         <i class="icon" data-lucide="search" style="width: 18px; left: 12px; top: 50%; transform: translateY(-50%); position: absolute; color: var(--text-secondary);"></i>
                     </div>
-                    
                     <div class="item-list" id="clients-list-container">${clientsListHtml}</div>
-                    <!-- FIN NUEVA SECCIÓN -->
-
-                    <h2 class="section-title">Clientes</h2>
-                    <div class="item-list">${clientsListHtml}</div>
 
                     <section style="margin-top: 30px;">
                         <h2 class="section-title" data-lang-key="settlementHistory">Histórico de Retiradas</h2>
@@ -2703,15 +2729,12 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                 </div>
             `;
 
-            // 1. Lógica Alertas
+            // LOGICA ALERTAS Y MULTAS (Se mantiene igual, resumida para este bloque)
             const renderAlerts = (filterText = '') => {
                 const container = document.getElementById('alerts-list-container');
                 if(!container) return;
                 const filtered = clientsWithAlerts.filter(a => a.clientName.toLowerCase().includes(filterText.toLowerCase()) || a.note.toLowerCase().includes(filterText.toLowerCase()));
-                if(filtered.length === 0) {
-                    container.innerHTML = `<p style="text-align: center; color: var(--text-secondary); font-size: 0.9em; padding: 10px;">${filterText ? 'Nenhuma alerta encontrada.' : noAlerts}</p>`;
-                    return;
-                }
+                if(filtered.length === 0) { container.innerHTML = `<p style="text-align: center; color: var(--text-secondary); font-size: 0.9em; padding: 10px;">${filterText ? 'Nenhuma alerta encontrada.' : noAlerts}</p>`; return; }
                 container.innerHTML = filtered.map(a => `
                     <div style="background-color: var(--bg); border: 1px solid var(--border-color); border-radius: 8px; padding: 10px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;">
                         <div style="flex-grow: 1;">
@@ -2721,10 +2744,8 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                         <button class="delete-alert-btn" data-client-id="${a.clientId}" data-loan-index="${a.loanIndex}" style="background: none; border: none; color: var(--text-secondary); cursor: pointer; padding: 4px;">
                             <i data-lucide="trash-2" style="width: 16px; height: 16px;"></i>
                         </button>
-                    </div>
-                `).join('');
+                    </div>`).join('');
                 lucide.createIcons({nodes: container.querySelectorAll('[data-lucide]')});
-
                 container.querySelectorAll('.delete-alert-btn').forEach(btn => {
                     btn.addEventListener('click', async (e) => {
                         const cId = e.currentTarget.dataset.clientId;
@@ -2748,60 +2769,33 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             const alertSearch = document.getElementById('alert-search-input');
             if(alertSearch) { alertSearch.addEventListener('input', (e) => renderAlerts(e.target.value)); }
 
-            // 2. Lógica GESTIÓN DE MULTAS (NUEVO: DÍAS Y VALOR)
+            // Lógica GESTIÓN DE MULTAS (Se mantiene el código original de multas)
             const fineSearch = document.getElementById('fine-manager-search');
             const fineResults = document.getElementById('fine-manager-results');
-
             const renderFineResults = (text) => {
-                if (!text || text.length < 2) {
-                    fineResults.innerHTML = `<p style="text-align: center; color: var(--text-secondary); font-size: 0.9em; padding: 10px;">Digite o nome do cliente...</p>`;
-                    return;
-                }
+                if (!text || text.length < 2) { fineResults.innerHTML = `<p style="text-align: center; color: var(--text-secondary); font-size: 0.9em; padding: 10px;">Digite o nome do cliente...</p>`; return; }
                 const filteredClients = clients.filter(c => c.name.toLowerCase().includes(text.toLowerCase()));
-                
-                if (filteredClients.length === 0) {
-                    fineResults.innerHTML = `<p style="text-align: center; color: var(--text-secondary); font-size: 0.9em; padding: 10px;">Nenhum cliente encontrado.</p>`;
-                    return;
-                }
-
+                if (filteredClients.length === 0) { fineResults.innerHTML = `<p style="text-align: center; color: var(--text-secondary); font-size: 0.9em; padding: 10px;">Nenhum cliente encontrado.</p>`; return; }
                 fineResults.innerHTML = filteredClients.map(c => {
-                    // Buscar el préstamo activo o el último
                     let activeLoanIdx = c.loans ? c.loans.findIndex(l => l.status !== 'finished') : -1;
                     if (activeLoanIdx === -1 && c.loans && c.loans.length > 0) activeLoanIdx = c.loans.length - 1;
                     const loan = activeLoanIdx >= 0 ? c.loans[activeLoanIdx] : null;
-                    
-                    if (!loan) return ''; // Skip si no hay préstamo
-
+                    if (!loan) return ''; 
                     const currentFine = loan.lateFeeAmount || 0;
-                    const currentDays = loan.lateFeeDelay || 5; // Default 5 días si no existe
-                    
-                    // Calculamos atraso real para mostrar contexto
+                    const currentDays = loan.lateFeeDelay || 5; 
                     const details = calculateLoanDetails(loan);
                     const realLateDays = details.lateDays || 0;
                     const lateStatusColor = realLateDays >= currentDays ? '#ef4444' : (realLateDays > 0 ? '#f59e0b' : '#10b981');
-                    
                     return `
                     <div class="client-fine-card" style="background-color: var(--bg); border: 1px solid var(--border-color); border-radius: 8px; padding: 10px; display: flex; flex-direction: column; gap: 8px;">
                         <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-                            <div>
-                                <strong style="font-size: 0.95em; display: block; color: var(--text-primary);">${c.name}</strong>
-                                <span style="font-size: 0.75em; color: ${lateStatusColor}; font-weight: 600;">
-                                    ${realLateDays > 0 ? `${realLateDays} Dias de Atraso` : 'Em Dia'}
-                                </span>
-                            </div>
-                            <button class="btn-edit-fine" data-client-id="${c.id}" data-loan-index="${activeLoanIdx}" data-current-fine="${currentFine}" data-current-days="${currentDays}" style="background: var(--surface); border: 1px solid var(--border-color); color: var(--accent-blue); border-radius: 6px; padding: 6px 10px; font-size: 0.8em; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 4px;">
-                                <i data-lucide="edit-2" style="width: 14px; height: 14px;"></i> Alterar
-                            </button>
+                            <div><strong style="font-size: 0.95em; display: block; color: var(--text-primary);">${c.name}</strong><span style="font-size: 0.75em; color: ${lateStatusColor}; font-weight: 600;">${realLateDays > 0 ? `${realLateDays} Dias de Atraso` : 'Em Dia'}</span></div>
+                            <button class="btn-edit-fine" data-client-id="${c.id}" data-loan-index="${activeLoanIdx}" data-current-fine="${currentFine}" data-current-days="${currentDays}" style="background: var(--surface); border: 1px solid var(--border-color); color: var(--accent-blue); border-radius: 6px; padding: 6px 10px; font-size: 0.8em; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 4px;"><i data-lucide="edit-2" style="width: 14px; height: 14px;"></i> Alterar</button>
                         </div>
-                        <div style="display: flex; gap: 10px; font-size: 0.85em; color: var(--text-secondary); background-color: var(--surface); padding: 6px; border-radius: 6px;">
-                            <span>Multa: <strong style="color: var(--text-primary);">${money(currentFine)}</strong></span>
-                            <span>Aplica após: <strong style="color: var(--text-primary);">${currentDays} dias</strong></span>
-                        </div>
+                        <div style="display: flex; gap: 10px; font-size: 0.85em; color: var(--text-secondary); background-color: var(--surface); padding: 6px; border-radius: 6px;"><span>Multa: <strong style="color: var(--text-primary);">${money(currentFine)}</strong></span><span>Aplica após: <strong style="color: var(--text-primary);">${currentDays} dias</strong></span></div>
                     </div>`;
                 }).join('');
                 lucide.createIcons({nodes: fineResults.querySelectorAll('[data-lucide]')});
-
-                // Listeners para los botones "Alterar"
                 fineResults.querySelectorAll('.btn-edit-fine').forEach(btn => {
                     btn.addEventListener('click', (e) => {
                         const card = e.currentTarget.closest('.client-fine-card');
@@ -2809,77 +2803,36 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                         const lIdx = e.currentTarget.dataset.loanIndex;
                         const currentVal = e.currentTarget.dataset.currentFine;
                         const currentDays = e.currentTarget.dataset.currentDays;
-                        
-                        // Reemplazar la tarjeta con el modo edición COMPLETO
                         card.innerHTML = `
-                            <div style="margin-bottom: 8px;">
-                                <strong style="font-size: 0.9em;">Editar Configuração de Multa</strong>
-                            </div>
+                            <div style="margin-bottom: 8px;"><strong style="font-size: 0.9em;">Editar Configuração de Multa</strong></div>
                             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
-                                <div>
-                                    <label style="font-size: 0.75em; color: var(--text-secondary);">Dias p/ Aplicar</label>
-                                    <input type="number" class="fine-days-input" value="${currentDays}" min="1" style="width: 100%; padding: 6px; border-radius: 6px; border: 1px solid var(--border-color); font-weight: 600;">
-                                </div>
-                                <div>
-                                    <label style="font-size: 0.75em; color: var(--text-secondary);">Valor da Multa</label>
-                                    <input type="number" class="fine-amount-input" value="${currentVal}" step="0.01" style="width: 100%; padding: 6px; border-radius: 6px; border: 1px solid var(--accent-blue); font-weight: 700; color: var(--accent-blue);">
-                                </div>
+                                <div><label style="font-size: 0.75em; color: var(--text-secondary);">Dias p/ Aplicar</label><input type="number" class="fine-days-input" value="${currentDays}" min="1" style="width: 100%; padding: 6px; border-radius: 6px; border: 1px solid var(--border-color); font-weight: 600;"></div>
+                                <div><label style="font-size: 0.75em; color: var(--text-secondary);">Valor da Multa</label><input type="number" class="fine-amount-input" value="${currentVal}" step="0.01" style="width: 100%; padding: 6px; border-radius: 6px; border: 1px solid var(--accent-blue); font-weight: 700; color: var(--accent-blue);"></div>
                             </div>
-                            <div style="display: flex; gap: 10px;">
-                                <button class="btn-cancel-edit" style="flex: 1; background: transparent; border: 1px solid var(--border-color); color: var(--text-secondary); padding: 6px; border-radius: 6px; cursor: pointer;">Cancelar</button>
-                                <button class="btn-save-fine" style="flex: 1; background: var(--accent-blue); border: none; color: white; border-radius: 6px; padding: 6px; cursor: pointer; font-weight: 600;">Salvar</button>
-                            </div>
-                        `;
-                        
-                        // Cancelar
-                        card.querySelector('.btn-cancel-edit').addEventListener('click', () => {
-                            renderFineResults(fineSearch.value); // Re-renderiza para cancelar
-                        });
-
-                        // Guardar
+                            <div style="display: flex; gap: 10px;"><button class="btn-cancel-edit" style="flex: 1; background: transparent; border: 1px solid var(--border-color); color: var(--text-secondary); padding: 6px; border-radius: 6px; cursor: pointer;">Cancelar</button><button class="btn-save-fine" style="flex: 1; background: var(--accent-blue); border: none; color: white; border-radius: 6px; padding: 6px; cursor: pointer; font-weight: 600;">Salvar</button></div>`;
+                        card.querySelector('.btn-cancel-edit').addEventListener('click', () => renderFineResults(fineSearch.value));
                         card.querySelector('.btn-save-fine').addEventListener('click', async () => {
                             const newDays = parseInt(card.querySelector('.fine-days-input').value) || 5;
                             const newAmount = parseFloat(card.querySelector('.fine-amount-input').value) || 0;
-                            
-                            // AVISO AMARILLO DE CONFIRMACIÓN DETALLADO
-                            const confirmed = await showConfirmationModal(
-                                'Alterar Multa?', 
-                                `Confirma a configuração?<br><br>
-                                 <b>Dias de Carência:</b> ${newDays} dias<br>
-                                 <b>Valor da Multa:</b> ${money(newAmount)}`, 
-                                'Sim, Salvar', 
-                                'btn-primary', 
-                                'var(--warning-color)', // Color Amarillo
-                                '#000000' // Texto negro
-                            );
-                            
+                            const confirmed = await showConfirmationModal('Alterar Multa?', `Confirma a configuração?<br><br><b>Dias de Carência:</b> ${newDays} dias<br><b>Valor da Multa:</b> ${money(newAmount)}`, 'Sim, Salvar', 'btn-primary', 'var(--warning-color)', '#000000');
                             if(!confirmed) return;
-
                             try {
                                 const clientRef = doc(db, 'companies', currentCompanyId, "clients", cId);
                                 const clientData = allClients.find(c => c.id === cId);
                                 const updatedLoans = JSON.parse(JSON.stringify(clientData.loans));
-                                
-                                // ACTUALIZAMOS AMBOS VALORES
                                 updatedLoans[lIdx].lateFeeDelay = newDays;
                                 updatedLoans[lIdx].lateFeeAmount = newAmount;
-                                
                                 await updateDoc(clientRef, { loans: updatedLoans });
                                 showToast("Configuração de multa atualizada!", "yellow");
-                                renderFineResults(fineSearch.value); // Refrescar lista
-                            } catch(err) {
-                                console.error(err);
-                                showToast("Erro ao salvar.", true);
-                            }
+                                renderFineResults(fineSearch.value);
+                            } catch(err) { console.error(err); showToast("Erro ao salvar.", true); }
                         });
                     });
                 });
             };
-
             if(fineSearch) fineSearch.addEventListener('input', (e) => renderFineResults(e.target.value));
 
-
-            // 3. Lógica Histórico Retiros
+            // Lógica Retiros Historial
             const settlementsListContainer = detailView.querySelector('#settlements-history-list');
             const collectorSettlements = allSettlements.filter(s => s.collectorId === collectorId).sort((a, b) => (b.date?.seconds || 0) - (a.date?.seconds || 0)); 
             if (settlementsListContainer) {
@@ -2892,45 +2845,60 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                         const timeString = date ? date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '';
                         const isInsurance = settlement.type === 'insurance';
                         const typeLabel = isInsurance ? '<span style="color: #0ea5e9; font-weight: bold; font-size: 0.8em; display: block;">MICRO SEGURO</span>' : '';
-                        return `
-                        <div class="payment-history-item" style="cursor: default;">
-                            <div class="payment-history-details">
-                                <h4 class="payment-history-title">${dateString} - ${timeString}</h4>
-                                ${typeLabel}
-                                ${settlement.notes ? `<p class="payment-history-description" style="font-style: italic;">${settlement.notes}</p>` : ''}
-                            </div>
-                            <div class="payment-history-info">
-                                <span class="payment-history-amount" style="color: ${isInsurance ? '#0ea5e9' : 'var(--text-primary)'}; font-size: 1.1em; font-weight: 700;">${money(settlement.amount)}</span>
-                            </div>
-                        </div>`;
+                        return `<div class="payment-history-item" style="cursor: default;"><div class="payment-history-details"><h4 class="payment-history-title">${dateString} - ${timeString}</h4>${typeLabel}${settlement.notes ? `<p class="payment-history-description" style="font-style: italic;">${settlement.notes}</p>` : ''}</div><div class="payment-history-info"><span class="payment-history-amount" style="color: ${isInsurance ? '#0ea5e9' : 'var(--text-primary)'}; font-size: 1.1em; font-weight: 700;">${money(settlement.amount)}</span></div></div>`;
                     }).join('');
                 }
             }
             
             detailView.classList.add('active');
-            // --- INICIO: CÓDIGO DEL BUSCADOR DE CLIENTES ---
+            
+            // LOGICA BUSCADOR CLIENTES
             const clientSearchInput = detailView.querySelector('#client-list-search');
             if (clientSearchInput) {
                 clientSearchInput.addEventListener('input', (e) => {
                     const term = e.target.value.toLowerCase();
-                    const cards = detailView.querySelectorAll('.client-card'); // Busca todas las tarjetas
-                    
+                    const cards = detailView.querySelectorAll('.client-card'); 
                     cards.forEach(card => {
-                        // Busca el nombre dentro de la nueva estructura
                         const nameEl = card.querySelector('.client-name-modern'); 
                         if (nameEl) {
                             const name = nameEl.textContent.toLowerCase();
-                            // Si el nombre incluye lo que escribes, muestra la tarjeta, si no, la oculta
-                            if (name.includes(term)) {
-                                card.style.display = ''; 
-                            } else {
-                                card.style.display = 'none'; 
-                            }
+                            if (name.includes(term)) card.style.display = ''; else card.style.display = 'none'; 
                         }
                     });
                 });
             }
-            // --- FIN: CÓDIGO DEL BUSCADOR ---
+
+            // --- LISTENERS DE PERMISOS (NUEVO) ---
+            const editToggle = document.getElementById('perm-edit-toggle');
+            const deleteToggle = document.getElementById('perm-delete-toggle');
+
+            const updatePermission = async (permKey, isChecked) => {
+                try {
+                    const collectorRef = doc(db, 'collectors', collectorId);
+                    await updateDoc(collectorRef, {
+                        [`permissions.${permKey}`]: isChecked
+                    });
+                    // Feedback visual sutil (actualizar texto ON/OFF)
+                    const labelSpan = isChecked ? (t.permOn || 'ON') : (t.permOff || 'OFF');
+                    const color = isChecked ? 'var(--accent-green)' : 'var(--text-secondary)';
+                    const spanEl = permKey === 'allowEditClient' ? editToggle.parentNode.previousElementSibling : deleteToggle.parentNode.previousElementSibling;
+                    if(spanEl) {
+                        spanEl.textContent = labelSpan;
+                        spanEl.style.color = color;
+                    }
+                } catch (error) {
+                    console.error("Error updating permission:", error);
+                    showToast("Erro ao atualizar permissão.", true);
+                    // Revertir switch si falla
+                    if(permKey === 'allowEditClient') editToggle.checked = !isChecked;
+                    else deleteToggle.checked = !isChecked;
+                }
+            };
+
+            if(editToggle) editToggle.addEventListener('change', (e) => updatePermission('allowEditClient', e.target.checked));
+            if(deleteToggle) deleteToggle.addEventListener('change', (e) => updatePermission('allowDeletePayment', e.target.checked));
+            // --------------------------------------
+
             lucide.createIcons({nodes: detailView.querySelectorAll('[data-lucide]')});
             applyLanguage(currentLang);
 
@@ -2950,17 +2918,11 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             const injectionBtn = detailView.querySelector('#add-capital-injection-btn');
             if (injectionBtn) injectionBtn.addEventListener('click', (e) => { const cId = e.currentTarget.dataset.collectorId; const cObj = allCollectors.find(c => c.id === cId); showCapitalInjectionModal(cId, cObj.name); });
 
-            // Lógica Desbloqueo (VERDE)
             const unlockBtn = detailView.querySelector('#unlock-app-btn');
             if (unlockBtn) {
                 unlockBtn.addEventListener('click', async (e) => {
                     const cId = e.currentTarget.dataset.collectorId;
-                    const confirmed = await showConfirmationModal(
-                        t.unlockAppTitle || 'Desbloquear App',
-                        t.unlockAppMsg || 'Isso permitirá que o cobrador acesse o aplicativo por 30 minutos, ignorando horários. Continuar?',
-                        t.unlockConfirm || 'Sim, Desbloquear', 
-                        'btn-primary', 'var(--warning-color)', '#000000'
-                    );
+                    const confirmed = await showConfirmationModal(t.unlockAppTitle || 'Desbloquear App', t.unlockAppMsg || 'Isso permitirá que o cobrador acesse o aplicativo por 30 minutos, ignorando horários. Continuar?', t.unlockConfirm || 'Sim, Desbloquear', 'btn-primary', 'var(--warning-color)', '#000000');
                     if (!confirmed) return;
                     try {
                         const unlockUntil = new Date();
@@ -3557,6 +3519,8 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
                 details.status = 'finished';
                 return details;
             }
+            // Doble chequeo: Si está marcado como finished pero debe, lo corregimos a no finished,
+            // A MENOS que la deuda sea ínfima.
             if (loan.status === 'finished') {
                 const debt = loan.totalLoan - currentTotalPaid;
                 if (debt <= 0.02) {
@@ -3568,6 +3532,7 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
             const today = new Date();
             today.setHours(0, 0, 0, 0);
 
+            // --- CORRECCIÓN: DETECCIÓN DE FECHA ---
             let lastRelevantDate;
             if (loan.startDate?.seconds) {
                 lastRelevantDate = new Date(loan.startDate.seconds * 1000);
@@ -3575,17 +3540,18 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
                 const sortedHistory = [...loan.history].sort((a, b) => a.date.seconds - b.date.seconds);
                 lastRelevantDate = new Date(sortedHistory[0].date.seconds * 1000);
             }
-            if (!lastRelevantDate && loan.startDate?.seconds) {
-                lastRelevantDate = new Date(loan.startDate.seconds * 1000);
+            
+            // Si no hay fecha, asumimos que es un préstamo antiguo migrado y usamos una fecha segura (ej: hace 1 mes)
+            // Esto asegura que aparezca en la lista
+            if (!lastRelevantDate) {
+                 // Fallback para datos corruptos: Asumimos fecha de inicio hoy para no romper, 
+                 // pero como debe dinero, el sistema eventualmente lo marcará.
+                 lastRelevantDate = new Date(); 
             }
-
-            if (!lastRelevantDate) return details; 
             
             lastRelevantDate.setHours(0, 0, 0, 0);
 
             let checkDate = new Date(lastRelevantDate);
-            
-            // Sincronización +1 día (Mantenemos esto)
             checkDate.setDate(checkDate.getDate() + 1); 
 
             let accumulatedLateDays = 0;
@@ -3595,7 +3561,12 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
             let installmentsDueCount = 0;
             let nextDueDateFound = false;
 
-            while (checkDate <= today) {
+            // Limite de seguridad para evitar bucles infinitos en fechas corruptas (ej: año 1970)
+            const MAX_ITERATIONS = 365 * 2; // 2 años
+            let iterations = 0;
+
+            while (checkDate <= today && iterations < MAX_ITERATIONS) {
+                iterations++;
                 const dayOfWeek = checkDate.getDay();
                 const dayOfMonth = checkDate.getDate();
                 const formattedDate = `${String(checkDate.getDate()).padStart(2, '0')}/${String(checkDate.getMonth() + 1).padStart(2, '0')}`;
@@ -3603,9 +3574,14 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
                 const frequency = loan.paymentFrequency || 'daily';
                 let isPaymentDay = false;
 
-                if (frequency === 'daily') isPaymentDay = (loan.paymentDays || []).includes(dayOfWeek);
-                else if (frequency === 'weekly') isPaymentDay = (loan.paymentDays || [])[0] === dayOfWeek;
-                else if (frequency === 'monthly') isPaymentDay = (loan.paymentDays || [])[0] === dayOfMonth;
+                // Si no hay días de pago definidos (migración antigua), asumimos de Lunes a Sábado
+                if (!loan.paymentDays || loan.paymentDays.length === 0) {
+                     if (dayOfWeek !== 0) isPaymentDay = true; // Excluye domingo
+                } else {
+                    if (frequency === 'daily') isPaymentDay = (loan.paymentDays || []).includes(dayOfWeek);
+                    else if (frequency === 'weekly') isPaymentDay = (loan.paymentDays || [])[0] === dayOfWeek;
+                    else if (frequency === 'monthly') isPaymentDay = (loan.paymentDays || [])[0] === dayOfMonth;
+                }
 
                 if (!isHoliday && isPaymentDay) {
                     if (checkDate < today) {
@@ -3634,11 +3610,6 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
             // === CORRECCIÓN DE MULTA: ACTIVAR AL 5º DÍA (SUPERAR EL LÍMITE) ===
             if (loan.lateFeeAmount && loan.lateFeeAmount > 0) {
                 const delayDays = parseInt(loan.lateFeeDelay) || 0;
-                
-                // CAMBIO: Usamos '>' (Mayor que) en lugar de '>=' (Mayor o igual)
-                // Si delay es 4: 
-                // - Con 4 días: 4 > 4 es Falso (No multa).
-                // - Con 5 días: 5 > 4 es Verdadero (Multa activa).
                 if (accumulatedLateDays > delayDays) {
                     accumulatedLateFees += parseFloat(loan.lateFeeAmount);
                 }
@@ -6484,12 +6455,15 @@ async function submitCollectorReport(collectorId) {
                 `;
             }).join('') || `<div style="text-align:center; color:gray; font-size:0.8em; margin-top:10px;">${currentLang === 'es' ? 'Inicia la conversación...' : 'Inicie a conversa...'}</div>`;
 
+            // PREPARAR DATOS TARJETA PERSONAL
+            const waNumber = client.whatsapp ? client.whatsapp.replace(/\D/g, '') : '';
+            const phoneNumber = client.phone ? client.phone : 'N/A';
 
             detailModal.innerHTML = `
                 <header class="modal-header">
                     <button id="closeClientDetail"><i data-lucide="arrow-left"></i></button>
                     <span class="modal-title">${client.name}</span>
-                    <button id="editClientBtn" data-client-id="${client.id}" data-loan-index="${currentLoanIndex}"><i data-lucide="edit"></i></button>
+                    <!-- ELIMINADO EL BOTÓN DE LÁPIZ DE AQUÍ -->
                 </header>
                 
                 ${hasMultipleDisplayable ? `<div class="loan-tabs-wrapper"><div class="loan-tabs-container" id="loan-tabs-container">${client.loans.map((l, index) => (activeOrLastFinishedLoans.includes(l) || index === currentLoanIndex) ? `<button class="loan-tab ${index === currentLoanIndex ? 'active' : ''}" data-loan-index="${index}">Préstamo ${index + 1} ${l.status === 'finished' ? '(Finalizado)' : ''}</button>` : '').join('')}</div></div>` : ''}
@@ -6500,6 +6474,52 @@ async function submitCollectorReport(collectorId) {
                         <h3 class="kpi-title" style="justify-content: center;">Estado do Préstamo ${currentLoanIndex + 1}</h3>
                         <span class="payment-status ${statusClass}" style="font-size: 1.2em; font-weight: 600; padding: 8px 20px;">${statusText}</span>
                     </div>
+
+                    <!-- TARJETA DATOS PERSONALES -->
+                    <div class="kpi-card" style="margin-bottom: 30px; background-color: var(--surface); border: 1px solid var(--border-color);">
+                        <h3 class="kpi-title" style="border-bottom: 1px solid var(--border-color); padding-bottom: 10px; margin-bottom: 15px; color: var(--accent-blue);">
+                            <i data-lucide="user"></i> <span data-lang-key="personalData">${t.personalData || 'Dados Pessoais'}</span>
+                        </h3>
+                        <div style="display: flex; flex-direction: column; gap: 12px;">
+                            <div style="display: flex; align-items: flex-start; gap: 10px;">
+                                <i data-lucide="user" style="width: 16px; height: 16px; color: var(--text-secondary); margin-top: 3px;"></i>
+                                <div>
+                                    <strong style="display: block; font-size: 0.95em; color: var(--text-primary);">${client.name}</strong>
+                                    <span style="font-size: 0.8em; color: var(--text-secondary);">Nome Completo</span>
+                                </div>
+                            </div>
+                            <div style="display: flex; align-items: flex-start; gap: 10px;">
+                                <i data-lucide="map-pin" style="width: 16px; height: 16px; color: var(--text-secondary); margin-top: 3px;"></i>
+                                <div>
+                                    <strong style="display: block; font-size: 0.95em; color: var(--text-primary);">${client.address || 'N/A'}</strong>
+                                    <span style="font-size: 0.8em; color: var(--text-secondary);">Endereço</span>
+                                </div>
+                            </div>
+                            <div style="display: flex; align-items: flex-start; gap: 10px;">
+                                <i data-lucide="phone" style="width: 16px; height: 16px; color: var(--text-secondary); margin-top: 3px;"></i>
+                                <div>
+                                    <strong style="display: block; font-size: 0.95em; color: var(--text-primary);">${phoneNumber}</strong>
+                                    <span style="font-size: 0.8em; color: var(--text-secondary);">Telefone</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div style="display: flex; gap: 10px; margin-top: 20px;">
+                            <button id="editClientBtnCard" class="btn-secondary" style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 10px;">
+                                <i data-lucide="edit-3"></i> <span data-lang-key="editData">Editar</span>
+                            </button>
+                            ${waNumber ? `
+                            <a href="https://wa.me/${waNumber}" target="_blank" class="btn-primary" style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; background-color: #25D366; border-color: #25D366; color: white; padding: 10px; text-decoration: none; border-radius: 8px; font-weight: 600;">
+                                <i data-lucide="message-circle"></i> <span data-lang-key="contactClient">${t.contactClient || 'Contatar'}</span>
+                            </a>
+                            ` : `
+                            <button disabled class="btn-secondary" style="flex: 1; opacity: 0.5; cursor: not-allowed; display: flex; align-items: center; justify-content: center; gap: 6px;">
+                                <i data-lucide="message-circle"></i> Sem WhatsApp
+                            </button>
+                            `}
+                        </div>
+                    </div>
+                    <!-- FIN TARJETA DATOS PERSONALES -->
                     
                     <section class="kpi-grid-profile" style="margin-bottom: 30px;">
                         <div class="kpi-card"><h3 class="kpi-title"><i data-lucide="coins"></i> <span data-lang-key="totalValue">Valor Total</span></h3><p class="kpi-value">${money(totalAmountWithFine)}</p></div>
@@ -6565,7 +6585,6 @@ async function submitCollectorReport(collectorId) {
                 </div>
             `;
 
-            //history.pushState({ modal: 'clientDetailView', clientId: clientId, loanIndex: currentLoanIndex }, `Details for ${client.name}`, `#client/${clientId}/${currentLoanIndex}`);
             detailModal.classList.add('active');
             lucide.createIcons({ nodes: detailModal.querySelectorAll('[data-lucide]') });
             applyLanguage(currentLang);
@@ -6589,24 +6608,15 @@ async function submitCollectorReport(collectorId) {
                     try {
                         const clientRef = doc(db, 'companies', currentCompanyId, "clients", clientId);
                         
-                        const newMessage = {
-                            sender: 'admin',
-                            text: text,
-                            timestamp: new Date()
-                        };
-
+                        const newMessage = { sender: 'admin', text: text, timestamp: new Date() };
                         const updatedLoans = JSON.parse(JSON.stringify(client.loans));
-                        if (!updatedLoans[currentLoanIndex].chatHistory) {
-                            updatedLoans[currentLoanIndex].chatHistory = [];
-                        }
+                        if (!updatedLoans[currentLoanIndex].chatHistory) updatedLoans[currentLoanIndex].chatHistory = [];
                         
                         updatedLoans[currentLoanIndex].chatHistory.push(newMessage);
                         updatedLoans[currentLoanIndex].notes = text;
 
                         await updateDoc(clientRef, { loans: updatedLoans });
 
-                        // --- TRADUCCIÓN DE NOTIFICACIÓN ---
-                        // "Nuevo mensaje sobre CLIENTE: TEXTO"
                         let msgPrefix = 'Nova mensagem sobre';
                         if (currentLang === 'es') msgPrefix = 'Nuevo mensaje sobre';
                         else if (currentLang === 'en') msgPrefix = 'New message regarding';
@@ -6619,38 +6629,19 @@ async function submitCollectorReport(collectorId) {
                         }
 
                         chatInput.value = '';
-                        setTimeout(() => {
-                             const cContainer = document.getElementById('chat-history-container');
-                             if(cContainer) cContainer.scrollTop = cContainer.scrollHeight;
-                        }, 500);
+                        setTimeout(() => { const cContainer = document.getElementById('chat-history-container'); if(cContainer) cContainer.scrollTop = cContainer.scrollHeight; }, 500);
 
-                    } catch (error) {
-                        console.error("Erro ao enviar mensagem:", error);
-                        showToast("Erro ao enviar.", true);
-                    } finally {
-                        chatInput.disabled = false;
-                        sendChatBtn.disabled = false;
-                        chatInput.focus();
-                    }
+                    } catch (error) { console.error("Erro ao enviar mensagem:", error); showToast("Erro ao enviar.", true); } finally { chatInput.disabled = false; sendChatBtn.disabled = false; chatInput.focus(); }
                 };
 
                 sendChatBtn.addEventListener('click', sendMessage);
-                chatInput.addEventListener('keypress', (e) => {
-                    if (e.key === 'Enter') sendMessage();
-                });
+                chatInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMessage(); });
             }
 
             if (clearChatBtn) {
                 clearChatBtn.addEventListener('click', async () => {
-                    const confirmed = await showConfirmationModal(
-                        currentLang === 'es' ? '¿Borrar Chat?' : 'Limpar Chat?',
-                        currentLang === 'es' ? '¿Estás seguro de borrar todo el historial de mensajes?' : 'Tem certeza que deseja limpar o histórico?',
-                        currentLang === 'es' ? 'Sí, Borrar' : 'Sim, Apagar',
-                        'btn-danger'
-                    );
-
+                    const confirmed = await showConfirmationModal(currentLang === 'es' ? '¿Borrar Chat?' : 'Limpar Chat?', currentLang === 'es' ? '¿Estás seguro de borrar todo el historial de mensajes?' : 'Tem certeza que deseja limpar o histórico?', currentLang === 'es' ? 'Sí, Borrar' : 'Sim, Apagar', 'btn-danger');
                     if (!confirmed) return;
-
                     try {
                         const clientRef = doc(db, 'companies', currentCompanyId, "clients", clientId);
                         const updatedLoans = JSON.parse(JSON.stringify(client.loans));
@@ -6658,23 +6649,18 @@ async function submitCollectorReport(collectorId) {
                         updatedLoans[currentLoanIndex].notes = "";
                         await updateDoc(clientRef, { loans: updatedLoans });
                         showToast(currentLang === 'es' ? 'Chat borrado.' : 'Chat limpo.');
-                    } catch (error) {
-                        console.error("Erro ao limpar chat:", error);
-                        showToast("Erro ao limpar.", true);
-                    }
+                    } catch (error) { console.error("Erro ao limpar chat:", error); showToast("Erro ao limpar.", true); }
                 });
             }
 
             detailModal.querySelectorAll('.doc-preview-trigger').forEach(trigger => {
                 trigger.addEventListener('click', () => {
-                    const url = trigger.dataset.docUrl;
-                    const name = trigger.dataset.docName;
+                    const url = trigger.dataset.docUrl; const name = trigger.dataset.docName;
                     const isImage = name.toLowerCase().match(/\.(jpeg|jpg|gif|png|webp)$/) || url.includes('alt=media');
                     if (isImage) {
                         let viewer = document.getElementById('image-viewer-overlay');
                         if (!viewer) {
-                            viewer = document.createElement('div');
-                            viewer.id = 'image-viewer-overlay';
+                            viewer = document.createElement('div'); viewer.id = 'image-viewer-overlay';
                             viewer.style.cssText = `position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.95); z-index: 10000; display: flex; flex-direction: column; justify-content: center; align-items: center; opacity: 0; transition: opacity 0.3s;`;
                             viewer.innerHTML = `<button id="close-viewer-btn" style="position: absolute; top: 20px; right: 20px; background: rgba(255,255,255,0.2); border: none; color: white; border-radius: 50%; width: 44px; height: 44px; cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 10001;"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button><img id="viewer-img" src="" style="max-width: 100%; max-height: 90vh; object-fit: contain; box-shadow: 0 4px 20px rgba(0,0,0,0.5);"><p id="viewer-caption" style="color: #ccc; margin-top: 15px; font-family: sans-serif; font-size: 0.9em; text-align: center; padding: 0 10px;"></p>`;
                             document.body.appendChild(viewer);
@@ -6682,8 +6668,7 @@ async function submitCollectorReport(collectorId) {
                             viewer.querySelector('#close-viewer-btn').addEventListener('click', closeAction);
                             viewer.addEventListener('click', (e) => { if(e.target === viewer || e.target.tagName === 'IMG') closeAction(); });
                         }
-                        const img = viewer.querySelector('#viewer-img');
-                        const caption = viewer.querySelector('#viewer-caption');
+                        const img = viewer.querySelector('#viewer-img'); const caption = viewer.querySelector('#viewer-caption');
                         img.src = url; caption.textContent = name || 'Visualização';
                         viewer.style.display = 'flex'; setTimeout(() => { viewer.style.opacity = '1'; }, 10);
                     } else { window.open(url, '_blank'); }
@@ -6691,7 +6676,11 @@ async function submitCollectorReport(collectorId) {
             });
 
             detailModal.querySelector('#closeClientDetail').addEventListener('click', () => detailModal.classList.remove('active'));
-            detailModal.querySelector('#editClientBtn').addEventListener('click', () => showClientFormModal(clientId));
+            
+            // ELIMINADO EL LISTENER DEL BOTÓN DEL HEADER
+            
+            // Escuchar el NUEVO botón de la tarjeta
+            detailModal.querySelector('#editClientBtnCard').addEventListener('click', () => showClientFormModal(clientId));
             
             const historyList = detailModal.querySelector('#client-payment-history-list');
             if (historyList) {
@@ -7748,20 +7737,13 @@ function updateAdminNotificationsView() {
             }
             const loan = (client.loans && client.loans[loanIndex]) ? client.loans[loanIndex] : {};
 
-            // === CÁLCULOS DE SEGURIDAD (CORRECCIÓN CRÍTICA) ===
-            // Calculamos los valores en variables antes de usarlos en el HTML.
-            // Esto evita que un valor nulo rompa todo el formulario y devuelva "NaN".
-            
-            // Tasa: Si no existe, usamos 0 para evitar errores matemáticos
+            // === CÁLCULOS DE SEGURIDAD ===
             const safeInterest = parseFloat(loan.interestRate || client.interestRate) || 0;
             const safeTotal = parseFloat(loan.totalLoan) || 0;
             const safeMicroInsurance = parseFloat(loan.microInsurance) || 0;
             
-            // Capital (Valor Prestado): Derivado del Total y la Tasa
-            // Si Total=1200 y Tasa=20%, Capital = 1000.
             let safePrincipal = 0;
             if (safeTotal > 0) {
-                // Si la tasa es 0, evitamos dividir por 1 (queda igual). Si hay tasa, aplicamos fórmula.
                 const divisor = 1 + (safeInterest / 100);
                 safePrincipal = (safeTotal / divisor).toFixed(2);
             }
@@ -7769,7 +7751,6 @@ function updateAdminNotificationsView() {
             // Cuotas
             const installmentsStr = loan.installments || '0/0';
             const safeInstallmentsCount = installmentsStr.split('/')[1] || 0;
-            // ===================================================
 
             const formModal = document.getElementById('clientFormModal');
             const collectorOptions = allCollectors.map(c =>
@@ -7905,9 +7886,6 @@ function updateAdminNotificationsView() {
                          amount: installmentValue,
                          originalInstallmentAmount: installmentValue,
                          installments: `${(updatedLoans[loanIndex].installments || '0/0').split('/')[0]}/${installments}`,
-                         
-                         // Mantenemos la corrección de estado que pediste antes
-                        
                      };
                  }
 
@@ -7930,28 +7908,36 @@ function updateAdminNotificationsView() {
                 try {
                     await updateDoc(doc(db, 'companies', currentCompanyId, "clients", clientId), updatedData);
                     showToast(translations[currentLang].clientUpdated);
+                    
+                    // --- CORRECCIÓN DE NAVEGACIÓN ---
+                    // Cerramos SOLO el formulario de edición
                     formModal.classList.remove('active');
-                    document.getElementById('clientDetailModal').classList.remove('active');
+                    
+                    // Verificamos si la ficha detallada (la tarjeta grande) está abierta
+                    const detailModal = document.getElementById('clientDetailModal');
+                    if (detailModal && detailModal.classList.contains('active')) {
+                        // Si está abierta, la refrescamos con los datos nuevos
+                        showClientDetails(clientId, loanIndex);
+                    }
+                    // --------------------------------
+
                 } catch(error) {
                     console.error("Error updating client:", error);
                     showToast("Error updating client.", true);
                 }
             });
 
+            // --- LÓGICA DE ELIMINACIÓN CON MODAL ---
             formModal.querySelector('#deleteClientBtn').addEventListener('click', async () => {
-                const deleteBtn = formModal.querySelector('#deleteClientBtn');
-                if (deleteBtn.dataset.confirming !== 'true') {
-                    deleteBtn.dataset.confirming = 'true';
-                    deleteBtn.innerHTML = `<i data-lucide="alert-triangle"></i> ${translations[currentLang].delete}`;
-                    lucide.createIcons({nodes: [deleteBtn.querySelector('i')]});
-                    setTimeout(() => {
-                        deleteBtn.dataset.confirming = 'false';
-                        deleteBtn.innerHTML = `<i data-lucide="trash"></i> <span data-lang-key="deleteClient"></span>`;
-                        applyLanguage(currentLang);
-                        lucide.createIcons({nodes: [deleteBtn.querySelector('i')]});
-                    }, 3000);
-                    return;
-                }
+                // Usamos la función showConfirmationModal que ya definiste en tu sistema
+                const confirmed = await showConfirmationModal(
+                    translations[currentLang].deleteClient || 'Excluir Cliente?',
+                    translations[currentLang].confirmDelete || 'Tem certeza que deseja excluir este cliente? Esta ação não pode ser desfeita.',
+                    translations[currentLang].delete || 'Excluir',
+                    'btn-danger'
+                );
+
+                if (!confirmed) return;
 
                 try {
                     await deleteDoc(doc(db, 'companies', currentCompanyId, "clients", clientId));
