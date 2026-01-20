@@ -1371,10 +1371,6 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
         
         let allCollectors = [];
         let allClients = [];
-        // --- AGREGAR ESTAS DOS LÍNEAS AQUÍ ---
-        let currentDetailClientId = null;
-        let currentDetailLoanIndex = null;
-        // -------------------------------------
         let allExpenses = [];
         let globalSettings = {};
         let allCommunityPosts = [];
@@ -1453,13 +1449,6 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
         // ... código existente ...
     const translations = {
         pt: {
-            appPermissions: 'Permissões App Cobrador',
-            allowEditClient: 'Editar Clientes',
-            allowDeletePayment: 'Excluir Pagamentos',
-            permOn: 'ON',
-            permOff: 'OFF',
-            personalData: 'Dados Pessoais',
-            contactClient: 'Contatar',
             welcomeAdmin: 'Bem-vindo, Administrador',
             manageTeamDesc: 'Gerencie sua equipe e operações com eficiência.',
             accessPanel: 'Acessar Painel',
@@ -1473,7 +1462,7 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             mapRemaining: 'Resta',
             viewDetails: 'Ver Ficha',
             clientLabel: 'CLIENTE',
-            editData: 'Editar Dados',
+            editData: 'Editar Dados', // <--- AGREGAR ESTA LÍNEA
             routeName: 'Nome da Rota (Visível no App)',
             routeNameDesc: 'Este nome aparecerá de forma profissional no topo do aplicativo do cobrador.',
             routePlaceholder: 'Ex: Rota Centro, Rota Norte...',
@@ -1503,7 +1492,10 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             saveSettings: 'Salvar Ajustes', settingsSaved: 'Ajustes salvos com sucesso!',
             fuel: 'Combustível', food: 'Alimentação', rent: 'Aluguel', mechanics: 'Mecânica', other: 'Outros',
             downloadReport: 'Baixar Relatório', selectPeriod: 'Selecione um Período',
-            last24h: 'Últimas 24h', last48h: 'Últimas 48h', lastWeek: 'Última Semana', lastMonth: 'Último Mês',
+            last24h: 'Últimas 24h', 
+            last48h: 'Últimas 48h', 
+            lastWeek: 'Última Semana', 
+            lastMonth: 'Último Mês',
             reputationGood: 'Bom', reputationRegular: 'Regular', reputationBad: 'Ruim',
             loanProgress: 'Progresso do Empréstimo',
             totalValue: 'Valor Total',
@@ -1578,13 +1570,16 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             settlementRejected: 'Retirada Rejeitada',
             settlementApproved: 'Retirada APROVADA com sucesso!',
             downloadGraphicPDF: 'Baixar PDF Gráfico',
+            // --- NUEVO ---
             chartCenterBalance: 'SALDO (CAIXA)',  
             activeFines: 'Multas Ativas (Total)',
+            registerSettlement: 'Registrar Retirada',
+            aportarCapital: 'Aportar Capital',
             unlockAppButton: 'Desbloquear (30m)',
             unlockAppTitle: 'Desbloquear App',
             unlockAppMsg: 'Isso permitirá que o cobrador acesse o aplicativo por 30 minutos, ignorando horários. Continuar?',
             unlockConfirm: 'Sim, Desbloquear',
-            appUnlockedSuccess: 'App do cobrador desbloqueado!',
+            appUnlockedSuccess: 'App do cobrador desbloqueado por 30min!',
             deleteAlertTitle: 'Apagar Alerta?',
             deleteAlertMsg: 'Deseja remover esta observação do cliente?',
             confirmDeleteShort: 'Apagar',
@@ -1596,27 +1591,21 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             cancel: 'Cancelar',
             capitalOnHandLabel: 'Capital em Mãos',
             microInsuranceLabelSimple: 'Micro Seguro',
-            fineManagerTitle: 'Gestão de Multas',
-            fineManagerDesc: 'Busque um cliente para configurar dias de atraso e valor da multa.',
-            searchClientPlaceholder: 'Buscar cliente...',
-            chatAppCollector: 'Chat App Cobrador',
-            fineLabel: 'Multa',
-            insuranceLabelShort: 'Seguro'
-        },
-
-        es: {
-            appPermissions: 'Permisos App Cobrador',
-            allowEditClient: 'Editar Clientes',
-            allowDeletePayment: 'Eliminar Pagos',
-            permOn: 'ON',
-            permOff: 'OFF',
-            personalData: 'Datos Personales',
-            contactClient: 'Contactar',
+            appUnlockedSuccess: 'App do cobrador desbloqueado!', // Mensaje corregido
             welcomeAdmin: 'Bienvenido, Administrador',
             manageTeamDesc: 'Gestione su equipo y operaciones con eficiencia.',
             accessPanel: 'Acceder al Panel',
             emailLabel: 'Correo Electrónico',
             passwordLabel: 'Contraseña',
+            fineManagerTitle: 'Gestão de Multas',
+            fineManagerDesc: 'Busque um cliente para configurar dias de atraso e valor da multa.',
+            searchClientPlaceholder: 'Buscar cliente...',
+            chatAppCollector: 'Chat App Cobrador',
+            fineLabel: 'Multa',
+            insuranceLabelShort: 'Seguro',
+        },  
+
+        es: {
             microInsurance: 'Micro Seguro',
             microInsuranceFund: 'Micro Seguro (Fondo)',
             microInsuranceLabel: 'Micro Seguro (Valor a Descontar)',
@@ -1625,7 +1614,7 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             mapRemaining: 'Resta',
             viewDetails: 'Ver Ficha',
             clientLabel: 'CLIENTE',
-            editData: 'Editar Datos',
+            editData: 'Editar Datos', // <--- AGREGAR ESTA LÍNEA
             routeName: 'Nombre de la Ruta (Visible en App)',
             routeNameDesc: 'Este nombre aparecerá de forma profesional en la parte superior de la app del cobrador.',
             routePlaceholder: 'Ej: Ruta Centro, Ruta Norte...',
@@ -1728,16 +1717,21 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             settlementRejected: 'Retiro Rechazado',
             settlementApproved: '¡Retiro APROBADO con éxito!',
             downloadGraphicPDF: 'Descargar PDF Gráfico',
+            // --- NUEVO ---
             chartCenterBalance: 'SALDO (CAJA)', 
+            // --- NUEVOS (PEGAR AL FINAL DEL BLOQUE ES) ---
             activeFines: 'Multas Activas (Total)',
+            registerSettlement: 'Registrar Retiro',
+            aportarCapital: 'Aportar Capital',
             unlockAppButton: 'Desbloquear (30m)',
             unlockAppTitle: 'Desbloquear App',
             unlockAppMsg: 'Esto permitirá al cobrador acceder a la app por 30 minutos, ignorando horarios. ¿Continuar?',
             unlockConfirm: 'Sí, Desbloquear',
-            appUnlockedSuccess: 'App cobrador desbloqueada',
+            appUnlockedSuccess: '¡App de cobrador desbloqueada por 30min!',
             deleteAlertTitle: '¿Borrar Alerta?',
             deleteAlertMsg: '¿Desea eliminar esta observación del cliente?',
             confirmDeleteShort: 'Eliminar',
+            // --- NUEVOS (MODALES Y DESBLOQUEO) ---
             valToWithdraw: 'Valor a Retirar',
             valToInject: 'Valor a Aportar',
             obsOptional: 'Observaciones (Opcional)',
@@ -1746,18 +1740,20 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             cancel: 'Cancelar',
             capitalOnHandLabel: 'Capital en Mano',
             microInsuranceLabelSimple: 'Micro Seguro',
+            appUnlockedSuccess: 'App cobrador desbloqueada', // Mensaje corregido exacto
+            welcomeAdmin: 'Welcome, Administrator',
+            manageTeamDesc: 'Manage your team and operations efficiently.',
+            accessPanel: 'Access Dashboard',
+            emailLabel: 'Email',
+            passwordLabel: 'Password',
             fineManagerTitle: 'Gestión de Multas',
             fineManagerDesc: 'Busque un cliente para configurar días de retraso y valor de multa.',
             searchClientPlaceholder: 'Buscar cliente...',
             chatAppCollector: 'Chat App Cobrador',
             fineLabel: 'Multa',
-            insuranceLabelShort: 'Seguro'
+            insuranceLabelShort: 'Seguro',
         },
-
         en: {
-            appPermissions: 'Collector App Permissions',
-            allowEditClient: 'Edit Clients',
-            allowDeletePayment: 'Delete Payments',
             microInsurance: 'Micro Insurance',
             microInsuranceFund: 'Micro Insurance (Fund)',
             microInsuranceLabel: 'Micro Insurance (Deductible)',
@@ -1766,7 +1762,7 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             mapRemaining: 'Balance',
             viewDetails: 'View Details',
             clientLabel: 'CLIENT',
-            editData: 'Edit Data',
+            editData: 'Edit Data', // <--- AGREGAR ESTA LÍNEA
             routeName: 'Route Name (Visible in App)',
             routeNameDesc: 'This name will appear professionally at the top of the collector app.',
             routePlaceholder: 'Ex: Downtown Route, North Route...',
@@ -1869,7 +1865,9 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             settlementRejected: 'Withdrawal Rejected',
             settlementApproved: 'Withdrawal APPROVED successfully!',
             downloadGraphicPDF: 'Download Graphic PDF',
+            // --- NUEVO ---
             chartCenterBalance: 'CASH BALANCE',
+             // --- NUEVOS (MODALES Y DESBLOQUEO) ---
             valToWithdraw: 'Amount to Withdraw',
             valToInject: 'Amount to Inject',
             obsOptional: 'Observations (Optional)',
@@ -1878,13 +1876,13 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             cancel: 'Cancel',
             capitalOnHandLabel: 'Capital on Hand',
             microInsuranceLabelSimple: 'Micro Insurance',
-            appUnlockedSuccess: 'Collector app unlocked!',
+            appUnlockedSuccess: 'Collector app unlocked!', // Mensaje corregido
             fineManagerTitle: 'Fine Management',
             fineManagerDesc: 'Search for a client to configure delay days and fine amount.',
             searchClientPlaceholder: 'Search client...',
             chatAppCollector: 'Collector App Chat',
             fineLabel: 'Fine',
-            insuranceLabelShort: 'Insurance'
+            insuranceLabelShort: 'Insurance',
         }
     };
 
@@ -2423,7 +2421,7 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                 });
             });
 
-            // --- LISTA DE CLIENTES ---
+            // --- LISTA DE CLIENTES (Vista General) ---
             let clientsListHtml = '';
             if (clients.length > 0) {
                 const sortedClients = clients.map(client => {
@@ -2449,8 +2447,11 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                 }).sort((a, b) => a.client.name.localeCompare(b.client.name));
 
                 clientsListHtml = sortedClients.map(({ client, displayLoan, hasMultipleActive, activeLoansCount }) => {
+                    // --- CÁLCULOS PARA LA TARJETA ---
                     const details = calculateLoanDetails(displayLoan); 
                     const statusKey = details.status;
+                    
+                    // TRADUCCIONES DE ESTADO (CORREGIDO)
                     const statusDict = {
                         'paid': { pt: 'EM DIA', es: 'AL DÍA', en: 'ON TIME' },
                         'pending': { pt: 'EM DIA', es: 'AL DÍA', en: 'ON TIME' },
@@ -2459,63 +2460,97 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                     };
                     const lang = currentLang || 'pt';
                     let statusLabel = statusDict[statusKey] ? statusDict[statusKey][lang] : '---';
+
+                    // Colores y Lógica Visual
                     let statusColor = 'var(--text-secondary)';
                     let progressColor = 'var(--text-secondary)';
                     let cardBorderColor = 'var(--border-color)';
 
                     if (statusKey === 'paid' || statusKey === 'pending') {
-                        statusColor = 'var(--accent-green)'; progressColor = 'var(--accent-green)'; cardBorderColor = 'var(--accent-green)';
+                        statusColor = 'var(--accent-green)'; 
+                        progressColor = 'var(--accent-green)';
+                        cardBorderColor = 'var(--accent-green)';
                     } else if (statusKey === 'late') {
                         statusColor = 'var(--danger-color)';
+                        // Agregamos días de atraso al texto
                         const daysText = lang === 'es' ? 'días' : 'dias';
                         statusLabel = `${statusLabel} (${details.lateDays}${daysText[0]})`; 
-                        progressColor = 'var(--danger-color)'; cardBorderColor = 'var(--danger-color)';
+                        progressColor = 'var(--danger-color)';
+                        cardBorderColor = 'var(--danger-color)';
                     } else if (statusKey === 'finished') {
-                        statusColor = '#3b82f6'; progressColor = '#3b82f6'; cardBorderColor = '#3b82f6';
+                        statusColor = '#3b82f6'; // Azul
+                        progressColor = '#3b82f6';
+                        cardBorderColor = '#3b82f6';
                     }
 
+                    // Foto
                     const cInitial = (client.name || 'C').charAt(0).toUpperCase();
                     const cPhoto = client.profilePictureUrl || ('https://placehold.co/80x80/3b82f6/FFFFFF?text=' + cInitial);
+
+                    // Fechas (Formato Corto)
                     let startDateStr = '--/--';
                     if (displayLoan.startDate && displayLoan.startDate.seconds) {
                         startDateStr = new Date(displayLoan.startDate.seconds * 1000).toLocaleDateString(currentLang === 'pt' ? 'pt-BR' : 'es-ES', {day:'2-digit', month:'2-digit'});
                     }
 
-                    // --- CORRECCIÓN RUEDITA ---
-                    let totalInst = 0; let paidInst = 0;
+                    // Progreso (Rueda)
+                    let totalInst = 0;
+                    let paidInst = 0;
+                    
                     if (displayLoan.installments && typeof displayLoan.installments === 'string' && displayLoan.installments.includes('/')) {
                         const parts = displayLoan.installments.split('/');
-                        paidInst = parseInt(parts[0]) || 0; totalInst = parseInt(parts[1]) || 0;
+                        paidInst = parseInt(parts[0]) || 0;
+                        totalInst = parseInt(parts[1]) || 0;
                     } else {
                         totalInst = parseInt(displayLoan.installments) || 0;
                         const totalPaidVal = (displayLoan.history || []).reduce((acc, h) => acc + (h.amount||0), 0);
                         const instVal = displayLoan.originalInstallmentAmount || 1;
                         paidInst = Math.floor(totalPaidVal / instVal);
+                        if (paidInst > totalInst) paidInst = totalInst;
                     }
                     
-                    // Lógica visual: Si no está finalizado, no mostrar 100% (o cuotas completas)
-                    if (statusKey !== 'finished' && paidInst >= totalInst && totalInst > 0) {
-                        paidInst = totalInst - 1; // Restamos 1 visualmente
-                    }
-                    if (paidInst < 0) paidInst = 0; // Seguridad
-
                     const progressPercent = totalInst > 0 ? (paidInst / totalInst) * 100 : 0;
-                    // --------------------------
 
+                    // --- DISEÑO GRID (SOLUCIÓN DEFINITIVA DE SUPERPOSICIÓN) ---
+                    // Estructura: 
+                    // [ FOTO ]  [ INFO PRINCIPAL ....... ]  [ RUEDA ]
                     return `
                         <div class="client-card client-card-modern" data-client-id="${client.id}" data-loan-index="${displayLoan.originalIndex}" 
-                             style="display: grid; grid-template-columns: auto 1fr auto; gap: 15px; align-items: center; padding: 15px; background-color: var(--surface); border-radius: 12px; margin-bottom: 12px; border: 1px solid var(--border-color); border-left: 4px solid ${cardBorderColor}; position: relative; cursor: pointer; transition: transform 0.2s;">
+                             style="
+                                display: grid; 
+                                grid-template-columns: auto 1fr auto; 
+                                gap: 15px; 
+                                align-items: center; 
+                                padding: 15px; 
+                                background-color: var(--surface); 
+                                border-radius: 12px; 
+                                margin-bottom: 12px; 
+                                border: 1px solid var(--border-color); 
+                                border-left: 4px solid ${cardBorderColor};
+                                position: relative; 
+                                cursor: pointer;
+                                transition: transform 0.2s;
+                             ">
+                            
+                            <!-- COLUMNA 1: FOTO -->
                             <div style="position: relative;"> 
                                 <img src="${cPhoto}" alt="Foto" style="width: 55px; height: 55px; border-radius: 50%; object-fit: cover; border: 2px solid var(--bg); box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
                                 ${activeLoansCount > 1 ? `<span style="position: absolute; bottom: -2px; right: -2px; background: var(--accent-blue); color: white; font-size: 0.65em; font-weight: bold; padding: 2px 5px; border-radius: 10px; border: 2px solid var(--surface);">+${activeLoansCount-1}</span>` : ''}
                             </div>
+
+                            <!-- COLUMNA 2: INFORMACIÓN (Flexible, sin superponerse) -->
                             <div style="display: flex; flex-direction: column; gap: 4px; overflow: hidden;">
+                                <!-- Nombre y Chat -->
                                 <div style="display: flex; justify-content: space-between; align-items: center;">
                                     <h4 class="client-name-modern" style="margin: 0; font-size: 1em; color: var(--text-primary); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${client.name}</h4>
                                 </div>
+                                
+                                <!-- Dirección -->
                                 <div style="font-size: 0.8em; color: var(--text-secondary); display: flex; align-items: center; gap: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                                     <i data-lucide="map-pin" style="width: 12px; height: 12px; flex-shrink: 0;"></i> ${client.address || 'Sem endereço'}
                                 </div>
+
+                                <!-- Detalles Financieros (Parcela y Fecha) -->
                                 <div style="display: flex; align-items: center; gap: 10px; margin-top: 2px;">
                                     <span style="font-size: 0.85em; font-weight: 700; color: var(--text-primary); background: var(--bg); padding: 2px 6px; border-radius: 4px;">
                                         ${money(displayLoan.originalInstallmentAmount)}
@@ -2525,7 +2560,10 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                                     </span>
                                 </div>
                             </div>
+
+                            <!-- COLUMNA 3: RUEDA Y ESTADO (Fijo a la derecha) -->
                             <div style="display: flex; flex-direction: column; align-items: center; gap: 5px; width: 70px;">
+                                <!-- Rueda -->
                                 <div class="progress-wheel-container" style="width: 55px; height: 55px;">
                                     <div class="progress-wheel" style="background: conic-gradient(${progressColor} ${progressPercent}%, var(--bg) 0%);">
                                         <div class="inner-wheel" style="width: 88%; height: 88%;">
@@ -2533,25 +2571,28 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                                         </div>
                                     </div>
                                 </div>
-                                <span style="font-size: 0.65em; font-weight: 800; text-transform: uppercase; color: ${statusColor}; text-align: center; line-height: 1;">${statusLabel}</span>
+                                <!-- Estado -->
+                                <span style="font-size: 0.65em; font-weight: 800; text-transform: uppercase; color: ${statusColor}; text-align: center; line-height: 1;">
+                                    ${statusLabel}
+                                </span>
                             </div>
+
+                            <!-- BOTÓN CHAT (Absoluto arriba derecha, discreto) -->
                             <div style="position: absolute; top: 10px; right: 10px; display: ${displayLoan.notes || (displayLoan.chatHistory && displayLoan.chatHistory.length > 0) ? 'flex' : 'none'}; align-items: center; justify-content: center; background: var(--bg); border: 1px solid var(--border-color); border-radius: 50%; width: 24px; height: 24px;">
                                 <i data-lucide="message-circle" style="width: 14px; height: 14px; color: var(--accent-blue);"></i>
                             </div>
-                        </div>`;
+
+                        </div>
+                    `;
                 }).join('');
             } else {
                 clientsListHtml = '<p style="padding: 20px; text-align: center; color: var(--text-secondary);">Nenhum cliente para este cobrador.</p>';
             }
 
+            // Textos Alertas
             const alertTitle = currentLang === 'es' ? 'ALERTAS / MENSAJES (App)' : (currentLang === 'en' ? 'ALERTS / MESSAGES' : 'ALERTAS / MENSAGENS (App)');
             const searchPlace = currentLang === 'es' ? 'Buscar alerta...' : (currentLang === 'en' ? 'Search alert...' : 'Buscar alerta...');
             const noAlerts = currentLang === 'es' ? 'Sin alertas pendientes.' : (currentLang === 'en' ? 'No pending alerts.' : 'Sem alertas pendentes.');
-
-            // --- PERMISOS ACTUALES ---
-            const perm = collector.permissions || {};
-            const canEdit = perm.allowEditClient === true;
-            const canDelete = perm.allowDeletePayment === true;
 
             detailView.innerHTML = `
                 <header class="modal-header">
@@ -2590,56 +2631,6 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                         <div class="kpi-card"><h3 class="kpi-title" style="font-size: 0.8em; color: #0ea5e9;"><i data-lucide="shield-check" style="width: 14px; height: 14px; margin-right: 5px;"></i><span data-lang-key="microInsurance">Micro Seguro</span></h3><p class="kpi-value" style="color: #0ea5e9;">${money(collectorTotalInsurance)}</p></div>
                     </section>
 
-                    <!-- SECCIÓN PERMISOS (NUEVO) -->
-                    <div class="kpi-card" style="margin-bottom: 30px; border-color: var(--text-secondary); background-color: var(--surface);">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">
-                            <h3 class="kpi-title" style="margin: 0; font-size: 1em; color: var(--text-primary);">
-                                <i data-lucide="lock" style="width: 18px; height: 18px; margin-right: 5px;"></i> 
-                                <span data-lang-key="appPermissions">Permissões do App</span>
-                            </h3>
-                        </div>
-                        <div style="display: flex; flex-direction: column; gap: 15px;">
-                            <!-- TOGGLE: Editar Clientes -->
-                            <div style="display: flex; align-items: center; justify-content: space-between;">
-                                <div style="display: flex; align-items: center; gap: 10px;">
-                                    <div style="background-color: ${canEdit ? 'var(--accent-blue)' : 'var(--bg)'}; padding: 8px; border-radius: 50%; color: ${canEdit ? 'white' : 'var(--text-secondary)'};">
-                                        <i data-lucide="edit" style="width: 18px; height: 18px;"></i>
-                                    </div>
-                                    <span style="font-weight: 600;" data-lang-key="allowEditClient">Editar Clientes</span>
-                                </div>
-                                <label class="toggle-switch">
-                                    <span style="font-size: 0.8em; font-weight: 700; margin-right: 8px; color: ${canEdit ? 'var(--accent-green)' : 'var(--text-secondary)'};">
-                                        ${canEdit ? (t.permOn || 'ON') : (t.permOff || 'OFF')}
-                                    </span>
-                                    <div class="switch">
-                                        <input type="checkbox" id="perm-edit-toggle" ${canEdit ? 'checked' : ''}>
-                                        <span class="slider"></span>
-                                    </div>
-                                </label>
-                            </div>
-
-                            <!-- TOGGLE: Eliminar Pagos -->
-                            <div style="display: flex; align-items: center; justify-content: space-between;">
-                                <div style="display: flex; align-items: center; gap: 10px;">
-                                    <div style="background-color: ${canDelete ? 'var(--accent-blue)' : 'var(--bg)'}; padding: 8px; border-radius: 50%; color: ${canDelete ? 'white' : 'var(--text-secondary)'};">
-                                        <i data-lucide="trash-2" style="width: 18px; height: 18px;"></i>
-                                    </div>
-                                    <span style="font-weight: 600;" data-lang-key="allowDeletePayment">Excluir Pagamentos</span>
-                                </div>
-                                <label class="toggle-switch">
-                                    <span style="font-size: 0.8em; font-weight: 700; margin-right: 8px; color: ${canDelete ? 'var(--accent-green)' : 'var(--text-secondary)'};">
-                                        ${canDelete ? (t.permOn || 'ON') : (t.permOff || 'OFF')}
-                                    </span>
-                                    <div class="switch">
-                                        <input type="checkbox" id="perm-delete-toggle" ${canDelete ? 'checked' : ''}>
-                                        <span class="slider"></span>
-                                    </div>
-                                </label>
-                            </div>
-                        </div>
-                    </div>
-                    <!-- FIN SECCIÓN PERMISOS -->
-
                     <!-- SECCIÓN ALERTAS -->
                     <div class="kpi-card" style="margin-bottom: 30px; border-color: #dc3545; background-color: var(--surface);">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">
@@ -2655,7 +2646,8 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                         </div>
                     </div>
 
-                    <!-- GESTIÓN DE MULTAS -->
+                    <!-- NUEVA SECCIÓN MEJORADA: GESTIÓN DE MULTAS (CON DÍAS Y VALOR) -->
+                    <!-- SECCIÓN GESTIÓN DE MULTAS (TRADUCIDA) -->
                     <div class="kpi-card" style="margin-bottom: 30px; border-color: #f59e0b; background-color: var(--surface);">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">
                             <h3 class="kpi-title" style="color: #f59e0b; margin: 0; font-size: 1em;">
@@ -2675,11 +2667,18 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                     </div>
 
                     <h2 class="section-title">Clientes</h2>
+                    
+                    <!-- NUEVO BUSCADOR DE CLIENTES -->
                     <div class="search-bar-wrapper" style="margin-bottom: 15px;">
                         <input type="text" id="client-list-search" placeholder="${t.searchClientPlaceholder || 'Buscar cliente...'}" style="padding: 10px 12px 10px 40px; font-size: 0.95em; border-radius: 8px; border: 1px solid var(--border-color); background-color: var(--bg); width: 100%;">
                         <i class="icon" data-lucide="search" style="width: 18px; left: 12px; top: 50%; transform: translateY(-50%); position: absolute; color: var(--text-secondary);"></i>
                     </div>
+                    
                     <div class="item-list" id="clients-list-container">${clientsListHtml}</div>
+                    <!-- FIN NUEVA SECCIÓN -->
+
+                    <h2 class="section-title">Clientes</h2>
+                    <div class="item-list">${clientsListHtml}</div>
 
                     <section style="margin-top: 30px;">
                         <h2 class="section-title" data-lang-key="settlementHistory">Histórico de Retiradas</h2>
@@ -2704,12 +2703,15 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                 </div>
             `;
 
-            // LOGICA ALERTAS Y MULTAS (Se mantiene igual, resumida para este bloque)
+            // 1. Lógica Alertas
             const renderAlerts = (filterText = '') => {
                 const container = document.getElementById('alerts-list-container');
                 if(!container) return;
                 const filtered = clientsWithAlerts.filter(a => a.clientName.toLowerCase().includes(filterText.toLowerCase()) || a.note.toLowerCase().includes(filterText.toLowerCase()));
-                if(filtered.length === 0) { container.innerHTML = `<p style="text-align: center; color: var(--text-secondary); font-size: 0.9em; padding: 10px;">${filterText ? 'Nenhuma alerta encontrada.' : noAlerts}</p>`; return; }
+                if(filtered.length === 0) {
+                    container.innerHTML = `<p style="text-align: center; color: var(--text-secondary); font-size: 0.9em; padding: 10px;">${filterText ? 'Nenhuma alerta encontrada.' : noAlerts}</p>`;
+                    return;
+                }
                 container.innerHTML = filtered.map(a => `
                     <div style="background-color: var(--bg); border: 1px solid var(--border-color); border-radius: 8px; padding: 10px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;">
                         <div style="flex-grow: 1;">
@@ -2719,8 +2721,10 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                         <button class="delete-alert-btn" data-client-id="${a.clientId}" data-loan-index="${a.loanIndex}" style="background: none; border: none; color: var(--text-secondary); cursor: pointer; padding: 4px;">
                             <i data-lucide="trash-2" style="width: 16px; height: 16px;"></i>
                         </button>
-                    </div>`).join('');
+                    </div>
+                `).join('');
                 lucide.createIcons({nodes: container.querySelectorAll('[data-lucide]')});
+
                 container.querySelectorAll('.delete-alert-btn').forEach(btn => {
                     btn.addEventListener('click', async (e) => {
                         const cId = e.currentTarget.dataset.clientId;
@@ -2744,33 +2748,60 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             const alertSearch = document.getElementById('alert-search-input');
             if(alertSearch) { alertSearch.addEventListener('input', (e) => renderAlerts(e.target.value)); }
 
-            // Lógica GESTIÓN DE MULTAS (Se mantiene el código original de multas)
+            // 2. Lógica GESTIÓN DE MULTAS (NUEVO: DÍAS Y VALOR)
             const fineSearch = document.getElementById('fine-manager-search');
             const fineResults = document.getElementById('fine-manager-results');
+
             const renderFineResults = (text) => {
-                if (!text || text.length < 2) { fineResults.innerHTML = `<p style="text-align: center; color: var(--text-secondary); font-size: 0.9em; padding: 10px;">Digite o nome do cliente...</p>`; return; }
+                if (!text || text.length < 2) {
+                    fineResults.innerHTML = `<p style="text-align: center; color: var(--text-secondary); font-size: 0.9em; padding: 10px;">Digite o nome do cliente...</p>`;
+                    return;
+                }
                 const filteredClients = clients.filter(c => c.name.toLowerCase().includes(text.toLowerCase()));
-                if (filteredClients.length === 0) { fineResults.innerHTML = `<p style="text-align: center; color: var(--text-secondary); font-size: 0.9em; padding: 10px;">Nenhum cliente encontrado.</p>`; return; }
+                
+                if (filteredClients.length === 0) {
+                    fineResults.innerHTML = `<p style="text-align: center; color: var(--text-secondary); font-size: 0.9em; padding: 10px;">Nenhum cliente encontrado.</p>`;
+                    return;
+                }
+
                 fineResults.innerHTML = filteredClients.map(c => {
+                    // Buscar el préstamo activo o el último
                     let activeLoanIdx = c.loans ? c.loans.findIndex(l => l.status !== 'finished') : -1;
                     if (activeLoanIdx === -1 && c.loans && c.loans.length > 0) activeLoanIdx = c.loans.length - 1;
                     const loan = activeLoanIdx >= 0 ? c.loans[activeLoanIdx] : null;
-                    if (!loan) return ''; 
+                    
+                    if (!loan) return ''; // Skip si no hay préstamo
+
                     const currentFine = loan.lateFeeAmount || 0;
-                    const currentDays = loan.lateFeeDelay || 5; 
+                    const currentDays = loan.lateFeeDelay || 5; // Default 5 días si no existe
+                    
+                    // Calculamos atraso real para mostrar contexto
                     const details = calculateLoanDetails(loan);
                     const realLateDays = details.lateDays || 0;
                     const lateStatusColor = realLateDays >= currentDays ? '#ef4444' : (realLateDays > 0 ? '#f59e0b' : '#10b981');
+                    
                     return `
                     <div class="client-fine-card" style="background-color: var(--bg); border: 1px solid var(--border-color); border-radius: 8px; padding: 10px; display: flex; flex-direction: column; gap: 8px;">
                         <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-                            <div><strong style="font-size: 0.95em; display: block; color: var(--text-primary);">${c.name}</strong><span style="font-size: 0.75em; color: ${lateStatusColor}; font-weight: 600;">${realLateDays > 0 ? `${realLateDays} Dias de Atraso` : 'Em Dia'}</span></div>
-                            <button class="btn-edit-fine" data-client-id="${c.id}" data-loan-index="${activeLoanIdx}" data-current-fine="${currentFine}" data-current-days="${currentDays}" style="background: var(--surface); border: 1px solid var(--border-color); color: var(--accent-blue); border-radius: 6px; padding: 6px 10px; font-size: 0.8em; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 4px;"><i data-lucide="edit-2" style="width: 14px; height: 14px;"></i> Alterar</button>
+                            <div>
+                                <strong style="font-size: 0.95em; display: block; color: var(--text-primary);">${c.name}</strong>
+                                <span style="font-size: 0.75em; color: ${lateStatusColor}; font-weight: 600;">
+                                    ${realLateDays > 0 ? `${realLateDays} Dias de Atraso` : 'Em Dia'}
+                                </span>
+                            </div>
+                            <button class="btn-edit-fine" data-client-id="${c.id}" data-loan-index="${activeLoanIdx}" data-current-fine="${currentFine}" data-current-days="${currentDays}" style="background: var(--surface); border: 1px solid var(--border-color); color: var(--accent-blue); border-radius: 6px; padding: 6px 10px; font-size: 0.8em; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 4px;">
+                                <i data-lucide="edit-2" style="width: 14px; height: 14px;"></i> Alterar
+                            </button>
                         </div>
-                        <div style="display: flex; gap: 10px; font-size: 0.85em; color: var(--text-secondary); background-color: var(--surface); padding: 6px; border-radius: 6px;"><span>Multa: <strong style="color: var(--text-primary);">${money(currentFine)}</strong></span><span>Aplica após: <strong style="color: var(--text-primary);">${currentDays} dias</strong></span></div>
+                        <div style="display: flex; gap: 10px; font-size: 0.85em; color: var(--text-secondary); background-color: var(--surface); padding: 6px; border-radius: 6px;">
+                            <span>Multa: <strong style="color: var(--text-primary);">${money(currentFine)}</strong></span>
+                            <span>Aplica após: <strong style="color: var(--text-primary);">${currentDays} dias</strong></span>
+                        </div>
                     </div>`;
                 }).join('');
                 lucide.createIcons({nodes: fineResults.querySelectorAll('[data-lucide]')});
+
+                // Listeners para los botones "Alterar"
                 fineResults.querySelectorAll('.btn-edit-fine').forEach(btn => {
                     btn.addEventListener('click', (e) => {
                         const card = e.currentTarget.closest('.client-fine-card');
@@ -2778,36 +2809,77 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                         const lIdx = e.currentTarget.dataset.loanIndex;
                         const currentVal = e.currentTarget.dataset.currentFine;
                         const currentDays = e.currentTarget.dataset.currentDays;
+                        
+                        // Reemplazar la tarjeta con el modo edición COMPLETO
                         card.innerHTML = `
-                            <div style="margin-bottom: 8px;"><strong style="font-size: 0.9em;">Editar Configuração de Multa</strong></div>
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
-                                <div><label style="font-size: 0.75em; color: var(--text-secondary);">Dias p/ Aplicar</label><input type="number" class="fine-days-input" value="${currentDays}" min="1" style="width: 100%; padding: 6px; border-radius: 6px; border: 1px solid var(--border-color); font-weight: 600;"></div>
-                                <div><label style="font-size: 0.75em; color: var(--text-secondary);">Valor da Multa</label><input type="number" class="fine-amount-input" value="${currentVal}" step="0.01" style="width: 100%; padding: 6px; border-radius: 6px; border: 1px solid var(--accent-blue); font-weight: 700; color: var(--accent-blue);"></div>
+                            <div style="margin-bottom: 8px;">
+                                <strong style="font-size: 0.9em;">Editar Configuração de Multa</strong>
                             </div>
-                            <div style="display: flex; gap: 10px;"><button class="btn-cancel-edit" style="flex: 1; background: transparent; border: 1px solid var(--border-color); color: var(--text-secondary); padding: 6px; border-radius: 6px; cursor: pointer;">Cancelar</button><button class="btn-save-fine" style="flex: 1; background: var(--accent-blue); border: none; color: white; border-radius: 6px; padding: 6px; cursor: pointer; font-weight: 600;">Salvar</button></div>`;
-                        card.querySelector('.btn-cancel-edit').addEventListener('click', () => renderFineResults(fineSearch.value));
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
+                                <div>
+                                    <label style="font-size: 0.75em; color: var(--text-secondary);">Dias p/ Aplicar</label>
+                                    <input type="number" class="fine-days-input" value="${currentDays}" min="1" style="width: 100%; padding: 6px; border-radius: 6px; border: 1px solid var(--border-color); font-weight: 600;">
+                                </div>
+                                <div>
+                                    <label style="font-size: 0.75em; color: var(--text-secondary);">Valor da Multa</label>
+                                    <input type="number" class="fine-amount-input" value="${currentVal}" step="0.01" style="width: 100%; padding: 6px; border-radius: 6px; border: 1px solid var(--accent-blue); font-weight: 700; color: var(--accent-blue);">
+                                </div>
+                            </div>
+                            <div style="display: flex; gap: 10px;">
+                                <button class="btn-cancel-edit" style="flex: 1; background: transparent; border: 1px solid var(--border-color); color: var(--text-secondary); padding: 6px; border-radius: 6px; cursor: pointer;">Cancelar</button>
+                                <button class="btn-save-fine" style="flex: 1; background: var(--accent-blue); border: none; color: white; border-radius: 6px; padding: 6px; cursor: pointer; font-weight: 600;">Salvar</button>
+                            </div>
+                        `;
+                        
+                        // Cancelar
+                        card.querySelector('.btn-cancel-edit').addEventListener('click', () => {
+                            renderFineResults(fineSearch.value); // Re-renderiza para cancelar
+                        });
+
+                        // Guardar
                         card.querySelector('.btn-save-fine').addEventListener('click', async () => {
                             const newDays = parseInt(card.querySelector('.fine-days-input').value) || 5;
                             const newAmount = parseFloat(card.querySelector('.fine-amount-input').value) || 0;
-                            const confirmed = await showConfirmationModal('Alterar Multa?', `Confirma a configuração?<br><br><b>Dias de Carência:</b> ${newDays} dias<br><b>Valor da Multa:</b> ${money(newAmount)}`, 'Sim, Salvar', 'btn-primary', 'var(--warning-color)', '#000000');
+                            
+                            // AVISO AMARILLO DE CONFIRMACIÓN DETALLADO
+                            const confirmed = await showConfirmationModal(
+                                'Alterar Multa?', 
+                                `Confirma a configuração?<br><br>
+                                 <b>Dias de Carência:</b> ${newDays} dias<br>
+                                 <b>Valor da Multa:</b> ${money(newAmount)}`, 
+                                'Sim, Salvar', 
+                                'btn-primary', 
+                                'var(--warning-color)', // Color Amarillo
+                                '#000000' // Texto negro
+                            );
+                            
                             if(!confirmed) return;
+
                             try {
                                 const clientRef = doc(db, 'companies', currentCompanyId, "clients", cId);
                                 const clientData = allClients.find(c => c.id === cId);
                                 const updatedLoans = JSON.parse(JSON.stringify(clientData.loans));
+                                
+                                // ACTUALIZAMOS AMBOS VALORES
                                 updatedLoans[lIdx].lateFeeDelay = newDays;
                                 updatedLoans[lIdx].lateFeeAmount = newAmount;
+                                
                                 await updateDoc(clientRef, { loans: updatedLoans });
                                 showToast("Configuração de multa atualizada!", "yellow");
-                                renderFineResults(fineSearch.value);
-                            } catch(err) { console.error(err); showToast("Erro ao salvar.", true); }
+                                renderFineResults(fineSearch.value); // Refrescar lista
+                            } catch(err) {
+                                console.error(err);
+                                showToast("Erro ao salvar.", true);
+                            }
                         });
                     });
                 });
             };
+
             if(fineSearch) fineSearch.addEventListener('input', (e) => renderFineResults(e.target.value));
 
-            // Lógica Retiros Historial
+
+            // 3. Lógica Histórico Retiros
             const settlementsListContainer = detailView.querySelector('#settlements-history-list');
             const collectorSettlements = allSettlements.filter(s => s.collectorId === collectorId).sort((a, b) => (b.date?.seconds || 0) - (a.date?.seconds || 0)); 
             if (settlementsListContainer) {
@@ -2820,60 +2892,45 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                         const timeString = date ? date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '';
                         const isInsurance = settlement.type === 'insurance';
                         const typeLabel = isInsurance ? '<span style="color: #0ea5e9; font-weight: bold; font-size: 0.8em; display: block;">MICRO SEGURO</span>' : '';
-                        return `<div class="payment-history-item" style="cursor: default;"><div class="payment-history-details"><h4 class="payment-history-title">${dateString} - ${timeString}</h4>${typeLabel}${settlement.notes ? `<p class="payment-history-description" style="font-style: italic;">${settlement.notes}</p>` : ''}</div><div class="payment-history-info"><span class="payment-history-amount" style="color: ${isInsurance ? '#0ea5e9' : 'var(--text-primary)'}; font-size: 1.1em; font-weight: 700;">${money(settlement.amount)}</span></div></div>`;
+                        return `
+                        <div class="payment-history-item" style="cursor: default;">
+                            <div class="payment-history-details">
+                                <h4 class="payment-history-title">${dateString} - ${timeString}</h4>
+                                ${typeLabel}
+                                ${settlement.notes ? `<p class="payment-history-description" style="font-style: italic;">${settlement.notes}</p>` : ''}
+                            </div>
+                            <div class="payment-history-info">
+                                <span class="payment-history-amount" style="color: ${isInsurance ? '#0ea5e9' : 'var(--text-primary)'}; font-size: 1.1em; font-weight: 700;">${money(settlement.amount)}</span>
+                            </div>
+                        </div>`;
                     }).join('');
                 }
             }
             
             detailView.classList.add('active');
-            
-            // LOGICA BUSCADOR CLIENTES
+            // --- INICIO: CÓDIGO DEL BUSCADOR DE CLIENTES ---
             const clientSearchInput = detailView.querySelector('#client-list-search');
             if (clientSearchInput) {
                 clientSearchInput.addEventListener('input', (e) => {
                     const term = e.target.value.toLowerCase();
-                    const cards = detailView.querySelectorAll('.client-card'); 
+                    const cards = detailView.querySelectorAll('.client-card'); // Busca todas las tarjetas
+                    
                     cards.forEach(card => {
+                        // Busca el nombre dentro de la nueva estructura
                         const nameEl = card.querySelector('.client-name-modern'); 
                         if (nameEl) {
                             const name = nameEl.textContent.toLowerCase();
-                            if (name.includes(term)) card.style.display = ''; else card.style.display = 'none'; 
+                            // Si el nombre incluye lo que escribes, muestra la tarjeta, si no, la oculta
+                            if (name.includes(term)) {
+                                card.style.display = ''; 
+                            } else {
+                                card.style.display = 'none'; 
+                            }
                         }
                     });
                 });
             }
-
-            // --- LISTENERS DE PERMISOS (NUEVO) ---
-            const editToggle = document.getElementById('perm-edit-toggle');
-            const deleteToggle = document.getElementById('perm-delete-toggle');
-
-            const updatePermission = async (permKey, isChecked) => {
-                try {
-                    const collectorRef = doc(db, 'collectors', collectorId);
-                    await updateDoc(collectorRef, {
-                        [`permissions.${permKey}`]: isChecked
-                    });
-                    // Feedback visual sutil (actualizar texto ON/OFF)
-                    const labelSpan = isChecked ? (t.permOn || 'ON') : (t.permOff || 'OFF');
-                    const color = isChecked ? 'var(--accent-green)' : 'var(--text-secondary)';
-                    const spanEl = permKey === 'allowEditClient' ? editToggle.parentNode.previousElementSibling : deleteToggle.parentNode.previousElementSibling;
-                    if(spanEl) {
-                        spanEl.textContent = labelSpan;
-                        spanEl.style.color = color;
-                    }
-                } catch (error) {
-                    console.error("Error updating permission:", error);
-                    showToast("Erro ao atualizar permissão.", true);
-                    // Revertir switch si falla
-                    if(permKey === 'allowEditClient') editToggle.checked = !isChecked;
-                    else deleteToggle.checked = !isChecked;
-                }
-            };
-
-            if(editToggle) editToggle.addEventListener('change', (e) => updatePermission('allowEditClient', e.target.checked));
-            if(deleteToggle) deleteToggle.addEventListener('change', (e) => updatePermission('allowDeletePayment', e.target.checked));
-            // --------------------------------------
-
+            // --- FIN: CÓDIGO DEL BUSCADOR ---
             lucide.createIcons({nodes: detailView.querySelectorAll('[data-lucide]')});
             applyLanguage(currentLang);
 
@@ -2893,11 +2950,17 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             const injectionBtn = detailView.querySelector('#add-capital-injection-btn');
             if (injectionBtn) injectionBtn.addEventListener('click', (e) => { const cId = e.currentTarget.dataset.collectorId; const cObj = allCollectors.find(c => c.id === cId); showCapitalInjectionModal(cId, cObj.name); });
 
+            // Lógica Desbloqueo (VERDE)
             const unlockBtn = detailView.querySelector('#unlock-app-btn');
             if (unlockBtn) {
                 unlockBtn.addEventListener('click', async (e) => {
                     const cId = e.currentTarget.dataset.collectorId;
-                    const confirmed = await showConfirmationModal(t.unlockAppTitle || 'Desbloquear App', t.unlockAppMsg || 'Isso permitirá que o cobrador acesse o aplicativo por 30 minutos, ignorando horários. Continuar?', t.unlockConfirm || 'Sim, Desbloquear', 'btn-primary', 'var(--warning-color)', '#000000');
+                    const confirmed = await showConfirmationModal(
+                        t.unlockAppTitle || 'Desbloquear App',
+                        t.unlockAppMsg || 'Isso permitirá que o cobrador acesse o aplicativo por 30 minutos, ignorando horários. Continuar?',
+                        t.unlockConfirm || 'Sim, Desbloquear', 
+                        'btn-primary', 'var(--warning-color)', '#000000'
+                    );
                     if (!confirmed) return;
                     try {
                         const unlockUntil = new Date();
@@ -3494,8 +3557,6 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
                 details.status = 'finished';
                 return details;
             }
-            // Doble chequeo: Si está marcado como finished pero debe, lo corregimos a no finished,
-            // A MENOS que la deuda sea ínfima.
             if (loan.status === 'finished') {
                 const debt = loan.totalLoan - currentTotalPaid;
                 if (debt <= 0.02) {
@@ -3507,7 +3568,6 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
             const today = new Date();
             today.setHours(0, 0, 0, 0);
 
-            // --- CORRECCIÓN: DETECCIÓN DE FECHA ---
             let lastRelevantDate;
             if (loan.startDate?.seconds) {
                 lastRelevantDate = new Date(loan.startDate.seconds * 1000);
@@ -3515,18 +3575,17 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
                 const sortedHistory = [...loan.history].sort((a, b) => a.date.seconds - b.date.seconds);
                 lastRelevantDate = new Date(sortedHistory[0].date.seconds * 1000);
             }
-            
-            // Si no hay fecha, asumimos que es un préstamo antiguo migrado y usamos una fecha segura (ej: hace 1 mes)
-            // Esto asegura que aparezca en la lista
-            if (!lastRelevantDate) {
-                 // Fallback para datos corruptos: Asumimos fecha de inicio hoy para no romper, 
-                 // pero como debe dinero, el sistema eventualmente lo marcará.
-                 lastRelevantDate = new Date(); 
+            if (!lastRelevantDate && loan.startDate?.seconds) {
+                lastRelevantDate = new Date(loan.startDate.seconds * 1000);
             }
+
+            if (!lastRelevantDate) return details; 
             
             lastRelevantDate.setHours(0, 0, 0, 0);
 
             let checkDate = new Date(lastRelevantDate);
+            
+            // Sincronización +1 día (Mantenemos esto)
             checkDate.setDate(checkDate.getDate() + 1); 
 
             let accumulatedLateDays = 0;
@@ -3536,12 +3595,7 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
             let installmentsDueCount = 0;
             let nextDueDateFound = false;
 
-            // Limite de seguridad para evitar bucles infinitos en fechas corruptas (ej: año 1970)
-            const MAX_ITERATIONS = 365 * 2; // 2 años
-            let iterations = 0;
-
-            while (checkDate <= today && iterations < MAX_ITERATIONS) {
-                iterations++;
+            while (checkDate <= today) {
                 const dayOfWeek = checkDate.getDay();
                 const dayOfMonth = checkDate.getDate();
                 const formattedDate = `${String(checkDate.getDate()).padStart(2, '0')}/${String(checkDate.getMonth() + 1).padStart(2, '0')}`;
@@ -3549,14 +3603,9 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
                 const frequency = loan.paymentFrequency || 'daily';
                 let isPaymentDay = false;
 
-                // Si no hay días de pago definidos (migración antigua), asumimos de Lunes a Sábado
-                if (!loan.paymentDays || loan.paymentDays.length === 0) {
-                     if (dayOfWeek !== 0) isPaymentDay = true; // Excluye domingo
-                } else {
-                    if (frequency === 'daily') isPaymentDay = (loan.paymentDays || []).includes(dayOfWeek);
-                    else if (frequency === 'weekly') isPaymentDay = (loan.paymentDays || [])[0] === dayOfWeek;
-                    else if (frequency === 'monthly') isPaymentDay = (loan.paymentDays || [])[0] === dayOfMonth;
-                }
+                if (frequency === 'daily') isPaymentDay = (loan.paymentDays || []).includes(dayOfWeek);
+                else if (frequency === 'weekly') isPaymentDay = (loan.paymentDays || [])[0] === dayOfWeek;
+                else if (frequency === 'monthly') isPaymentDay = (loan.paymentDays || [])[0] === dayOfMonth;
 
                 if (!isHoliday && isPaymentDay) {
                     if (checkDate < today) {
@@ -3585,6 +3634,11 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
             // === CORRECCIÓN DE MULTA: ACTIVAR AL 5º DÍA (SUPERAR EL LÍMITE) ===
             if (loan.lateFeeAmount && loan.lateFeeAmount > 0) {
                 const delayDays = parseInt(loan.lateFeeDelay) || 0;
+                
+                // CAMBIO: Usamos '>' (Mayor que) en lugar de '>=' (Mayor o igual)
+                // Si delay es 4: 
+                // - Con 4 días: 4 > 4 es Falso (No multa).
+                // - Con 5 días: 5 > 4 es Verdadero (Multa activa).
                 if (accumulatedLateDays > delayDays) {
                     accumulatedLateFees += parseFloat(loan.lateFeeAmount);
                 }
@@ -6316,118 +6370,341 @@ async function submitCollectorReport(collectorId) {
 
         
 
-            function showClientDetails(clientId, loanIndex = 0, isUpdate = false) { 
-            const clientDetailView = document.getElementById('clientDetailModal');
+             function showClientDetails(clientId, loanIndex = 0) { 
             const client = allClients.find(c => c.id === clientId);
+            window.showClientDetails = showClientDetails; 
             
-            // --- 1. ACTIVAR MEMORIA GLOBAL ---
-            currentDetailClientId = clientId;
-            currentDetailLoanIndex = loanIndex;
-
             if (!client) {
                 showToast('Erro: Cliente não encontrado.', true);
                 return;
             }
 
-            // --- 2. LÓGICA WHATSAPP INTELIGENTE ---
-            const clientCollector = allCollectors.find(c => c.id === client.collectorId);
-            const currencyCode = clientCollector?.operatingCurrency || currentCompanyData?.settings?.currency || 'BRL';
-            const currencyToDDI = { 'BRL': '55', 'ARS': '54', 'BOB': '591', 'CLP': '56', 'COP': '57', 'USD_EC': '593', 'PYG': '595', 'PEN': '51', 'UYU': '598', 'VES': '58', 'CRC': '506', 'GTQ': '502', 'HNL': '504', 'NIO': '505', 'PAB': '507', 'USD_SV': '503', 'USD': '1', 'MXN': '52', 'CAD': '1' };
-            const countryDDI = currencyToDDI[currencyCode] || '55'; 
-            
-            let cleanedWhatsapp = (client.whatsapp || '').toString().replace(/\D/g, ''); 
-            if (cleanedWhatsapp.length >= 8 && cleanedWhatsapp.length <= (countryDDI === '1' ? 10 : 11)) {
-                cleanedWhatsapp = countryDDI + cleanedWhatsapp;
-            }
-            const waUrl = (cleanedWhatsapp.length >= 10) ? `https://api.whatsapp.com/send?phone=${cleanedWhatsapp}` : null;
-            const whatsappLogoUrl = "https://firebasestorage.googleapis.com/v0/b/lumix-financas-app.firebasestorage.app/o/LOGO%20WHATSAPP%20OFI.png?alt=media&token=e022ad51-a151-4812-bb3d-9be867dac891";
-            // ------------------------------------
-
+            const detailModal = document.getElementById('clientDetailModal');
             const t = translations[currentLang] || translations['pt'];
-            const allLoans = client.loans || [];
-            let targetIndex = loanIndex;
-            if (targetIndex < 0 || targetIndex >= allLoans.length) {
-                const firstActive = allLoans.findIndex(l => calculateLoanDetails(l).status !== 'finished');
-                targetIndex = firstActive !== -1 ? firstActive : (allLoans.length - 1);
+            
+            // --- LÓGICA DE SELECCIÓN DE PRÉSTAMO ---
+            const displayableLoans = (client.loans || []).filter(l => l.status !== 'finished');
+            const activeOrLastFinishedLoans = displayableLoans.length > 0 ? displayableLoans : (client.loans && client.loans.length > 0 ? [client.loans[client.loans.length - 1]] : []);
+            
+            let currentLoanIndex = loanIndex;
+            if (loanIndex < 0 || !client.loans[loanIndex] || (activeOrLastFinishedLoans.length > 0 && !activeOrLastFinishedLoans.includes(client.loans[loanIndex]))) {
+                 if (activeOrLastFinishedLoans.length > 0) {
+                     currentLoanIndex = client.loans.indexOf(activeOrLastFinishedLoans[0]);
+                 } else {
+                     currentLoanIndex = 0;
+                 }
             }
-            const currentLoanIndex = targetIndex;
-            const loan = allLoans[currentLoanIndex] || {};
-            const hasMultipleLoans = allLoans.length > 1;
 
-            const paidAmount = (loan.history || []).filter(h => h.status !== 'pending_verification' && h.status !== 'rejected' && h.status !== 'postponed' && h.method !== 'migration').reduce((sum, h) => sum + (h.amount || 0), 0) + (loan.initialMigratedAmount || 0);
+            const loan = client.loans[currentLoanIndex];
+            if (!loan) { console.error("No se pudo cargar el préstamo."); return; }
+
+            const hasMultipleDisplayable = activeOrLastFinishedLoans.length > 1;
+            
+            // --- CÁLCULOS FINANCIEROS ---
+            const paidAmount = (loan.history || [])
+                .filter(h => h.status === 'approved' || (!h.status && h.date))
+                .reduce((sum, h) => sum + (h.amount || 0), 0) + (loan.initialMigratedAmount || 0);
+
             const loanDetails = calculateLoanDetails(loan);
-            const totalAmountWithFine = (loan.totalLoan || 0) + (loanDetails.lateFeesAccumulated || 0);
+            const fineAmount = loanDetails.lateFeesAccumulated || 0;
+            const totalAmountWithFine = (loan.totalLoan || 0) + fineAmount;
             const remainingAmount = Math.max(0, totalAmountWithFine - paidAmount);
+
+            // --- 1. TRADUCCIÓN Y ESTADO ---
             const currentStatus = loanDetails.status;
+            let statusClass = `status-${currentStatus}`;
             
-            let statusText = { 'paid': 'EM DIA', 'pending': 'EM DIA', 'late': 'ATRASADO', 'finished': 'FINALIZADO' }[currentStatus] || currentStatus.toUpperCase();
-            if (currentStatus === 'late' && loanDetails.lateDays > 0) statusText += ` (${loanDetails.lateDays}d)`;
-            let statusClass = (currentStatus === 'paid' || currentStatus === 'pending') ? 'status-paid' : `status-${currentStatus}`;
+            const statusMap = {
+                'paid': { pt: 'EM DIA', es: 'AL DÍA', en: 'UP TO DATE' },
+                'pending': { pt: 'EM DIA', es: 'AL DÍA', en: 'UP TO DATE' },
+                'late': { pt: 'ATRASADO', es: 'ATRASADO', en: 'LATE' },
+                'finished': { pt: 'FINALIZADO', es: 'FINALIZADO', en: 'FINISHED' }
+            };
 
+            let statusText = statusMap[currentStatus] ? statusMap[currentStatus][currentLang] : currentStatus.toUpperCase();
+
+            if (currentStatus === 'pending' || currentStatus === 'paid') statusClass = 'status-paid';
+
+            if (currentStatus === 'late' && loanDetails.lateDays > 0) {
+                const daysLabel = { pt: 'dias', es: 'días', en: 'days' }[currentLang] || 'dias';
+                statusText += ` (${loanDetails.lateDays} ${daysLabel})`;
+            }
+
+            const displayMicroInsurance = currentStatus === 'finished' ? 0 : (loan.microInsurance || 0);
+
+            // --- HISTORIAL ---
             const historyHtml = (loan.history && loan.history.length > 0) ? 
-                loan.history.map((p, i) => ({ ...p, originalIndex: i })).sort((a, b) => (b.date?.seconds || 0) - (a.date?.seconds || 0))
-                .map(p => {
-                    let dateStr = p.date?.seconds ? new Date(p.date.seconds * 1000).toLocaleDateString(currentLang === 'pt' ? 'pt-BR' : 'es-ES') : 'N/A';
-                    return `<div class="payment-history-item" data-history-index="${p.originalIndex}"><span>${dateStr}</span><strong>${money(p.amount)}</strong></div>`;
-                }).join('') : '<p style="color: var(--text-secondary); padding: 10px;">Nenhum histórico.</p>';
+                [...loan.history].sort((a,b) => (b.date?.seconds || 0) - (a.date?.seconds || 0)).map((p) => {
+                    const originalIndex = loan.history.indexOf(p);
+                    let dateStr = 'N/A';
+                    if (p.date?.seconds) dateStr = new Date(p.date.seconds * 1000).toLocaleDateString(currentLang === 'pt' ? 'pt-BR' : 'es-ES');
+                    return `<div class="payment-history-item" data-history-index="${originalIndex}"><span>${dateStr}</span><strong>${money(p.amount)}</strong></div>`;
+                }).join('') : '<p style="color: var(--text-secondary); padding: 10px;">Nenhum histórico de pagamento.</p>';
             
-            const renderTabs = () => !hasMultipleLoans ? '' : `<div class="loan-tabs-wrapper"><div class="loan-tabs-container">${allLoans.map((l, i) => `<button class="loan-tab ${i === currentLoanIndex ? 'active' : ''}" data-loan-index="${i}">Préstamo ${i + 1}</button>`).join('')}</div></div>`;
+            // --- DOCUMENTOS ---
+            const docsHtml = (client.documents && client.documents.length > 0) ? `
+                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 12px; margin-top: 10px;">
+                    ${client.documents.map(doc => {
+                        const isImage = doc.name.toLowerCase().match(/\.(jpeg|jpg|gif|png|webp)$/) || doc.url.includes('alt=media');
+                        return `
+                            <div class="kpi-card doc-preview-trigger" data-doc-url="${doc.url}" data-doc-name="${doc.name}" style="padding: 10px; height: 100%; display: flex; flex-direction: column; align-items: center; text-align: center; border: 1px solid var(--border-color); transition: transform 0.2s; cursor: pointer;">
+                                <div style="width: 100%; height: 80px; background-color: var(--bg); border-radius: 6px; margin-bottom: 8px; display: flex; align-items: center; justify-content: center; overflow: hidden;">
+                                    ${isImage ? `<img src="${doc.url}" style="width: 100%; height: 100%; object-fit: cover;">` : `<i data-lucide="file-text" style="width: 32px; height: 32px; color: var(--text-secondary);"></i>`}
+                                </div>
+                                <span style="font-size: 0.75em; font-weight: 600; width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${doc.name}</span>
+                            </div>`;
+                    }).join('')}
+                </div>` : '<div style="padding: 20px; text-align: center; border: 1px dashed var(--border-color); border-radius: 8px; color: var(--text-secondary); background-color: var(--bg);"><i data-lucide="folder-open" style="width: 24px; height: 24px; margin-bottom: 5px; opacity: 0.5;"></i><p style="margin: 0;">Nenhum documento anexado.</p></div>';
+            
+            let picoValue = 0;
+            const instVal = loan.originalInstallmentAmount || 0;
+            if (instVal > 0 && paidAmount > 0) {
+                const remainder = paidAmount % instVal;
+                if (remainder > 0.05 && (instVal - remainder) > 0.05) picoValue = remainder;
+            }
 
-            clientDetailView.innerHTML = `
+            // --- 3. PREPARACIÓN DEL CHAT ---
+            const chatTitle = currentLang === 'es' ? 'Chat con el Cobrador' : (currentLang === 'en' ? 'Chat with Collector' : 'Chat com o Cobrador');
+            const chatPlaceholder = currentLang === 'es' ? 'Escribe un mensaje...' : (currentLang === 'en' ? 'Type a message...' : 'Digite uma mensagem...');
+            const historyTitle = currentLang === 'es' ? 'Historial de Pagos' : (currentLang === 'en' ? 'Payment History' : 'Histórico de Pagamentos');
+            
+            let messages = loan.chatHistory || [];
+            if (messages.length === 0 && loan.notes && loan.notes.trim() !== '') {
+                messages.push({ sender: 'admin', text: loan.notes, timestamp: new Date() });
+            }
+
+            const chatBubblesHtml = messages.map(msg => {
+                const isAdmin = msg.sender === 'admin';
+                const time = msg.timestamp ? new Date(msg.timestamp.seconds ? msg.timestamp.seconds * 1000 : msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '';
+                return `
+                    <div class="chat-bubble ${isAdmin ? 'admin' : 'collector'}">
+                        ${msg.text}
+                        <span class="chat-time">${time}</span>
+                    </div>
+                `;
+            }).join('') || `<div style="text-align:center; color:gray; font-size:0.8em; margin-top:10px;">${currentLang === 'es' ? 'Inicia la conversación...' : 'Inicie a conversa...'}</div>`;
+
+
+            detailModal.innerHTML = `
                 <header class="modal-header">
                     <button id="closeClientDetail"><i data-lucide="arrow-left"></i></button>
                     <span class="modal-title">${client.name}</span>
+                    <button id="editClientBtn" data-client-id="${client.id}" data-loan-index="${currentLoanIndex}"><i data-lucide="edit"></i></button>
                 </header>
-                ${renderTabs()}
+                
+                ${hasMultipleDisplayable ? `<div class="loan-tabs-wrapper"><div class="loan-tabs-container" id="loan-tabs-container">${client.loans.map((l, index) => (activeOrLastFinishedLoans.includes(l) || index === currentLoanIndex) ? `<button class="loan-tab ${index === currentLoanIndex ? 'active' : ''}" data-loan-index="${index}">Préstamo ${index + 1} ${l.status === 'finished' ? '(Finalizado)' : ''}</button>` : '').join('')}</div></div>` : ''}
+
                 <div class="modal-content-wrapper container">
+                    <!-- ESTADO -->
                     <div class="kpi-card" style="text-align: center; margin-bottom: 20px;">
-                        <h3 class="kpi-title" style="justify-content: center;">Estado Atual</h3>
+                        <h3 class="kpi-title" style="justify-content: center;">Estado do Préstamo ${currentLoanIndex + 1}</h3>
                         <span class="payment-status ${statusClass}" style="font-size: 1.2em; font-weight: 600; padding: 8px 20px;">${statusText}</span>
                     </div>
-                    <div class="kpi-card" style="margin-bottom: 30px; border-color: var(--border-color);">
-                        <h3 class="kpi-title" style="border-bottom: 1px solid var(--border-color); padding-bottom: 10px; margin-bottom: 15px; color: var(--accent-blue);">
-                            <i data-lucide="user"></i> ${t.personalData || 'Dados Pessoais'}
-                        </h3>
-                        <div style="display: flex; flex-direction: column; gap: 12px;">
-                            <div style="display: flex; align-items: flex-start; gap: 10px;"><i data-lucide="map-pin" style="width:16px; color:var(--text-secondary); margin-top:3px;"></i><div><strong style="display:block; font-size:0.95em;">${client.address || 'N/A'}</strong><span style="font-size:0.8em; color:var(--text-secondary);">Endereço</span></div></div>
-                            <div style="display: flex; align-items: flex-start; gap: 10px;"><i data-lucide="smartphone" style="width:16px; color:var(--text-secondary); margin-top:3px;"></i><div><strong style="display:block; font-size:0.95em;">${client.whatsapp || 'N/A'}</strong><span style="font-size:0.8em; color:var(--text-secondary);">WhatsApp</span></div></div>
-                        </div>
-                        <div style="display: flex; gap: 10px; margin-top: 20px;">
-                            <button id="editClientBtnCard" class="btn-secondary" style="flex:1; display:flex; align-items:center; justify-content:center; gap:6px; padding:10px;"><i data-lucide="edit-3"></i> <span>Editar</span></button>
-                            ${waUrl ? `<a href="${waUrl}" target="_blank" class="btn-primary" style="flex:1; display:flex; align-items:center; justify-content:center; gap:8px; background-color:#25D366; border-color:#25D366; color:white; padding:10px; text-decoration:none; border-radius:8px; font-weight:600;"><img src="${whatsappLogoUrl}" style="width:24px; height:24px; filter:brightness(0) invert(1);"> <span>WhatsApp</span></a>` : `<button disabled class="btn-secondary" style="flex:1; opacity:0.5; cursor:not-allowed; display:flex; align-items:center; justify-content:center; gap:6px;"><i data-lucide="message-circle"></i> Sem WhatsApp</button>`}
-                        </div>
-                    </div>
+                    
                     <section class="kpi-grid-profile" style="margin-bottom: 30px;">
-                        <div class="kpi-card"><h3 class="kpi-title"><i data-lucide="coins"></i> Total</h3><p class="kpi-value">${money(totalAmountWithFine)}</p></div>
-                        <div class="kpi-card"><h3 class="kpi-title"><i data-lucide="trending-up"></i> Pago</h3><p class="kpi-value green">${money(paidAmount)}</p></div>
-                        <div class="kpi-card" style="border-color: var(--danger-color);"><h3 class="kpi-title"><i data-lucide="receipt-text"></i> Resta</h3><p class="kpi-value" style="color: var(--danger-color); font-size: 1.4em;">${money(remainingAmount)}</p></div>
+                        <div class="kpi-card"><h3 class="kpi-title"><i data-lucide="coins"></i> <span data-lang-key="totalValue">Valor Total</span></h3><p class="kpi-value">${money(totalAmountWithFine)}</p></div>
+                        <div class="kpi-card"><h3 class="kpi-title"><i data-lucide="receipt"></i> <span data-lang-key="installmentValue">Valor da Parcela</span></h3><p class="kpi-value" style="color: var(--accent-purple);">${money(loan.originalInstallmentAmount)}</p></div>
+                        <div class="kpi-card" style="border-color: var(--accent-orange); border-width: 1px;">
+                            <h3 class="kpi-title"><i data-lucide="trending-up" style="color: var(--accent-orange);"></i> Pico</h3>
+                            <p class="kpi-value" style="color: var(--accent-orange);">${money(picoValue)}</p>
+                        </div>
+                        <div class="kpi-card"><h3 class="kpi-title"><i data-lucide="trending-up"></i> <span data-lang-key="totalPaid">Pago</span></h3><p class="kpi-value green">${money(paidAmount)}</p></div>
+                        
+                        <div class="kpi-card" style="border-color: #ef4444; border-width: 1px;">
+                            <h3 class="kpi-title"><i data-lucide="alert-triangle" style="color: #ef4444;"></i> Multa</h3>
+                            <p class="kpi-value" style="color: #ef4444;">${money(fineAmount)}</p>
+                        </div>
+
+                        <div class="kpi-card" style="background-color: color-mix(in srgb, #0ea5e9 10%, var(--surface)); border-color: #0ea5e9;">
+                           <h3 class="kpi-title"><i data-lucide="shield-check" style="color: #0ea5e9;"></i> <span data-lang-key="microInsurance">Micro Seguro</span></h3>
+                           <p class="kpi-value" style="color: #0ea5e9;">${money(displayMicroInsurance)}</p>
+                        </div>
+
+                       <div class="kpi-card" style="border-color: var(--danger-color);">
+                           <h3 class="kpi-title"><i data-lucide="receipt-text"></i> <span data-lang-key="remainingBalance">Total Devido Agora</span></h3>
+                           <p class="kpi-value" style="color: var(--danger-color); font-size: 1.4em;">${money(remainingAmount)}</p>
+                       </div>
                     </section>
-                    <section style="margin-top: 20px;"><h2 class="section-title">Histórico</h2><div class="item-list">${historyHtml}</div></section>
+                    
+                    <section style="margin-top: 20px;">
+                        <h2 class="section-title" style="display: flex; align-items: center; gap: 8px;">
+                            <i data-lucide="folder"></i> Documentos e Evidências
+                        </h2>
+                        ${docsHtml}
+                    </section>
+
+                    <!-- SECCIÓN CHAT -->
+                    <section style="margin-top: 30px; background-color: var(--surface); padding: 15px; border-radius: 12px; border: 1px solid var(--border-color);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                            <h2 class="section-title" style="border: none; margin: 0; padding: 0; color: var(--accent-blue); font-size: 1.1em;">
+                                <i data-lucide="message-circle" style="width: 20px; height: 20px; vertical-align: middle;"></i> ${chatTitle}
+                            </h2>
+                            <button id="clear-chat-btn" style="background: none; border: none; color: var(--danger-color); cursor: pointer;" title="Borrar Chat">
+                                <i data-lucide="trash-2" style="width: 20px; height: 20px;"></i>
+                            </button>
+                        </div>
+                        
+                        <div id="chat-history-container" class="chat-container">
+                            ${chatBubblesHtml}
+                        </div>
+
+                        <div class="chat-input-area">
+                            <input type="text" id="chat-input-field" placeholder="${chatPlaceholder}" autocomplete="off">
+                            <button id="send-chat-btn" class="btn-primary" style="padding: 10px; border-radius: 50%; width: 45px; height: 45px; display: flex; align-items: center; justify-content: center;">
+                                <i data-lucide="send" style="width: 20px; height: 20px; margin-left: 2px;"></i>
+                            </button>
+                        </div>
+                    </section>
+
+                    <section style="margin-top: 20px;">
+                        <h2 class="section-title">${historyTitle} (Préstamo ${currentLoanIndex + 1})</h2>
+                        <div class="item-list" id="client-payment-history-list">${historyHtml}</div>
+                    </section>
+
                     <div style="height: 60px;"></div>
-                </div>`;
+                </div>
+            `;
 
-            // --- 3. GUARDAR ESTADO EN EL NAVEGADOR (EVITA SALIRSE) ---
-            if (!isUpdate) {
-                history.pushState({ modal: 'clientDetailModal', clientId: clientId, loanIndex: currentLoanIndex }, `Details`, `#client/${clientId}/${currentLoanIndex}`);
-                clientDetailView.classList.add('active');
-            }
-            // ---------------------------------------------------------
-
-            lucide.createIcons({ nodes: clientDetailView.querySelectorAll('[data-lucide]') });
+            //history.pushState({ modal: 'clientDetailView', clientId: clientId, loanIndex: currentLoanIndex }, `Details for ${client.name}`, `#client/${clientId}/${currentLoanIndex}`);
+            detailModal.classList.add('active');
+            lucide.createIcons({ nodes: detailModal.querySelectorAll('[data-lucide]') });
             applyLanguage(currentLang);
-
-            clientDetailView.querySelector('#closeClientDetail').addEventListener('click', () => window.history.back());
-            clientDetailView.querySelector('#editClientBtnCard').addEventListener('click', () => showClientFormModal(clientId, false, currentLoanIndex));
             
-            if (hasMultipleLoans) {
-                clientDetailView.querySelectorAll('.loan-tab').forEach(tab => tab.addEventListener('click', (e) => showClientDetails(clientId, parseInt(e.currentTarget.dataset.loanIndex, 10))));
+            const chatContainer = document.getElementById('chat-history-container');
+            if(chatContainer) chatContainer.scrollTop = chatContainer.scrollHeight;
+
+            // --- Lógica del Chat ---
+            const sendChatBtn = document.getElementById('send-chat-btn');
+            const chatInput = document.getElementById('chat-input-field');
+            const clearChatBtn = document.getElementById('clear-chat-btn');
+
+            if (sendChatBtn && chatInput) {
+                const sendMessage = async () => {
+                    const text = chatInput.value.trim();
+                    if (!text) return;
+
+                    chatInput.disabled = true;
+                    sendChatBtn.disabled = true;
+
+                    try {
+                        const clientRef = doc(db, 'companies', currentCompanyId, "clients", clientId);
+                        
+                        const newMessage = {
+                            sender: 'admin',
+                            text: text,
+                            timestamp: new Date()
+                        };
+
+                        const updatedLoans = JSON.parse(JSON.stringify(client.loans));
+                        if (!updatedLoans[currentLoanIndex].chatHistory) {
+                            updatedLoans[currentLoanIndex].chatHistory = [];
+                        }
+                        
+                        updatedLoans[currentLoanIndex].chatHistory.push(newMessage);
+                        updatedLoans[currentLoanIndex].notes = text;
+
+                        await updateDoc(clientRef, { loans: updatedLoans });
+
+                        // --- TRADUCCIÓN DE NOTIFICACIÓN ---
+                        // "Nuevo mensaje sobre CLIENTE: TEXTO"
+                        let msgPrefix = 'Nova mensagem sobre';
+                        if (currentLang === 'es') msgPrefix = 'Nuevo mensaje sobre';
+                        else if (currentLang === 'en') msgPrefix = 'New message regarding';
+
+                        const notifTitle = currentLang === 'es' ? 'Mensaje del Admin' : (currentLang === 'en' ? 'Admin Message' : 'Mensagem do Admin');
+                        const notifBody = `${msgPrefix} ${client.name}: "${text}"`;
+
+                        if (client.collectorId) {
+                            await sendNotificationToCollector(client.collectorId, notifTitle, notifBody, 'admin_note', 'message-circle', clientId);
+                        }
+
+                        chatInput.value = '';
+                        setTimeout(() => {
+                             const cContainer = document.getElementById('chat-history-container');
+                             if(cContainer) cContainer.scrollTop = cContainer.scrollHeight;
+                        }, 500);
+
+                    } catch (error) {
+                        console.error("Erro ao enviar mensagem:", error);
+                        showToast("Erro ao enviar.", true);
+                    } finally {
+                        chatInput.disabled = false;
+                        sendChatBtn.disabled = false;
+                        chatInput.focus();
+                    }
+                };
+
+                sendChatBtn.addEventListener('click', sendMessage);
+                chatInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') sendMessage();
+                });
             }
-            clientDetailView.querySelectorAll('.payment-history-item[data-history-index]').forEach(item => {
-                item.addEventListener('click', (e) => {
-                    const hIndex = parseInt(e.currentTarget.dataset.historyIndex, 10);
-                    showPaymentDetailModal(clientId, currentLoanIndex, hIndex);
+
+            if (clearChatBtn) {
+                clearChatBtn.addEventListener('click', async () => {
+                    const confirmed = await showConfirmationModal(
+                        currentLang === 'es' ? '¿Borrar Chat?' : 'Limpar Chat?',
+                        currentLang === 'es' ? '¿Estás seguro de borrar todo el historial de mensajes?' : 'Tem certeza que deseja limpar o histórico?',
+                        currentLang === 'es' ? 'Sí, Borrar' : 'Sim, Apagar',
+                        'btn-danger'
+                    );
+
+                    if (!confirmed) return;
+
+                    try {
+                        const clientRef = doc(db, 'companies', currentCompanyId, "clients", clientId);
+                        const updatedLoans = JSON.parse(JSON.stringify(client.loans));
+                        updatedLoans[currentLoanIndex].chatHistory = [];
+                        updatedLoans[currentLoanIndex].notes = "";
+                        await updateDoc(clientRef, { loans: updatedLoans });
+                        showToast(currentLang === 'es' ? 'Chat borrado.' : 'Chat limpo.');
+                    } catch (error) {
+                        console.error("Erro ao limpar chat:", error);
+                        showToast("Erro ao limpar.", true);
+                    }
+                });
+            }
+
+            detailModal.querySelectorAll('.doc-preview-trigger').forEach(trigger => {
+                trigger.addEventListener('click', () => {
+                    const url = trigger.dataset.docUrl;
+                    const name = trigger.dataset.docName;
+                    const isImage = name.toLowerCase().match(/\.(jpeg|jpg|gif|png|webp)$/) || url.includes('alt=media');
+                    if (isImage) {
+                        let viewer = document.getElementById('image-viewer-overlay');
+                        if (!viewer) {
+                            viewer = document.createElement('div');
+                            viewer.id = 'image-viewer-overlay';
+                            viewer.style.cssText = `position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.95); z-index: 10000; display: flex; flex-direction: column; justify-content: center; align-items: center; opacity: 0; transition: opacity 0.3s;`;
+                            viewer.innerHTML = `<button id="close-viewer-btn" style="position: absolute; top: 20px; right: 20px; background: rgba(255,255,255,0.2); border: none; color: white; border-radius: 50%; width: 44px; height: 44px; cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 10001;"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button><img id="viewer-img" src="" style="max-width: 100%; max-height: 90vh; object-fit: contain; box-shadow: 0 4px 20px rgba(0,0,0,0.5);"><p id="viewer-caption" style="color: #ccc; margin-top: 15px; font-family: sans-serif; font-size: 0.9em; text-align: center; padding: 0 10px;"></p>`;
+                            document.body.appendChild(viewer);
+                            const closeAction = () => { viewer.style.opacity = '0'; setTimeout(() => viewer.style.display = 'none', 300); };
+                            viewer.querySelector('#close-viewer-btn').addEventListener('click', closeAction);
+                            viewer.addEventListener('click', (e) => { if(e.target === viewer || e.target.tagName === 'IMG') closeAction(); });
+                        }
+                        const img = viewer.querySelector('#viewer-img');
+                        const caption = viewer.querySelector('#viewer-caption');
+                        img.src = url; caption.textContent = name || 'Visualização';
+                        viewer.style.display = 'flex'; setTimeout(() => { viewer.style.opacity = '1'; }, 10);
+                    } else { window.open(url, '_blank'); }
                 });
             });
+
+            detailModal.querySelector('#closeClientDetail').addEventListener('click', () => detailModal.classList.remove('active'));
+            detailModal.querySelector('#editClientBtn').addEventListener('click', () => showClientFormModal(clientId));
+            
+            const historyList = detailModal.querySelector('#client-payment-history-list');
+            if (historyList) {
+                historyList.addEventListener('click', (e) => {
+                    const item = e.target.closest('.payment-history-item[data-history-index]');
+                    if (item) showPaymentDetailModal(clientId, currentLoanIndex, parseInt(item.dataset.historyIndex, 10));
+                });
+            }
+            if (hasMultipleDisplayable) {
+                detailModal.querySelectorAll('.loan-tab').forEach(tab => {
+                    tab.addEventListener('click', (e) => showClientDetails(clientId, parseInt(e.currentTarget.dataset.loanIndex, 10)));
+                });
+            }
         }
         
 
@@ -7456,39 +7733,35 @@ function updateAdminNotificationsView() {
         }
         
         
-         function showClientFormModal(clientId, isNew = false, specificLoanIndex = null) {
+        function showClientFormModal(clientId) {
             const client = allClients.find(c => c.id === clientId);
-            
-            // Si es modo nuevo préstamo, usamos el cliente vacío o el existente según corresponda
-            if (isNew && !client) {
-                // Lógica para cliente nuevo desde cero (si aplica)
-            } else if (!client) {
+            if (!client) {
                 showToast('Cliente não encontrado.', true);
                 return;
             }
 
-            // 1. Determinar qué préstamo vamos a editar
+            // 1. Determinar qué préstamo vamos a editar (Activo o el último)
             let loanIndex = 0;
-            
-            // Si nos pasaron un índice específico (ej: desde el botón de "Actualizar Datos" de un préstamo finalizado), lo usamos
-            if (specificLoanIndex !== null) {
-                loanIndex = specificLoanIndex;
-            } 
-            // Si no, buscamos el activo o el último
-            else if (client.loans && client.loans.length > 0) {
+            if (client.loans && client.loans.length > 0) {
                 const activeIdx = client.loans.findIndex(l => l.status !== 'finished');
                 loanIndex = activeIdx !== -1 ? activeIdx : (client.loans.length - 1);
             }
-            
             const loan = (client.loans && client.loans[loanIndex]) ? client.loans[loanIndex] : {};
 
-            // === CÁLCULOS DE SEGURIDAD ===
+            // === CÁLCULOS DE SEGURIDAD (CORRECCIÓN CRÍTICA) ===
+            // Calculamos los valores en variables antes de usarlos en el HTML.
+            // Esto evita que un valor nulo rompa todo el formulario y devuelva "NaN".
+            
+            // Tasa: Si no existe, usamos 0 para evitar errores matemáticos
             const safeInterest = parseFloat(loan.interestRate || client.interestRate) || 0;
             const safeTotal = parseFloat(loan.totalLoan) || 0;
             const safeMicroInsurance = parseFloat(loan.microInsurance) || 0;
             
+            // Capital (Valor Prestado): Derivado del Total y la Tasa
+            // Si Total=1200 y Tasa=20%, Capital = 1000.
             let safePrincipal = 0;
             if (safeTotal > 0) {
+                // Si la tasa es 0, evitamos dividir por 1 (queda igual). Si hay tasa, aplicamos fórmula.
                 const divisor = 1 + (safeInterest / 100);
                 safePrincipal = (safeTotal / divisor).toFixed(2);
             }
@@ -7496,29 +7769,26 @@ function updateAdminNotificationsView() {
             // Cuotas
             const installmentsStr = loan.installments || '0/0';
             const safeInstallmentsCount = installmentsStr.split('/')[1] || 0;
+            // ===================================================
 
             const formModal = document.getElementById('clientFormModal');
             const collectorOptions = allCollectors.map(c =>
                 `<option value="${c.id}" ${c.id === client.collectorId ? 'selected' : ''}>${c.name}</option>`
             ).join('');
 
-            const modalTitleKey = isNew ? 'createNewLoan' : 'editClient'; 
+            const modalTitleKey = 'editClient';
             const saveButtonKey = 'saveChanges';
-            
-            // Traducción manual rápida para título si no existe key
-            const t = translations[currentLang];
-            const titleText = isNew ? (t.createNewLoan || 'Novo Empréstimo') : (t.editClient || 'Editar Cliente');
 
             formModal.innerHTML = `
                 <header class="modal-header">
                     <button id="closeClientForm"><i data-lucide="arrow-left"></i></button>
-                    <span class="modal-title">${titleText}</span>
+                    <span class="modal-title" data-lang-key="${modalTitleKey}"></span>
                 </header>
                 <div class="modal-content-wrapper container">
                     <form id="client-form-edit">
                         <div class="form-group">
                             <label>Nome do Cliente</label>
-                            <input type="text" id="client-name" required value="${client.name || ''}" ${isNew ? 'readonly' : ''}>
+                            <input type="text" id="client-name" required value="${client.name || ''}">
                         </div>
                         <div class="form-group">
                             <label>Endereço</label>
@@ -7540,9 +7810,10 @@ function updateAdminNotificationsView() {
                             <select id="client-collector">${collectorOptions}</select>
                         </div>
                         <div class="form-group grid-2">
+                            <!-- USAMOS LAS VARIABLES SEGURAS AQUÍ -->
                             <div>
                                 <label>Valor do Empréstimo</label>
-                                <input type="number" id="client-loan-amount" required value="${isNew ? '' : safePrincipal}">
+                                <input type="number" id="client-loan-amount" required value="${safePrincipal}">
                             </div>
                             <div>
                                 <label>Juros (%)</label>
@@ -7556,7 +7827,7 @@ function updateAdminNotificationsView() {
                                 <span data-lang-key="microInsuranceLabel">Micro Seguro</span>
                             </label>
                             <input type="number" id="client-micro-insurance" step="0.01" 
-                                   value="${isNew ? '' : safeMicroInsurance}" 
+                                   value="${safeMicroInsurance}" 
                                    placeholder="0.00"
                                    style="border-color: #0ea5e9;">
                         </div>
@@ -7565,7 +7836,8 @@ function updateAdminNotificationsView() {
                         <div class="form-group grid-2">
                              <div>
                                 <label>Número de Parcelas</label>
-                                <input type="number" id="client-installments" required value="${isNew ? '' : safeInstallmentsCount}">
+                                <!-- USAMOS LA VARIABLE SEGURA AQUÍ -->
+                                <input type="number" id="client-installments" required value="${safeInstallmentsCount}">
                              </div>
                             <div><label>Valor da Parcela</label><input type="text" id="client-installment-value" readonly></div>
                         </div>
@@ -7578,7 +7850,7 @@ function updateAdminNotificationsView() {
                     </form>
                 </div>
                 <div class="action-buttons">
-                    ${!isNew ? `<button id="deleteClientBtn" class="btn-danger"><i data-lucide="trash"></i> <span data-lang-key="deleteClient"></span></button>` : ''}
+                    <button id="deleteClientBtn" class="btn-danger"><i data-lucide="trash"></i> <span data-lang-key="deleteClient"></span></button>
                     <button id="saveClientBtn" class="btn-primary"><i data-lucide="save"></i> <span data-lang-key="${saveButtonKey}"></span></button>
                 </div>
             `;
@@ -7586,9 +7858,7 @@ function updateAdminNotificationsView() {
             lucide.createIcons({nodes: formModal.querySelectorAll('[data-lucide]')});
             applyLanguage(currentLang);
 
-            // Marcar días de pago
-            const daysToMark = isNew ? [1,2,3,4,5,6] : (client.paymentDays || []);
-            daysToMark.forEach(day => {
+            (client.paymentDays || []).forEach(day => {
                 const checkbox = formModal.querySelector(`#form-day-${day}`);
                 if (checkbox) checkbox.checked = true;
             });
@@ -7609,13 +7879,15 @@ function updateAdminNotificationsView() {
                 installmentValueInput.value = money(installmentValue);
             }
             
+            // Calculamos una vez al inicio para llenar los campos readonly
             calculateLoanValues();
+            
             [loanAmountInput, interestInput, installmentsInput].forEach(input => input.addEventListener('input', calculateLoanValues));
             
             formModal.querySelector('#closeClientForm').addEventListener('click', () => formModal.classList.remove('active'));
             
-            // --- GUARDAR ---
             formModal.querySelector('#saveClientBtn').addEventListener('click', async () => {
+                 // SEGURIDAD EXTRA: Usamos || 0 por si el usuario borró todo el campo
                  const loanAmount = parseFloat(loanAmountInput.value) || 0;
                  const interest = parseFloat(interestInput.value) || 0;
                  const installments = parseInt(installmentsInput.value) || 0;
@@ -7625,34 +7897,18 @@ function updateAdminNotificationsView() {
                  const installmentValue = installments > 0 ? totalToPay / installments : 0;
                  
                  let updatedLoans = [...(client.loans || [])];
-                 let targetLoanIndex = loanIndex;
-
-                 if (isNew) {
-                     // Crear nuevo préstamo
-                     updatedLoans.push({
+                 if (updatedLoans.length > 0) {
+                     updatedLoans[loanIndex] = {
+                         ...updatedLoans[loanIndex],
+                         microInsurance: microInsurance,
                          totalLoan: totalToPay,
                          amount: installmentValue,
                          originalInstallmentAmount: installmentValue,
-                         installments: `0/${installments}`,
-                         interestRate: interest,
-                         microInsurance: microInsurance,
-                         startDate: Timestamp.now(),
-                         history: [],
-                         status: 'pending'
-                     });
-                     targetLoanIndex = updatedLoans.length - 1;
-                 } else {
-                     // Actualizar existente
-                     if (updatedLoans.length > 0) {
-                         updatedLoans[loanIndex] = {
-                             ...updatedLoans[loanIndex],
-                             microInsurance: microInsurance,
-                             totalLoan: totalToPay,
-                             amount: installmentValue,
-                             originalInstallmentAmount: installmentValue,
-                             installments: `${(updatedLoans[loanIndex].installments || '0/0').split('/')[0]}/${installments}`,
-                         };
-                     }
+                         installments: `${(updatedLoans[loanIndex].installments || '0/0').split('/')[0]}/${installments}`,
+                         
+                         // Mantenemos la corrección de estado que pediste antes
+                        
+                     };
                  }
 
                  const updatedData = {
@@ -7662,10 +7918,9 @@ function updateAdminNotificationsView() {
                     phone: document.getElementById('client-phone').value,
                     collectorId: document.getElementById('client-collector').value,
                     
-                    // Actualizamos valores globales del cliente para referencia rápida
                     totalLoan: totalToPay,
                     amount: installmentValue,
-                    installments: isNew ? `0/${installments}` : `${(client.installments || '0/0').split('/')[0]}/${installments}`,
+                    installments: `${(client.installments || '0/0').split('/')[0]}/${installments}`,
                     interestRate: interest,
                     paymentDays: Array.from(document.querySelectorAll('#clientFormModal .day-selector input:checked')).map(el => parseInt(el.value)),
                     
@@ -7675,52 +7930,40 @@ function updateAdminNotificationsView() {
                 try {
                     await updateDoc(doc(db, 'companies', currentCompanyId, "clients", clientId), updatedData);
                     showToast(translations[currentLang].clientUpdated);
-                    
-                    // --- CORRECCIÓN CRÍTICA DE NAVEGACIÓN ---
-                    // 1. Cerramos el formulario
                     formModal.classList.remove('active');
-                    
-                    // 2. Refrescamos la vista de detalles SIN saltar al inicio
-                    // Pasamos 'true' como tercer argumento para indicar que es una actualización silenciosa
-                    const detailModal = document.getElementById('clientDetailModal');
-                    if (detailModal && detailModal.classList.contains('active')) {
-                        showClientDetails(clientId, targetLoanIndex, true);
-                    }
-                    // ----------------------------------------
-
+                    document.getElementById('clientDetailModal').classList.remove('active');
                 } catch(error) {
                     console.error("Error updating client:", error);
                     showToast("Error updating client.", true);
                 }
             });
 
-            if (!isNew) {
-                formModal.querySelector('#deleteClientBtn').addEventListener('click', async () => {
-                    const confirmed = await showConfirmationModal(
-                        translations[currentLang].deleteClient || 'Excluir Cliente?',
-                        translations[currentLang].confirmDelete || 'Tem certeza que deseja excluir este cliente? Esta ação não pode ser desfeita.',
-                        translations[currentLang].delete || 'Excluir',
-                        'btn-danger'
-                    );
+            formModal.querySelector('#deleteClientBtn').addEventListener('click', async () => {
+                const deleteBtn = formModal.querySelector('#deleteClientBtn');
+                if (deleteBtn.dataset.confirming !== 'true') {
+                    deleteBtn.dataset.confirming = 'true';
+                    deleteBtn.innerHTML = `<i data-lucide="alert-triangle"></i> ${translations[currentLang].delete}`;
+                    lucide.createIcons({nodes: [deleteBtn.querySelector('i')]});
+                    setTimeout(() => {
+                        deleteBtn.dataset.confirming = 'false';
+                        deleteBtn.innerHTML = `<i data-lucide="trash"></i> <span data-lang-key="deleteClient"></span>`;
+                        applyLanguage(currentLang);
+                        lucide.createIcons({nodes: [deleteBtn.querySelector('i')]});
+                    }, 3000);
+                    return;
+                }
 
-                    if (!confirmed) return;
-
-                    try {
-                        await deleteDoc(doc(db, 'companies', currentCompanyId, "clients", clientId));
-                        showToast(translations[currentLang].clientDeleted);
-                        formModal.classList.remove('active');
-                        document.getElementById('clientDetailModal').classList.remove('active');
-                        // Si estaba en el panel de cobrador, refrescar
-                        const collectorDetail = document.getElementById('collectorDetailView');
-                        if (collectorDetail && collectorDetail.classList.contains('active')) {
-                             // Opcional: recargar vista cobrador
-                        }
-                    } catch (error) {
-                        console.error("Error deleting client: ", error);
-                        showToast("Erro ao excluir cliente.", true);
-                    }
-                });
-            }
+                try {
+                    await deleteDoc(doc(db, 'companies', currentCompanyId, "clients", clientId));
+                    showToast(translations[currentLang].clientDeleted);
+                    formModal.classList.remove('active');
+                    document.getElementById('clientDetailModal').classList.remove('active');
+                    document.getElementById('collectorDetailView').classList.remove('active');
+                } catch (error) {
+                    console.error("Error deleting client: ", error);
+                    showToast("Erro ao excluir cliente.", true);
+                }
+            });
         }
 
 
@@ -7816,48 +8059,52 @@ function updateAdminNotificationsView() {
 /* Reemplaza la función 'setupEventListeners' (aprox. línea 2651) */
 
 function setupEventListeners() {
-            // Eliminar tooltip al soltar en móvil
-            document.addEventListener('touchend', (e) => {
-                const tooltipEl = document.getElementById('chartjs-tooltip');
-                if (tooltipEl && e.target.id === 'ultra-chart') {
-                    setTimeout(() => { tooltipEl.style.opacity = '0'; }, 100); 
-                }
-            });
-
-            // --- MANEJO INTELIGENTE DEL HISTORIAL (NO CERRAR TODO) ---
-            window.addEventListener('popstate', (event) => {
-                console.log("[POPSTATE] Navegación detectada.");
+            // --- NUEVO: La barra desaparece al soltar el dedo ---
+    document.addEventListener('touchend', (e) => {
+        const tooltipEl = document.getElementById('chartjs-tooltip');
         
-                // 1. Ocultar todos los modales primero (limpieza visual)
+        // Si soltaste el dedo sobre el gráfico...
+        if (tooltipEl && e.target.id === 'ultra-chart') {
+            // ...ocultamos la barra inmediatamente (con un pequeño retraso técnico)
+            setTimeout(() => { 
+                tooltipEl.style.opacity = '0'; 
+            }, 100); 
+        }
+    });
+    // ---------------------------------------------------- 
+
+            window.addEventListener('popstate', (event) => {
+                console.log("[POPSTATE] Evento popstate disparado.");
+        
+                // Cierra TODOS los modales de pantalla completa
                 document.querySelectorAll('.modal-view.active').forEach(modal => {
+                    console.log(`[POPSTATE] Forçando fechamento do modal: #${modal.id}`);
                     modal.classList.remove('active');
                 });
         
-                // 2. Si el navegador nos dice que hay un modal abierto, lo restauramos
+                // Lógica para reabrir un modal si el estado lo indica (navegación entre modales)
                 if (event.state && event.state.modal) {
-                    const modalId = event.state.modal;
-                    
-                    // CORRECCIÓN: Aseguramos que usamos el ID correcto 'clientDetailModal'
-                    // aunque el estado antiguo diga 'clientDetailView'
-                    const targetId = (modalId === 'clientDetailView') ? 'clientDetailModal' : modalId;
-                    
-                    const modalToRestore = document.getElementById(targetId);
-                    
+                    const modalToRestore = document.getElementById(event.state.modal);
                     if (modalToRestore) {
+                        console.log(`[POPSTATE] Restaurando modal: #${modalToRestore.id}`);
                         modalToRestore.classList.add('active');
-                        
-                        // Si es la ficha de cliente, recargamos los datos para que no quede vacía
-                        if ((targetId === 'clientDetailModal') && event.state.clientId) {
-                            showClientDetails(event.state.clientId, event.state.loanIndex || 0, true); // true = es update, no pushear history
+        
+                        // Si volvemos a la vista de detalles del cliente, refresca los datos
+                        if (event.state.modal === 'clientDetailView' && event.state.clientId) {
+                            console.log(`[POPSTATE] Restaurando e atualizando clientDetailView...`);
+                            showClientDetails(event.state.clientId, event.state.loanIndex || 0);
                         }
                     }
                 } else {
-                    // Si no hay estado, volvemos a la vista principal
+                    // Si no hay estado de modal, estamos volviendo a una vista principal.
+                    // Actualiza la vista principal basada en el hash.
                     const viewName = location.hash.substring(1) || 'dashboard';
+                    console.log(`[POPSTATE] Voltando para a vista principal: ${viewName}`);
                     showView(viewName);
                 }
             });
-            // --------------------------------------------------------
+
+
 
             document.body.addEventListener('click', e => {
                 const target = e.target;
@@ -7876,87 +8123,259 @@ function setupEventListeners() {
                     if (langDropdown) langDropdown.style.display = 'none';
                 }
                 const langBtn = target.closest('[data-lang]');
-                if(langBtn) {
-                    const newLang = langBtn.dataset.lang;
-                    localStorage.setItem('adminLanguage', newLang);
-                    applyLanguage(newLang);
-                    if (document.getElementById('dashboard-view').classList.contains('active')) updateDashboard();
-                    if (document.getElementById('profile-view').classList.contains('active')) updateProfileView();
-                    if (document.getElementById('reports-view').classList.contains('active')) updateReportsView(); 
-                    if (document.getElementById('notifications-view').classList.contains('active')) updateAdminNotificationsView();
-                    if (langDropdown) langDropdown.style.display = 'none';
-                    showToast(`Idioma: ${langBtn.textContent.trim()}`, 'blue');
+            if(langBtn) {
+                const newLang = langBtn.dataset.lang;
+                
+                // 1. Guardar y Aplicar
+                localStorage.setItem('adminLanguage', newLang);
+                applyLanguage(newLang);
+                
+                // 2. Forzar actualización de vistas dinámicas
+                if (document.getElementById('dashboard-view').classList.contains('active')) {
+                    updateDashboard();
                 }
-                
-                if (target.closest('#submit-post-btn')) submitNewPost();
-                const likeBtn = target.closest('.action-btn[data-action="like"]');
-                if (likeBtn) { e.preventDefault(); handlePostLike(likeBtn.dataset.postId); }
-                const commentBtn = target.closest('.action-btn[data-action="comment"]');
-                if (commentBtn) { e.preventDefault(); toggleCommentSection(commentBtn.dataset.postId); }
-                const submitCommentBtn = target.closest('.submit-comment-btn');
-                if (submitCommentBtn) { e.preventDefault(); submitNewComment(submitCommentBtn.dataset.postId, submitCommentBtn.closest('.post-comment-input-area').querySelector('.comment-input')); }
-                const deletePostBtn = target.closest('.post-delete-btn[data-action="delete-post"]');
-                if (deletePostBtn) { e.preventDefault(); showDeleteConfirmationModal(deletePostBtn.dataset.postId); }
-                
-                const cancelDeleteBtn = target.closest('#cancel-delete-btn');
-                if (cancelDeleteBtn) document.getElementById('reportOptionsModal').classList.remove('active');
-                const confirmDeleteBtn = target.closest('#confirm-delete-btn');
-                if (confirmDeleteBtn) handlePostDelete(confirmDeleteBtn.dataset.postId);
+                if (document.getElementById('profile-view').classList.contains('active')) {
+                    updateProfileView();
+                }
+                if (document.getElementById('reports-view').classList.contains('active')) {
+                    updateReportsView(); 
+                }
 
-                const reportCollectorBtn = target.closest('#reportCollectorBtn');
-                if (reportCollectorBtn) { e.preventDefault(); showReportCollectorModal(document.getElementById('collector-username').value, document.getElementById('collector-name').value); }
-                const cancelReportBtn = target.closest('#cancel-report-btn');
-                if (cancelReportBtn) document.getElementById('reportOptionsModal').classList.remove('active');
-                const confirmReportBtn = target.closest('#confirm-report-btn');
-                if (confirmReportBtn) submitCollectorReport(confirmReportBtn.dataset.collectorId);
+                // --- NUEVO: Actualizar notificaciones si es la vista activa ---
+                if (document.getElementById('notifications-view').classList.contains('active')) {
+                    updateAdminNotificationsView();
+                }
+                // --------------------------------------------------------------
+                
+                // 3. Cerrar menú
+                const langDropdown = document.getElementById('lang-dropdown');
+                if (langDropdown) langDropdown.style.display = 'none';
+                
+                // Usamos 'blue' para que el mensaje salga azul bonito
+                showToast(`Idioma alterado para: ${langBtn.textContent.trim()}`, 'blue');
+            }
+                
 
-                if (target.closest('#header-profile-link')) showView('profile');
+                if (target.closest('#submit-post-btn')) {
+                submitNewPost();
+                }
+
+            const likeBtn = target.closest('.action-btn[data-action="like"]');
+            if (likeBtn) {
+                e.preventDefault(); 
+                handlePostLike(likeBtn.dataset.postId);
+            }
+
+            const commentBtn = target.closest('.action-btn[data-action="comment"]');
+            if (commentBtn) {
+                e.preventDefault();
+                toggleCommentSection(commentBtn.dataset.postId);
+            }
+
+            const submitCommentBtn = target.closest('.submit-comment-btn');
+            if (submitCommentBtn) {
+                e.preventDefault();
+                const postId = submitCommentBtn.dataset.postId;
+                const inputElement = submitCommentBtn.closest('.post-comment-input-area').querySelector('.comment-input');
+                submitNewComment(postId, inputElement);
+            }
+
+            const deletePostBtn = target.closest('.post-delete-btn[data-action="delete-post"]');
+            if (deletePostBtn) {
+                e.preventDefault();
+                showDeleteConfirmationModal(deletePostBtn.dataset.postId);
+            }
+
+            const cancelDeleteBtn = target.closest('#cancel-delete-btn');
+            if (cancelDeleteBtn) {
+                document.getElementById('reportOptionsModal').classList.remove('active');
+            }
+
+            const confirmDeleteBtn = target.closest('#confirm-delete-btn');
+            if (confirmDeleteBtn) {
+                handlePostDelete(confirmDeleteBtn.dataset.postId);
+            }
+
+            const reportCollectorBtn = target.closest('#reportCollectorBtn');
+            if (reportCollectorBtn) {
+                e.preventDefault();
+                const formModal = document.getElementById('collectorFormModal');
+                const collectorIdInput = formModal.querySelector('#collector-username'); 
+                const collectorNameInput = formModal.querySelector('#collector-name');
+                if (collectorIdInput && collectorNameInput) {
+                    showReportCollectorModal(collectorIdInput.value, collectorNameInput.value);
+                }
+            }
+
+            const cancelReportBtn = target.closest('#cancel-report-btn');
+            if (cancelReportBtn) {
+                document.getElementById('reportOptionsModal').classList.remove('active');
+            }
+
+            const confirmReportBtn = target.closest('#confirm-report-btn');
+            if (confirmReportBtn) {
+                submitCollectorReport(confirmReportBtn.dataset.collectorId);
+            }
+
+                if (target.closest('#header-profile-link')) {
+                showView('profile');
+        }
+
                 const collectorCard = target.closest('.collector-card');
-                if (collectorCard) showCollectorDetails(collectorCard.dataset.collectorId);
+                if (collectorCard) {
+                    showCollectorDetails(collectorCard.dataset.collectorId);
+                }
+
                 const reportCollectorCard = target.closest('.report-item-card.clickable');
-                if (reportCollectorCard) showCollectorDetails(reportCollectorCard.dataset.collectorId);
+                 if (reportCollectorCard) {
+                    showCollectorDetails(reportCollectorCard.dataset.collectorId);
+                }
 
                 const filterBtn = target.closest('#dashboard-view .filter-btn[data-filter]');
-                if (filterBtn) { document.querySelectorAll('#dashboard-view .filter-btn[data-filter]').forEach(btn => btn.classList.remove('active')); filterBtn.classList.add('active'); updateDashboard(); }
-                const sortBtn = target.closest('#dashboard-view .filter-btn[data-sort]');
-                if (sortBtn) { sortBtn.classList.toggle('active'); updateDashboard(); }
-                
-                const navItem = target.closest('.nav-item');
-                if (navItem) { if (mapInstance) mapInstance.closePopup(); showView(navItem.dataset.view); }
-                 
-                if (target.closest('#addCollectorBtn')) {
-                    let limit = Infinity; 
-                    let planType = 'pro'; 
-                    if (currentCompanyData?.plan) { planType = currentCompanyData.plan.type; limit = (planType === 'demo') ? (currentCompanyData.plan.collectorLimit || 1) : (currentCompanyData.plan.collectorLimit || Infinity); }
-                    if (allCollectors.length >= limit && limit !== -1) showToast(`Limite de ${limit} cobradores atingido.`, true);
-                    else showCollectorFormModal(); 
+                if (filterBtn) {
+                    document.querySelectorAll('#dashboard-view .filter-btn[data-filter]').forEach(btn => btn.classList.remove('active'));
+                    filterBtn.classList.add('active');
+                    updateDashboard();
                 }
 
-                if (target.closest('#save-settings-btn')) saveGlobalSettings();
-                if (target.closest('#logout-btn')) signOut(auth);
-                if (target.closest('.modal-overlay') || target.closest('.close-modal-btn')) document.getElementById('reportOptionsModal').classList.remove('active');
-                if (target.closest('#report-generate-btn')) updateReportsView(); 
+                const sortBtn = target.closest('#dashboard-view .filter-btn[data-sort]');
+                if (sortBtn) {
+                    sortBtn.classList.toggle('active');
+                    updateDashboard();
+                }
+                
+                const navItem = target.closest('.nav-item');
+                if (navItem) {
+                    if (mapInstance) {
+                        mapInstance.closePopup();
+                    }
+                    showView(navItem.dataset.view); 
+                }
+                 
+                if (target.closest('#addCollectorBtn')) {
+                let limit = Infinity; 
+                let planType = 'pro'; 
+
+                if (currentCompanyData && currentCompanyData.plan) {
+                    planType = currentCompanyData.plan.type; 
+
+                    if (planType === 'demo') {
+                        limit = currentCompanyData.plan.collectorLimit || 1; 
+                    } else if (currentCompanyData.plan.collectorLimit && currentCompanyData.plan.collectorLimit !== -1) {
+                        limit = currentCompanyData.plan.collectorLimit;
+                    } 
+                } else {
+                     console.warn("Dados do plano não encontrados para verificação de limite.");
+                     limit = Infinity; 
+                }
+                const currentCount = allCollectors.length;
+                if (currentCount >= limit) {
+                    showToast(`Limite de ${limit} cobradores atingido para o plano ${planType.toUpperCase()}. Contate o suporte para upgrade.`, true);
+                } else {
+                    showCollectorFormModal(); 
+                }
+            }
+
+
+                if (target.closest('#save-settings-btn')) {
+                    saveGlobalSettings();
+                }
+
+                if (target.closest('#logout-btn')) {
+                signOut(auth).catch((error) => {
+                    console.error("Erro ao sair:", error);
+                    showToast('Erro ao tentar sair.', true);
+                });
+}
+
+                 if (target.closest('#reportOptionsModal')) {
+                    if (target.classList.contains('modal-overlay') || target.closest('.close-modal-btn')) {
+                        document.getElementById('reportOptionsModal').classList.remove('active');
+                    }
+                }
+
+                if (target.closest('#report-generate-btn')) {
+                    updateReportsView(); 
+                }
+
 
                  const notificationCard = target.closest('#admin-notifications-list .client-card');
                 if (notificationCard) {
-                    const { type, clientId, loanIndex, settlementId } = notificationCard.dataset;
-                    if (type === 'payment' || type === 'message') showClientDetails(clientId, parseInt(loanIndex, 10));
-                    else if (type === 'settlement') { const s = allSettlements.find(i => i.id === settlementId); if(s) showSettlementVerificationModal(s); }
-                    else if (type === 'refinance') showRefinanceVerificationModal(clientId);
+                    const { type, clientId, collectorId, loanIndex, historyIndex, settlementId } = notificationCard.dataset;
+                    
+                    if (type === 'payment') {
+                        // Ver detalle de pago
+                        showClientDetails(clientId, parseInt(loanIndex, 10));
+                        // Esperar un poco a que cargue y abrir el modal específico si se desea
+                        // showPaymentDetailModal(...) se llama desde la lista de historial
+                    } 
+                    else if (type === 'message') {
+                        // IR DIRECTO AL CHAT (Abre la ficha del cliente)
+                        showClientDetails(clientId, parseInt(loanIndex, 10));
+                    }
+                    else if (type === 'settlement') {
+                        const settlement = allSettlements.find(s => s.id === settlementId);
+                        if (settlement) {
+                            showSettlementVerificationModal(settlement);
+                        } else {
+                            showToast('Erro: Liquidação não encontrada ou já processada.', true);
+                        }
+                    }
+                    else if (type === 'refinance') {
+                        showRefinanceVerificationModal(clientId);
+                    }
                 }               
+
+
             });
 
+
             document.body.addEventListener('change', e => {
-                if (e.target.id === 'admin-profile-pic-input') { const f = e.target.files[0]; if(f) showCropperModal(f); }
-                if (e.target.id === 'report-collector-filter') updateReportsView();
-                if (e.target.id === 'settings-logo-input') { const f = e.target.files[0]; if(f) { const r = new FileReader(); r.onload = (ev) => document.getElementById('settings-logo-preview').src = ev.target.result; r.readAsDataURL(f); document.getElementById('save-settings-btn').disabled = false; } }
-                if (e.target.id === 'post-image-input' && e.target.files[0]) { document.getElementById('post-image-preview').src = URL.createObjectURL(e.target.files[0]); document.getElementById('post-image-preview').style.display = 'block'; document.getElementById('submit-post-btn').disabled = false; }
+                if (e.target.id === 'admin-profile-pic-input') {
+                    const file = e.target.files[0];
+                    if (file) showCropperModal(file);
+                }
+                if (e.target.id === 'report-collector-filter') {
+                    updateReportsView();
+                }
+                 if (e.target.id === 'settings-logo-input') {
+                    const file = e.target.files[0];
+                    if (file) {
+                        const reader = new FileReader();
+                        reader.onload = (e) => {
+                            document.getElementById('settings-logo-preview').src = e.target.result;
+                        };
+                        reader.readAsDataURL(file);
+                        document.getElementById('save-settings-btn').disabled = false;
+                    }
+                }
+
+                if (e.target.id === 'post-image-input' && e.target.files && e.target.files[0]) {
+                const preview = document.getElementById('post-image-preview');
+                preview.src = URL.createObjectURL(e.target.files[0]);
+                preview.style.display = 'block';
+                document.getElementById('submit-post-btn').disabled = false; 
+                }
+
             });
             
             document.body.addEventListener('input', e => {
-                if (e.target.id === 'collector-search-input') updateDashboard();
-                if (e.target.closest('.settings-section')) document.getElementById('save-settings-btn').disabled = false;
-                if (e.target.id === 'post-text-input') document.getElementById('submit-post-btn').disabled = e.target.value.trim().length === 0 && document.getElementById('post-image-preview').style.display === 'none';
+                const target = e.target;
+                if (target.id === 'collector-search-input') {
+                    updateDashboard();
+                }
+                if (target.closest('.settings-section')) {
+                    document.getElementById('save-settings-btn').disabled = false;
+                    if(target.id === 'settings-company-name'){
+                         document.getElementById('header-logo-text').textContent = target.value;
+                    }
+                }
+
+                if (target.id === 'post-text-input') {
+                const hasImage = document.getElementById('post-image-preview').style.display === 'block';
+                document.getElementById('submit-post-btn').disabled = target.value.trim().length === 0 && !hasImage;
+                }
+
             });
         }
 /* === FIN: REEMPLAZO COMPLETO (FASE 3 - BLOQUE 4/6) === */
@@ -8339,5 +8758,6 @@ async function showRefinanceVerificationModal(clientId) {
     </script>
 </body>
     </html>
+
 
 
