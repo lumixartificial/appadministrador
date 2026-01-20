@@ -1429,45 +1429,24 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
         const money = val => {
             const safeVal = (typeof val !== 'number' || isNaN(val)) ? 0 : val;
             
-            // 1. Obtener el código interno guardado en la empresa
-            let internalCode = (typeof currentCompanyData !== 'undefined' && currentCompanyData?.settings?.currency) 
+            // Buscamos la moneda configurada en la empresa, o usamos BRL por defecto
+            const currencyCode = (typeof currentCompanyData !== 'undefined' && currentCompanyData?.settings?.currency) 
                                 ? currentCompanyData.settings.currency 
                                 : 'BRL';
             
-            // 2. MAPEO CRÍTICO: Convertir códigos internos a códigos ISO reales
-            // Los navegadores no entienden 'USD_EC', solo entienden 'USD'
-            const isoMap = {
-                'USD_EC': 'USD', // Ecuador usa Dólar Americano
-                'USD-EC': 'USD', // Por si acaso está guardado con guión
-                'USD_SV': 'USD', // El Salvador usa Dólar Americano
-                'USD-SV': 'USD',
-                'PAB': 'PAB'     // Balboa es válido, pero a veces se prefiere USD visualmente
-            };
-            
-            // Si el código está en el mapa, usamos el oficial (USD), si no, usamos el original
-            const validIsoCode = isoMap[internalCode] || internalCode;
-
-            // 3. Definir formato visual (Puntos y Comas)
+            // Mapas de formato regional para que los puntos y comas se vean bien según el país
             const localeMap = {
                 'USD': 'en-US', // $ 1,000.00
                 'MXN': 'es-MX', // $ 1,000.00
                 'COP': 'es-CO', // $ 1.000,00
                 'ARS': 'es-AR', // $ 1.000,00
                 'CLP': 'es-CL', // $ 1.000
-                'VES': 'es-VE', // Bs. 1.000,00
-                'EUR': 'es-ES'  
+                'EUR': 'es-ES'  // 1.000,00 €
             };
-            
-            // Si no hay locale específico, usamos pt-BR que es estándar para Latam (1.000,00)
-            const locale = localeMap[validIsoCode] || 'pt-BR'; 
+            // Si la moneda no está en la lista, usamos formato brasileño (compatible con la mayoría de latam: 1.000,00)
+            const locale = localeMap[currencyCode] || 'pt-BR'; 
 
-            try {
-                return safeVal.toLocaleString(locale, { style: 'currency', currency: validIsoCode });
-            } catch (e) {
-                // Fallback de emergencia si el código sigue fallando
-                console.warn("Error formato moneda:", validIsoCode);
-                return `$ ${safeVal.toFixed(2)}`; 
-            }
+            return safeVal.toLocaleString(locale, { style: 'currency', currency: currencyCode });
         };
         const DEFAULT_LOGO_URL = "https://firebasestorage.googleapis.com/v0/b/lumix-financas-app.firebasestorage.app/o/LOGO---LUMIX-FINANZAS-REDUCIDO.png?alt=media&token=0b4c34d2-f2e3-44b3-a380-7aadfb9c0991";
 
@@ -7050,10 +7029,12 @@ function updateAdminNotificationsView() {
             const modalTitleKey = isEditMode ? 'editCollector' : 'addNewCollector';
             const saveButtonKey = isEditMode ? 'saveChanges' : 'saveCollector';
             
+            // Obtenemos las traducciones actuales
             const t = translations[currentLang];
 
             const formModal = document.getElementById('collectorFormModal');
             
+            // === FORMULARIO CORRECTO DE COBRADOR (NO DE CLIENTE) ===
             formModal.innerHTML = `
                 <header class="modal-header">
                     <button id="closeCollectorForm"><i data-lucide="arrow-left"></i></button>
@@ -7391,6 +7372,7 @@ function updateAdminNotificationsView() {
                     handleDeleteCollector(collector.id, collector.name);
                 });
                 
+                // ADDED: Listener for report button (important!)
                 formModal.querySelector('#reportCollectorBtn').addEventListener('click', () => {
                     showReportCollectorModal(collector.id, collector.name);
                 });
@@ -7408,6 +7390,8 @@ function updateAdminNotificationsView() {
                 const documentFile = document.getElementById('collector-document-pic')?.files[0];
                 const username = document.getElementById('collector-username').value.trim(); 
                 const name = document.getElementById('collector-name').value.trim();
+                
+                // GUARDAR EL NOMBRE DE LA RUTA
                 const routeName = document.getElementById('collector-route-name').value.trim();
 
                 const email = `${username}@gmail.com`; 
@@ -7465,7 +7449,7 @@ function updateAdminNotificationsView() {
                         companyId: currentCompanyId, 
                         username: username,
                         name,
-                        routeName: routeName, 
+                        routeName: routeName, // <-- GUARDAR DATO
                         email: email,
                         documentNumber: document.getElementById('collector-document').value.trim(),
                         address: document.getElementById('collector-address').value,
@@ -7478,21 +7462,11 @@ function updateAdminNotificationsView() {
                         startingCapital: 0,
                         
                         profilePictureUrl: profilePicUrl,
-                        documentPictureUrl: documentPicUrl,
-
-                        // --- CORRECCIÓN VITAL: DATOS POR DEFECTO PARA NUEVOS COBRADORES ---
-                        isActive: true, // Importante para que puedan loguearse
-                        status: 'active',
-                        createdAt: serverTimestamp(),
-                        permissions: {
-                            allowEditClient: true,  // Permitir editar por defecto
-                            allowDeletePayment: false // Prohibir borrar pagos por defecto
-                        }
-                        // ------------------------------------------------------------------
+                        documentPictureUrl: documentPicUrl
                     };
                     
                     if (isEditMode) {
-                        const { username: id, email: emailToUpdate, createdAt, ...dataToUpdate } = collectorData; 
+                        const { username: id, email: emailToUpdate, ...dataToUpdate } = collectorData; 
 
                         if (password) {
                             console.log(`[ADMIN] Alterando senha cobrador: ${collectorId}...`);
@@ -8517,3 +8491,4 @@ async function showRefinanceVerificationModal(clientId) {
     </script>
 </body>
     </html>
+
