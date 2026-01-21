@@ -1465,6 +1465,11 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
         // ... código existente ...
     const translations = {
         pt: {
+            securitySettings: 'Segurança e Permissões',
+            blockPayments: 'Bloquear Pagamentos',
+            blockPaymentsDesc: 'Impede o cobrador de receber.',
+            blockClientEdit: 'Bloquear Edição',
+            blockClientEditDesc: 'Impede alterar dados do cliente.',
             welcomeAdmin: 'Bem-vindo, Administrador',
             manageTeamDesc: 'Gerencie sua equipe e operações com eficiência.',
             accessPanel: 'Acessar Painel',
@@ -1622,6 +1627,11 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
         },  
 
         es: {
+            securitySettings: 'Seguridad y Permisos',
+            blockPayments: 'Bloquear Pagos',
+            blockPaymentsDesc: 'Impide al cobrador recibir dinero.',
+            blockClientEdit: 'Bloquear Edición',
+            blockClientEditDesc: 'Impide alterar datos del cliente.',
             microInsurance: 'Micro Seguro',
             microInsuranceFund: 'Micro Seguro (Fondo)',
             microInsuranceLabel: 'Micro Seguro (Valor a Descontar)',
@@ -1770,6 +1780,11 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             insuranceLabelShort: 'Seguro',
         },
         en: {
+            securitySettings: 'Security & Permissions',
+            blockPayments: 'Block Payments',
+            blockPaymentsDesc: 'Prevents collector from receiving.',
+            blockClientEdit: 'Block Editing',
+            blockClientEditDesc: 'Prevents changing client data.',
             microInsurance: 'Micro Insurance',
             microInsuranceFund: 'Micro Insurance (Fund)',
             microInsuranceLabel: 'Micro Insurance (Deductible)',
@@ -2646,7 +2661,51 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                         <div class="kpi-card"><h3 class="kpi-title" style="font-size: 0.8em;">Clientes</h3><p class="kpi-value">${totalClientsCount !== undefined ? totalClientsCount : activeClientsCount}</p></div>
                         <div class="kpi-card"><h3 class="kpi-title" style="font-size: 0.8em; color: #0ea5e9;"><i data-lucide="shield-check" style="width: 14px; height: 14px; margin-right: 5px;"></i><span data-lang-key="microInsurance">Micro Seguro</span></h3><p class="kpi-value" style="color: #0ea5e9;">${money(collectorTotalInsurance)}</p></div>
                     </section>
+                    <!-- TARJETA DE BLOQUEOS (MEJORADA CON TEXTO ON/OFF) -->
+                    <div class="kpi-card" style="margin-bottom: 30px; border-color: var(--text-secondary);">
+                        <h3 class="kpi-title" style="margin-bottom: 15px; color: var(--text-primary);">
+                            <i data-lucide="lock"></i> <span data-lang-key="securitySettings">Segurança</span>
+                        </h3>
+                        
+                        <div style="display: flex; flex-direction: column; gap: 15px;">
+                            <!-- INTERRUPTOR 1: BLOQUEAR PAGOS -->
+                            <div class="toggle-switch" style="justify-content: space-between; width: 100%;">
+                                <div>
+                                    <label style="font-weight: 600; display: block; font-size: 0.95em;" data-lang-key="blockPayments">Bloquear Pagamentos</label>
+                                    <p style="font-size: 0.8em; color: var(--text-secondary); margin: 0; display: flex; align-items: center; gap: 6px;">
+                                        Status: 
+                                        <strong id="status-text-payment" style="color: ${collector.blockPayments ? 'var(--danger-color)' : 'var(--accent-green)'};">
+                                            ${collector.blockPayments ? 'BLOQUEADO (ON)' : 'LIBERADO (OFF)'}
+                                        </strong>
+                                    </p>
+                                </div>
+                                <label class="switch">
+                                    <input type="checkbox" id="toggle-block-payments" ${collector.blockPayments ? 'checked' : ''}>
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
 
+                            <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 0;">
+
+                            <!-- INTERRUPTOR 2: BLOQUEAR EDICIÓN CLIENTES -->
+                            <div class="toggle-switch" style="justify-content: space-between; width: 100%;">
+                                <div>
+                                    <label style="font-weight: 600; display: block; font-size: 0.95em;" data-lang-key="blockClientEdit">Bloquear Edição</label>
+                                    <p style="font-size: 0.8em; color: var(--text-secondary); margin: 0; display: flex; align-items: center; gap: 6px;">
+                                        Status: 
+                                        <strong id="status-text-edit" style="color: ${collector.blockClientEdit ? 'var(--danger-color)' : 'var(--accent-green)'};">
+                                            ${collector.blockClientEdit ? 'BLOQUEADO (ON)' : 'LIBERADO (OFF)'}
+                                        </strong>
+                                    </p>
+                                </div>
+                                <label class="switch">
+                                    <input type="checkbox" id="toggle-block-edit" ${collector.blockClientEdit ? 'checked' : ''}>
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- FIN TARJETA BLOQUEOS -->
                     <!-- SECCIÓN ALERTAS -->
                     <div class="kpi-card" style="margin-bottom: 30px; border-color: #dc3545; background-color: var(--surface);">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">
@@ -2717,7 +2776,69 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                     </button>
                 </div>
             `;
+                     // --- LÓGICA DE BLOQUEOS (MEJORADA CON TEXTO DINÁMICO) ---
+            const togglePayments = detailView.querySelector('#toggle-block-payments');
+            const toggleEdit = detailView.querySelector('#toggle-block-edit');
+            const statusTextPayment = detailView.querySelector('#status-text-payment');
+            const statusTextEdit = detailView.querySelector('#status-text-edit');
 
+            if (togglePayments) {
+                togglePayments.addEventListener('change', async (e) => {
+                    const isChecked = e.target.checked;
+                    
+                    // Actualización visual inmediata del texto
+                    if (statusTextPayment) {
+                        statusTextPayment.textContent = isChecked ? 'BLOQUEADO (ON)' : 'LIBERADO (OFF)';
+                        statusTextPayment.style.color = isChecked ? 'var(--danger-color)' : 'var(--accent-green)';
+                    }
+
+                    try {
+                        await updateDoc(doc(db, 'collectors', collectorId), { blockPayments: isChecked });
+                        showToast(isChecked ? "Pagamentos bloqueados." : "Pagamentos liberados.", isChecked ? 'purple' : 'success');
+                    } catch (err) {
+                        console.error(err);
+                        showToast("Erro ao atualizar.", true);
+                        e.target.checked = !isChecked; // Revertir interruptor si falla
+                    }
+                });
+            }
+
+            if (toggleEdit) {
+                toggleEdit.addEventListener('change', async (e) => {
+                    const isChecked = e.target.checked;
+
+                    // Actualización visual inmediata del texto
+                    if (statusTextEdit) {
+                        statusTextEdit.textContent = isChecked ? 'BLOQUEADO (ON)' : 'LIBERADO (OFF)';
+                        statusTextEdit.style.color = isChecked ? 'var(--danger-color)' : 'var(--accent-green)';
+                    }
+
+                    try {
+                        await updateDoc(doc(db, 'collectors', collectorId), { blockClientEdit: isChecked });
+                        showToast(isChecked ? "Edição bloqueada." : "Edição liberada.", isChecked ? 'purple' : 'success');
+                    } catch (err) {
+                        console.error(err);
+                        showToast("Erro ao atualizar.", true);
+                        e.target.checked = !isChecked; // Revertir interruptor si falla
+                    }
+                });
+            }
+            // ----------------------------------------
+
+            if (toggleEdit) {
+                toggleEdit.addEventListener('change', async (e) => {
+                    const isChecked = e.target.checked;
+                    try {
+                        await updateDoc(doc(db, 'collectors', collectorId), { blockClientEdit: isChecked });
+                        showToast(isChecked ? "Edição de clientes bloqueada." : "Edição liberada.", isChecked ? 'purple' : 'success');
+                    } catch (err) {
+                        console.error(err);
+                        showToast("Erro ao atualizar.", true);
+                        e.target.checked = !isChecked; // Revertir si falla
+                    }
+                });
+            }
+            // ----------------------------------------
             // 1. Lógica Alertas
             const renderAlerts = (filterText = '') => {
                 const container = document.getElementById('alerts-list-container');
@@ -8784,3 +8905,4 @@ async function showRefinanceVerificationModal(clientId) {
     </script>
 </body>
     </html>
+
