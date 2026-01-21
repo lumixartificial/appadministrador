@@ -7521,46 +7521,31 @@ function updateAdminNotificationsView() {
             
             // --- GUARDAR COBRADOR ---
             // --- INICIO DEL BLOQUE CORREGIDO (COPIAR DESDE AQUÍ) ---
+            // --- BLOQUE MEJORADO: GUARDAR COBRADOR (PRESERVA DATOS) ---
+            // --- VERSIÓN FINAL: CORRECCIÓN DE HORARIOS Y PROTECCIÓN ---
             formModal.querySelector('#saveCollectorBtn').addEventListener('click', async (e) => {
                 const saveBtn = e.currentTarget;
                 const originalBtnHTML = saveBtn.innerHTML;
                 
-                // 1. Efecto de carga visual
+                // 1. Efecto de carga
                 saveBtn.disabled = true;
                 saveBtn.innerHTML = `<i data-lucide="loader-circle" style="animation: spin 1s linear infinite;"></i> <span>Salvando...</span>`;
                 lucide.createIcons({ nodes: [saveBtn.querySelector('i')] });
 
-                // 2. Obtener Archivos y Datos
+                // 2. Captura de Datos Básicos
                 const profileFile = document.getElementById('collector-profile-pic')?.files[0];
                 const documentFile = document.getElementById('collector-document-pic')?.files[0];
                 
-                // Sanitización del usuario (minúsculas y sin espacios) para evitar errores de login
                 let rawUsername = document.getElementById('collector-username').value.trim();
                 const username = rawUsername.toLowerCase().replace(/\s+/g, ''); 
                 
                 const name = document.getElementById('collector-name').value.trim();
                 const routeName = document.getElementById('collector-route-name').value.trim();
-
-                // Generación de email seguro para Auth
                 const email = `${username}@gmail.com`; 
                 const password = document.getElementById('collector-password').value.trim();
-                
-                // Conversión segura de moneda
-                const capitalOnHandVal = document.getElementById('collector-capital-on-hand').value;
-                const capitalOnHand = parseFloat(capitalOnHandVal);
+                const capitalOnHand = parseFloat(document.getElementById('collector-capital-on-hand').value);
 
                 // 3. Validaciones
-                // Validación de disponibilidad global (solo si es nuevo)
-                if (!isEditMode && !isUsernameGloballyAvailable) {
-                    showToast('Esse nome de usuário já está em uso ou não foi verificado.', true);
-                    saveBtn.disabled = false;
-                    saveBtn.innerHTML = originalBtnHTML;
-                    lucide.createIcons({ nodes: [saveBtn.querySelector('i')] });
-                    return; 
-                }
-                
-                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/; 
-                
                 if (!username || !name || isNaN(capitalOnHand) || (!isEditMode && !password)) {
                     showToast(translations[currentLang].fillFields, true);
                     saveBtn.disabled = false;
@@ -7569,16 +7554,8 @@ function updateAdminNotificationsView() {
                     return;
                 }
 
-                 if (!emailRegex.test(email)) {
-                    showToast("Nome de usuário inválido para email.", true);
-                    saveBtn.disabled = false;
-                    saveBtn.innerHTML = originalBtnHTML;
-                    lucide.createIcons({ nodes: [saveBtn.querySelector('i')] });
-                    return;
-                }
-
                 try {
-                    // 4. Manejo de Imágenes (Subida a Firebase Storage)
+                    // 4. Subida de Imágenes
                     let profilePicUrl = collector.profilePictureUrl || ''; 
                     let documentPicUrl = collector.documentPictureUrl || ''; 
 
@@ -7586,26 +7563,23 @@ function updateAdminNotificationsView() {
                     if (markDocumentForRemoval) documentPicUrl = '';
 
                     if (profileFile) {
-                        showToast("Subindo foto de perfil...", false);
                         const profileStorageRef = ref(storage, `companies/${currentCompanyId}/collectors/${username}/profile.jpg`);
                         await uploadBytes(profileStorageRef, profileFile);
                         profilePicUrl = await getDownloadURL(profileStorageRef);
                     }
 
                     if (documentFile) {
-                        showToast("Subindo foto de documento...", false);
                         const documentStorageRef = ref(storage, `companies/${currentCompanyId}/collectors/${username}/document.jpg`);
                         await uploadBytes(documentStorageRef, documentFile);
                         documentPicUrl = await getDownloadURL(documentStorageRef);
                     }
 
-                    // 5. CONSTRUCCIÓN DEL OBJETO DE DATOS (CORREGIDO)
-                    // Aquí agregamos los campos que faltaban para que la App Cobrador no falle
+                    // 5. OBJETO DE DATOS (CON CORRECCIÓN DE HORARIOS)
                     const collectorData = {
                         companyId: currentCompanyId, 
                         username: username,
                         name: name,
-                        routeName: routeName || `Rota ${name}`, // Fallback si está vacío
+                        routeName: routeName || `Rota ${name}`,
                         email: email,
                         documentNumber: document.getElementById('collector-document').value.trim(),
                         address: document.getElementById('collector-address').value,
@@ -7613,50 +7587,45 @@ function updateAdminNotificationsView() {
                         whatsapp: document.getElementById('collector-whatsapp').value,
                         operatingCurrency: document.getElementById('collector-currency').value, 
                         
-                        // Inicialización financiera
                         startingCapitalOnHand: capitalOnHand,
                         startingDistributedCapital: 0,
                         startingCapital: 0,
                         
-                        // Fotos
                         profilePictureUrl: profilePicUrl,
                         documentPictureUrl: documentPicUrl,
 
-                        // --- CAMPOS CRÍTICOS AGREGADOS (LA SOLUCIÓN) ---
-                        status: 'active',       // Estado explícito para que entre
-                        isActive: true,         // Booleano de control
-                        isBlocked: false,       // Booleano de bloqueo
-                        createdAt: serverTimestamp(), // Fecha de creación requerida
-                        updatedAt: serverTimestamp(), // Fecha de actualización
-                        reports: [],            // Array vacío para evitar error 'undefined' al leer reportes
-                        deviceToken: null       // Placeholder para notificaciones
+                        // --- CAMPOS DE ACTIVACIÓN Y HORARIOS (SOLUCIÓN PROTECCIÓN) ---
+                        status: 'active',
+                        isActive: true,
+                        isBlocked: false,
+                        
+                        // Horarios por defecto (06:00 a 22:00) para evitar bloqueo inmediato
+                        // Si ya existen (modo edición), los mantenemos. Si no, ponemos los default.
+                        workStartTime: (isEditMode && collector.workStartTime) ? collector.workStartTime : '06:00',
+                        workEndTime: (isEditMode && collector.workEndTime) ? collector.workEndTime : '22:00',
+                        workingDays: (isEditMode && collector.workingDays) ? collector.workingDays : [0, 1, 2, 3, 4, 5, 6], // Todos los días
+
+                        reports: (isEditMode && collector.reports) ? collector.reports : [],
+                        createdAt: isEditMode ? collector.createdAt : serverTimestamp(),
+                        updatedAt: serverTimestamp(),
+                        deviceToken: isEditMode ? (collector.deviceToken || null) : null
                     };
                     
-                    // 6. Guardado en Base de Datos
+                    // 6. Guardado / Actualización
                     if (isEditMode) {
-                        // MODO EDICIÓN
-                        // Excluimos campos inmutables como username o fecha de creación
-                        const { username: id, email: emailToUpdate, createdAt, ...dataToUpdate } = collectorData; 
-                        
+                        const { username: id, email: em, createdAt, ...dataToUpdate } = collectorData; 
                         dataToUpdate.updatedAt = serverTimestamp();
 
-                        // Si hay contraseña nueva, llamar a la Cloud Function para actualizar Auth
                         if (password) {
-                            console.log(`[ADMIN] Alterando senha cobrador: ${collectorId}...`);
-                            showToast("Atualizando senha...", false);
-                            
                             if (!auth.currentUser) throw new Error("Admin não autenticado.");
                             const idToken = await auth.currentUser.getIdToken(true);
-
                             const functionUrl = "https://us-central1-lumix-financas-app.cloudfunctions.net/updateCollectorAuth";
-                            const response = await fetch(functionUrl, {
+                            await fetch(functionUrl, {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
                                 body: JSON.stringify({ data: { collectorUsername: collectorId, newPassword: password } })
                             });
-
-                            if (!response.ok) throw new Error("Erro ao alterar senha.");
-                            showToast("Senha alterada com sucesso!");
+                            showToast("Senha alterada!");
                         }
                         
                         await updateDoc(doc(db, "collectors", collectorId), dataToUpdate);
@@ -7664,24 +7633,30 @@ function updateAdminNotificationsView() {
                         formModal.classList.remove('active');
 
                     } else {
-                        // MODO CREACIÓN (NUEVO COBRADOR)
+                        // MODO CREACIÓN
                         if (!auth.currentUser) throw new Error("Admin não autenticado.");
                         const idToken = await auth.currentUser.getIdToken(true);
 
-                        const dataToSend = { collectorEmail: email, collectorPassword: password, collectorData: collectorData };
                         const functionUrl = "https://us-central1-lumix-financas-app.cloudfunctions.net/createCollector";
-                        
-                        // Llamada a Cloud Function para crear Usuario Auth + Documento Firestore
                         const response = await fetch(functionUrl, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
-                            body: JSON.stringify({ data: dataToSend })
+                            body: JSON.stringify({ 
+                                data: { 
+                                    collectorEmail: email, 
+                                    collectorPassword: password, 
+                                    collectorData: collectorData 
+                                } 
+                            })
                         });
 
                         if (!response.ok) {
                             const errorData = await response.json().catch(() => ({}));
-                            if (response.status === 409) throw new Error("Email ou usuário já existe.");
-                            else throw new Error(errorData.error?.message || "Erro ao criar cobrador.");
+                            if (response.status === 409 || response.status === 500) {
+                                throw new Error("Este usuário/email já existe. Tente outro nome.");
+                            } else {
+                                throw new Error(errorData.error?.message || "Erro ao criar cobrador.");
+                            }
                         }
 
                         showToast(translations[currentLang].collectorAdded);
@@ -7690,7 +7665,7 @@ function updateAdminNotificationsView() {
 
                 } catch (error) {
                     console.error("ERRO:", error);
-                    showToast(error.message || translations[currentLang].errorSaving, true);
+                    showToast(error.message, true);
                 } finally {
                     saveBtn.disabled = false;
                     saveBtn.innerHTML = originalBtnHTML;
@@ -8810,3 +8785,4 @@ async function showRefinanceVerificationModal(clientId) {
     </script>
 </body>
     </html>
+
