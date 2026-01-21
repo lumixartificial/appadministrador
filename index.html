@@ -1426,23 +1426,39 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             const safeVal = (typeof val !== 'number' || isNaN(val)) ? 0 : val;
             
             // Buscamos la moneda configurada en la empresa, o usamos BRL por defecto
-            const currencyCode = (typeof currentCompanyData !== 'undefined' && currentCompanyData?.settings?.currency) 
+            let currencyCode = (typeof currentCompanyData !== 'undefined' && currentCompanyData?.settings?.currency) 
                                 ? currentCompanyData.settings.currency 
                                 : 'BRL';
             
+            // --- CORRECCIÓN CRÍTICA PARA ECUADOR (USD_EC) Y EL SALVADOR (USD_SV) ---
+            // JavaScript no acepta códigos con guiones bajos como 'USD_EC'.
+            // Los convertimos a 'USD' estándar para el formateo, pero mantenemos tu configuración interna.
+            if (currencyCode === 'USD_EC' || currencyCode === 'USD_SV' || currencyCode === 'USD-EC') {
+                currencyCode = 'USD';
+            }
+            // -----------------------------------------------------------------------
+
             // Mapas de formato regional para que los puntos y comas se vean bien según el país
             const localeMap = {
-                'USD': 'en-US', // $ 1,000.00
+                'USD': 'en-US', // $ 1,000.00 (Punto para decimales)
                 'MXN': 'es-MX', // $ 1,000.00
                 'COP': 'es-CO', // $ 1.000,00
                 'ARS': 'es-AR', // $ 1.000,00
                 'CLP': 'es-CL', // $ 1.000
                 'EUR': 'es-ES'  // 1.000,00 €
             };
-            // Si la moneda no está en la lista, usamos formato brasileño (compatible con la mayoría de latam: 1.000,00)
+            
+            // Si es USD, usamos formato americano (en-US) para asegurar el punto decimal ($ 1,200.50)
+            // Si no está en la lista, usamos formato brasileño (compatible con la mayoría de latam: 1.000,00)
             const locale = localeMap[currencyCode] || 'pt-BR'; 
 
-            return safeVal.toLocaleString(locale, { style: 'currency', currency: currencyCode });
+            try {
+                return safeVal.toLocaleString(locale, { style: 'currency', currency: currencyCode });
+            } catch (e) {
+                // Si falla por algún código raro, usamos un fallback seguro para que no se rompa la app
+                console.warn("Moneda inválida detectada:", currencyCode, "Usando fallback.");
+                return safeVal.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+            }
         };
         const DEFAULT_LOGO_URL = "https://firebasestorage.googleapis.com/v0/b/lumix-financas-app.firebasestorage.app/o/LOGO---LUMIX-FINANZAS-REDUCIDO.png?alt=media&token=0b4c34d2-f2e3-44b3-a380-7aadfb9c0991";
 
@@ -7504,25 +7520,37 @@ function updateAdminNotificationsView() {
             }
             
             // --- GUARDAR COBRADOR ---
+            // --- INICIO DEL BLOQUE CORREGIDO (COPIAR DESDE AQUÍ) ---
             formModal.querySelector('#saveCollectorBtn').addEventListener('click', async (e) => {
                 const saveBtn = e.currentTarget;
                 const originalBtnHTML = saveBtn.innerHTML;
+                
+                // 1. Efecto de carga visual
                 saveBtn.disabled = true;
                 saveBtn.innerHTML = `<i data-lucide="loader-circle" style="animation: spin 1s linear infinite;"></i> <span>Salvando...</span>`;
                 lucide.createIcons({ nodes: [saveBtn.querySelector('i')] });
 
+                // 2. Obtener Archivos y Datos
                 const profileFile = document.getElementById('collector-profile-pic')?.files[0];
                 const documentFile = document.getElementById('collector-document-pic')?.files[0];
-                const username = document.getElementById('collector-username').value.trim(); 
-                const name = document.getElementById('collector-name').value.trim();
                 
-                // GUARDAR EL NOMBRE DE LA RUTA
+                // Sanitización del usuario (minúsculas y sin espacios) para evitar errores de login
+                let rawUsername = document.getElementById('collector-username').value.trim();
+                const username = rawUsername.toLowerCase().replace(/\s+/g, ''); 
+                
+                const name = document.getElementById('collector-name').value.trim();
                 const routeName = document.getElementById('collector-route-name').value.trim();
 
+                // Generación de email seguro para Auth
                 const email = `${username}@gmail.com`; 
                 const password = document.getElementById('collector-password').value.trim();
-                const capitalOnHand = parseFloat(document.getElementById('collector-capital-on-hand').value);
+                
+                // Conversión segura de moneda
+                const capitalOnHandVal = document.getElementById('collector-capital-on-hand').value;
+                const capitalOnHand = parseFloat(capitalOnHandVal);
 
+                // 3. Validaciones
+                // Validación de disponibilidad global (solo si es nuevo)
                 if (!isEditMode && !isUsernameGloballyAvailable) {
                     showToast('Esse nome de usuário já está em uso ou não foi verificado.', true);
                     saveBtn.disabled = false;
@@ -7548,8 +7576,9 @@ function updateAdminNotificationsView() {
                     lucide.createIcons({ nodes: [saveBtn.querySelector('i')] });
                     return;
                 }
-                
+
                 try {
+                    // 4. Manejo de Imágenes (Subida a Firebase Storage)
                     let profilePicUrl = collector.profilePictureUrl || ''; 
                     let documentPicUrl = collector.documentPictureUrl || ''; 
 
@@ -7570,11 +7599,13 @@ function updateAdminNotificationsView() {
                         documentPicUrl = await getDownloadURL(documentStorageRef);
                     }
 
+                    // 5. CONSTRUCCIÓN DEL OBJETO DE DATOS (CORREGIDO)
+                    // Aquí agregamos los campos que faltaban para que la App Cobrador no falle
                     const collectorData = {
                         companyId: currentCompanyId, 
                         username: username,
-                        name,
-                        routeName: routeName, // <-- GUARDAR DATO
+                        name: name,
+                        routeName: routeName || `Rota ${name}`, // Fallback si está vacío
                         email: email,
                         documentNumber: document.getElementById('collector-document').value.trim(),
                         address: document.getElementById('collector-address').value,
@@ -7582,17 +7613,34 @@ function updateAdminNotificationsView() {
                         whatsapp: document.getElementById('collector-whatsapp').value,
                         operatingCurrency: document.getElementById('collector-currency').value, 
                         
+                        // Inicialización financiera
                         startingCapitalOnHand: capitalOnHand,
                         startingDistributedCapital: 0,
                         startingCapital: 0,
                         
+                        // Fotos
                         profilePictureUrl: profilePicUrl,
-                        documentPictureUrl: documentPicUrl
+                        documentPictureUrl: documentPicUrl,
+
+                        // --- CAMPOS CRÍTICOS AGREGADOS (LA SOLUCIÓN) ---
+                        status: 'active',       // Estado explícito para que entre
+                        isActive: true,         // Booleano de control
+                        isBlocked: false,       // Booleano de bloqueo
+                        createdAt: serverTimestamp(), // Fecha de creación requerida
+                        updatedAt: serverTimestamp(), // Fecha de actualización
+                        reports: [],            // Array vacío para evitar error 'undefined' al leer reportes
+                        deviceToken: null       // Placeholder para notificaciones
                     };
                     
+                    // 6. Guardado en Base de Datos
                     if (isEditMode) {
-                        const { username: id, email: emailToUpdate, ...dataToUpdate } = collectorData; 
+                        // MODO EDICIÓN
+                        // Excluimos campos inmutables como username o fecha de creación
+                        const { username: id, email: emailToUpdate, createdAt, ...dataToUpdate } = collectorData; 
+                        
+                        dataToUpdate.updatedAt = serverTimestamp();
 
+                        // Si hay contraseña nueva, llamar a la Cloud Function para actualizar Auth
                         if (password) {
                             console.log(`[ADMIN] Alterando senha cobrador: ${collectorId}...`);
                             showToast("Atualizando senha...", false);
@@ -7616,11 +7664,14 @@ function updateAdminNotificationsView() {
                         formModal.classList.remove('active');
 
                     } else {
+                        // MODO CREACIÓN (NUEVO COBRADOR)
                         if (!auth.currentUser) throw new Error("Admin não autenticado.");
                         const idToken = await auth.currentUser.getIdToken(true);
 
                         const dataToSend = { collectorEmail: email, collectorPassword: password, collectorData: collectorData };
                         const functionUrl = "https://us-central1-lumix-financas-app.cloudfunctions.net/createCollector";
+                        
+                        // Llamada a Cloud Function para crear Usuario Auth + Documento Firestore
                         const response = await fetch(functionUrl, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
@@ -7646,6 +7697,7 @@ function updateAdminNotificationsView() {
                     lucide.createIcons({ nodes: [saveBtn.querySelector('i')] });
                 }
             });
+            // --- FIN DEL BLOQUE CORREGIDO ---
         }
 
 
@@ -8758,6 +8810,3 @@ async function showRefinanceVerificationModal(clientId) {
     </script>
 </body>
     </html>
-
-
-
