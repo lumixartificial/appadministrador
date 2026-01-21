@@ -2776,68 +2776,77 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                     </button>
                 </div>
             `;
-                     // --- LÓGICA DE BLOQUEOS (MEJORADA CON TEXTO DINÁMICO) ---
+                     // --- LÓGICA DE BLOQUEOS (CONECTADA Y LIMPIA) ---
             const togglePayments = detailView.querySelector('#toggle-block-payments');
             const toggleEdit = detailView.querySelector('#toggle-block-edit');
             const statusTextPayment = detailView.querySelector('#status-text-payment');
             const statusTextEdit = detailView.querySelector('#status-text-edit');
 
+            // 1. Lógica para el botón de Pagos
             if (togglePayments) {
-                togglePayments.addEventListener('change', async (e) => {
+                // Clonamos el botón para asegurar que no tenga eventos viejos pegados
+                const newToggleP = togglePayments.cloneNode(true);
+                togglePayments.parentNode.replaceChild(newToggleP, togglePayments);
+
+                newToggleP.addEventListener('change', async (e) => {
                     const isChecked = e.target.checked;
                     
-                    // Actualización visual inmediata del texto
+                    // Actualización Visual Inmediata (Texto ON/OFF)
                     if (statusTextPayment) {
                         statusTextPayment.textContent = isChecked ? 'BLOQUEADO (ON)' : 'LIBERADO (OFF)';
                         statusTextPayment.style.color = isChecked ? 'var(--danger-color)' : 'var(--accent-green)';
                     }
 
                     try {
+                        // Conexión real con la base de datos
                         await updateDoc(doc(db, 'collectors', collectorId), { blockPayments: isChecked });
-                        showToast(isChecked ? "Pagamentos bloqueados." : "Pagamentos liberados.", isChecked ? 'purple' : 'success');
+                        showToast(isChecked ? "Pagamentos bloqueados no App." : "Pagamentos liberados.", isChecked ? 'purple' : 'success');
                     } catch (err) {
-                        console.error(err);
-                        showToast("Erro ao atualizar.", true);
-                        e.target.checked = !isChecked; // Revertir interruptor si falla
+                        console.error("Error conexión bloqueo pagos:", err);
+                        showToast("Erro ao atualizar permissão.", true);
+                        e.target.checked = !isChecked; // Si falla, regresa el botón a su sitio
+                        
+                        // Revertir texto si hubo error
+                        if (statusTextPayment) {
+                            statusTextPayment.textContent = !isChecked ? 'BLOQUEADO (ON)' : 'LIBERADO (OFF)';
+                            statusTextPayment.style.color = !isChecked ? 'var(--danger-color)' : 'var(--accent-green)';
+                        }
                     }
                 });
             }
 
+            // 2. Lógica para el botón de Edición
             if (toggleEdit) {
-                toggleEdit.addEventListener('change', async (e) => {
+                const newToggleE = toggleEdit.cloneNode(true);
+                toggleEdit.parentNode.replaceChild(newToggleE, toggleEdit);
+
+                newToggleE.addEventListener('change', async (e) => {
                     const isChecked = e.target.checked;
 
-                    // Actualización visual inmediata del texto
+                    // Actualización Visual Inmediata
                     if (statusTextEdit) {
                         statusTextEdit.textContent = isChecked ? 'BLOQUEADO (ON)' : 'LIBERADO (OFF)';
                         statusTextEdit.style.color = isChecked ? 'var(--danger-color)' : 'var(--accent-green)';
                     }
 
                     try {
+                        // Conexión real con la base de datos
                         await updateDoc(doc(db, 'collectors', collectorId), { blockClientEdit: isChecked });
-                        showToast(isChecked ? "Edição bloqueada." : "Edição liberada.", isChecked ? 'purple' : 'success');
+                        showToast(isChecked ? "Edição bloqueada no App." : "Edição liberada.", isChecked ? 'purple' : 'success');
                     } catch (err) {
-                        console.error(err);
-                        showToast("Erro ao atualizar.", true);
-                        e.target.checked = !isChecked; // Revertir interruptor si falla
+                        console.error("Error conexión bloqueo edición:", err);
+                        showToast("Erro ao atualizar permissão.", true);
+                        e.target.checked = !isChecked;
+                        
+                        // Revertir texto si hubo error
+                        if (statusTextEdit) {
+                            statusTextEdit.textContent = !isChecked ? 'BLOQUEADO (ON)' : 'LIBERADO (OFF)';
+                            statusTextEdit.style.color = !isChecked ? 'var(--danger-color)' : 'var(--accent-green)';
+                        }
                     }
                 });
             }
             // ----------------------------------------
-
-            if (toggleEdit) {
-                toggleEdit.addEventListener('change', async (e) => {
-                    const isChecked = e.target.checked;
-                    try {
-                        await updateDoc(doc(db, 'collectors', collectorId), { blockClientEdit: isChecked });
-                        showToast(isChecked ? "Edição de clientes bloqueada." : "Edição liberada.", isChecked ? 'purple' : 'success');
-                    } catch (err) {
-                        console.error(err);
-                        showToast("Erro ao atualizar.", true);
-                        e.target.checked = !isChecked; // Revertir si falla
-                    }
-                });
-            }
             // ----------------------------------------
             // 1. Lógica Alertas
             const renderAlerts = (filterText = '') => {
@@ -8905,4 +8914,3 @@ async function showRefinanceVerificationModal(clientId) {
     </script>
 </body>
     </html>
-
