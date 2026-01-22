@@ -3684,126 +3684,179 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
             let details = {
                 lateDays: 0,
                 lateFeesAccumulated: 0,
+                fixedFineApplied: 0, 
+                hasFixedFine: false, 
                 status: 'pending', 
                 nextDueDate: null, 
                 amountDueToday: 0 
             };
 
-            // 1. Calcular TOTAL PAGADO REAL
-            const currentTotalPaid = (loan.history || [])
-                .filter(h => h.status !== 'pending_verification' && h.status !== 'rejected' && h.status !== 'postponed' && h.method !== 'migration')
-                .reduce((sum, h) => sum + (h.amount || 0), 0);
+            // 1. Filtrar pagos válidos
+            let validPayments = (loan.history || []).filter(h => 
+                h.status !== 'pending_verification' && 
+                h.status !== 'rejected' && 
+                h.status !== 'postponed'
+            );
+            
+            // Ordenar por fecha (importante para consistencia)
+            validPayments.sort((a, b) => {
+                const dateA = a.date?.seconds ? new Date(a.date.seconds * 1000) : new Date(a.date);
+                const dateB = b.date?.seconds ? new Date(b.date.seconds * 1000) : new Date(b.date);
+                return dateA - dateB;
+            });
 
-            if (!loan || !loan.totalLoan) return details;
+            // 2. Totales Básicos
+            const currentTotalPaidGlobal = validPayments.reduce((sum, h) => sum + (parseFloat(h.amount) || 0), 0);
+            const totalOriginalDebt = parseFloat(loan.totalLoan) || 0;
 
-            // === LÓGICA ESTRICTA (CERO DEUDA) ===
-            if (currentTotalPaid >= (loan.totalLoan - 0.02)) {
+            // --- [SINCRONIZACIÓN] Respetar estado finalizado ---
+            if (loan.status === 'finished') {
                 details.status = 'finished';
+                details.lateFeesAccumulated = 0;
+                details.lateDays = 0;
                 return details;
             }
-            if (loan.status === 'finished') {
-                const debt = loan.totalLoan - currentTotalPaid;
-                if (debt <= 0.02) {
-                    details.status = 'finished';
-                    return details;
-                }
-            }
 
+            // 3. Configurar Fechas
             const today = new Date();
-            today.setHours(0, 0, 0, 0);
-
-            let lastRelevantDate;
-            if (loan.startDate?.seconds) {
-                lastRelevantDate = new Date(loan.startDate.seconds * 1000);
-            } else if (loan.history && loan.history.length > 0) {
-                const sortedHistory = [...loan.history].sort((a, b) => a.date.seconds - b.date.seconds);
-                lastRelevantDate = new Date(sortedHistory[0].date.seconds * 1000);
-            }
-            if (!lastRelevantDate && loan.startDate?.seconds) {
-                lastRelevantDate = new Date(loan.startDate.seconds * 1000);
+            today.setHours(0, 0, 0, 0); 
+            
+            let startDateObj = null;
+            if (loan.startDate) {
+                if (loan.startDate.seconds) startDateObj = new Date(loan.startDate.seconds * 1000);
+                else if (loan.startDate instanceof Date) startDateObj = loan.startDate;
+                else if (typeof loan.startDate === 'string') startDateObj = new Date(loan.startDate);
             }
 
-            if (!lastRelevantDate) return details; 
+            if (!startDateObj || isNaN(startDateObj.getTime())) return details;
             
-            lastRelevantDate.setHours(0, 0, 0, 0);
-
-            let checkDate = new Date(lastRelevantDate);
+            startDateObj.setHours(0, 0, 0, 0);
             
-            // Sincronización +1 día (Mantenemos esto)
+            let checkDate = new Date(startDateObj); 
             checkDate.setDate(checkDate.getDate() + 1); 
-
+            
             let accumulatedLateDays = 0;
-            let accumulatedLateFees = 0;
+            let accumulatedLateFees = 0; // Interés diario acumulativo
             const dailyLateRate = (loan.lateFeeRate || 0) / 100;
-            const installmentAmount = loan.originalInstallmentAmount || 0;
-            let installmentsDueCount = 0;
-            let nextDueDateFound = false;
+            const installmentAmount = parseFloat(loan.originalInstallmentAmount) || parseFloat(loan.amount) || 0;
+            let installmentsDueCount = 0; 
+            
+            // Límite de proyección (60 días extra para evitar bucles infinitos)
+            let stopDate = new Date(today);
+            stopDate.setDate(stopDate.getDate() + 60); 
 
-            while (checkDate <= today) {
+            if (checkDate > stopDate) return details;
+
+            // 4. Bucle Histórico (Calcula atrasos)
+            while (checkDate <= stopDate) {
                 const dayOfWeek = checkDate.getDay();
                 const dayOfMonth = checkDate.getDate();
-                const formattedDate = `${String(checkDate.getDate()).padStart(2, '0')}/${String(checkDate.getMonth() + 1).padStart(2, '0')}`;
-                const isHoliday = nationalHolidays.includes(formattedDate);
+                const isHoliday = false; // Ignoramos festivos para consistencia con Cobrador
                 const frequency = loan.paymentFrequency || 'daily';
                 let isPaymentDay = false;
-
-                if (frequency === 'daily') isPaymentDay = (loan.paymentDays || []).includes(dayOfWeek);
-                else if (frequency === 'weekly') isPaymentDay = (loan.paymentDays || [])[0] === dayOfWeek;
-                else if (frequency === 'monthly') isPaymentDay = (loan.paymentDays || [])[0] === dayOfMonth;
-
-                if (!isHoliday && isPaymentDay) {
-                    if (checkDate < today) {
-                        installmentsDueCount++;
-                        const expectedPaidByThisDate = installmentsDueCount * installmentAmount;
-                        const outstandingDueAmount = Math.max(0, expectedPaidByThisDate - currentTotalPaid);
-
-                        if (outstandingDueAmount > 0.05) { 
-                            if (dailyLateRate > 0) {
-                                accumulatedLateFees += (outstandingDueAmount * dailyLateRate);
-                            }
-                            accumulatedLateDays++;
-                        }
-                    }
-                    if (checkDate.getTime() === today.getTime()) {
-                        details.amountDueToday = installmentAmount;
-                    }
-                    if (checkDate >= today && !nextDueDateFound) {
-                        details.nextDueDate = new Date(checkDate);
-                        nextDueDateFound = true;
+                
+                const pDays = (loan.paymentDays && loan.paymentDays.length > 0) ? loan.paymentDays : [1, 2, 3, 4, 5, 6];
+                
+                if (frequency === 'daily') isPaymentDay = pDays.some(d => String(d) === String(dayOfWeek));
+                else if (frequency === 'weekly') isPaymentDay = pDays.length > 0 && String(pDays[0]) === String(dayOfWeek);
+                else if (frequency === 'monthly') isPaymentDay = pDays.length > 0 && String(pDays[0]) === String(dayOfMonth);
+                else if (frequency === 'biweekly') {
+                    if (pDays.length > 0 && String(pDays[0]) === String(dayOfWeek)) {
+                            const diffTime = Math.abs(checkDate - startDateObj); 
+                            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)); 
+                            const weekNumber = Math.floor(diffDays / 7);
+                            if (weekNumber % 2 === 0) isPaymentDay = true;
                     }
                 }
+
+                if (isPaymentDay && !isHoliday) {
+                    const endOfCheckDate = new Date(checkDate);
+                    endOfCheckDate.setHours(23, 59, 59, 999);
+
+                    const paidByThisDate = validPayments.reduce((sum, h) => {
+                        if (h.method === 'migration') return sum + (parseFloat(h.amount) || 0);
+                        let pDate = h.date?.seconds ? new Date(h.date.seconds * 1000) : new Date(h.date);
+                        if (pDate <= endOfCheckDate) {
+                            return sum + (parseFloat(h.amount) || 0);
+                        }
+                        return sum;
+                    }, 0);
+
+                    if (checkDate.getTime() < today.getTime()) {
+                        installmentsDueCount++; 
+                        const expectedPaidByThisDate = installmentsDueCount * installmentAmount;
+                        const outstandingDueAmount = Math.max(0, expectedPaidByThisDate - paidByThisDate);
+
+                        if (outstandingDueAmount > 0.9) { 
+                            accumulatedLateDays++; 
+                            if (dailyLateRate > 0) accumulatedLateFees += (outstandingDueAmount * dailyLateRate);
+                        }
+                    } 
+                    else if (checkDate.getTime() === today.getTime()) {
+                        const expectedTotalIncludingToday = (installmentsDueCount + 1) * installmentAmount;
+                        if (currentTotalPaidGlobal < expectedTotalIncludingToday - 0.1) {
+                            details.amountDueToday = installmentAmount;
+                        }
+                        if (!details.nextDueDate) details.nextDueDate = new Date(checkDate);
+                    } 
+                    else if (checkDate > today && !details.nextDueDate) {
+                        details.nextDueDate = new Date(checkDate);
+                    }
+                }
+                
+                if (details.nextDueDate && checkDate > today) break;
                 checkDate.setDate(checkDate.getDate() + 1);
             }
+            
+            // Cálculo de Días de Atraso Reales (HOY)
+            const totalExpectedUpToYesterday = installmentsDueCount * installmentAmount;
+            const currentGap = totalExpectedUpToYesterday - currentTotalPaidGlobal;
 
-            // === CORRECCIÓN DE MULTA: ACTIVAR AL 5º DÍA (SUPERAR EL LÍMITE) ===
-            if (loan.lateFeeAmount && loan.lateFeeAmount > 0) {
-                const delayDays = parseInt(loan.lateFeeDelay) || 0;
-                
-                // CAMBIO: Usamos '>' (Mayor que) en lugar de '>=' (Mayor o igual)
-                // Si delay es 4: 
-                // - Con 4 días: 4 > 4 es Falso (No multa).
-                // - Con 5 días: 5 > 4 es Verdadero (Multa activa).
-                if (accumulatedLateDays > delayDays) {
-                    accumulatedLateFees += parseFloat(loan.lateFeeAmount);
-                }
+            if (currentGap > 0.5 && installmentAmount > 0) {
+                details.lateDays = Math.ceil(currentGap / installmentAmount);
+            } else {
+                details.lateDays = 0;
+            }
+            
+            // Cálculo de Multa Fija (Usando configuración del préstamo)
+            const fixedFineAmount = parseFloat(loan.lateFeeAmount) || 0;
+            const delayDays = parseInt(loan.lateFeeDelay) || 5;
+            let appliedFixedFine = 0;
+            
+            if (accumulatedLateDays > delayDays && fixedFineAmount > 0) {
+                appliedFixedFine = fixedFineAmount;
+                details.fixedFineApplied = fixedFineAmount; 
+                details.hasFixedFine = true; 
             }
 
-            details.lateDays = accumulatedLateDays;
-            details.lateFeesAccumulated = accumulatedLateFees;
+            // --- [LÓGICA FINAL DE ESTADO - IDÉNTICA AL COBRADOR] ---
             
-            if (accumulatedLateDays > 0) {
-               details.status = 'late';
-            } else if (details.amountDueToday > 0) {
-                const expectedTotalNow = (installmentsDueCount + 1) * installmentAmount;
-                if (currentTotalPaid < (expectedTotalNow - 0.05)) {
-                    details.status = 'pending';
+            // 1. ¿Pagó el Capital Original?
+            const isCapitalPaid = currentTotalPaidGlobal >= totalOriginalDebt - 0.1;
+
+            if (isCapitalPaid) {
+                // Si pagó capital, IGNORAMOS interés diario acumulado para evitar "fantasmas"
+                // Solo cobramos la Multa Fija si corresponde
+                details.lateFeesAccumulated = appliedFixedFine;
+                
+                const totalDebtWithFixedFine = totalOriginalDebt + appliedFixedFine;
+
+                if (currentTotalPaidGlobal >= totalDebtWithFixedFine - 0.1) {
+                    details.status = 'finished';
                 } else {
-                    details.status = 'paid';
+                    // Pagó Capital pero debe Multa Fija
+                    details.status = 'late';
                 }
-            } else if (accumulatedLateDays === 1) {
-                details.status = 'pending';
             } else {
-                details.status = 'paid';
+                // Aún debe capital -> Sumamos todo
+                details.lateFeesAccumulated = accumulatedLateFees + appliedFixedFine;
+                details.status = (details.lateDays > 0) ? 'late' : 'pending';
+                
+                // Verificación final
+                const totalDebtFull = totalOriginalDebt + details.lateFeesAccumulated;
+                if (currentTotalPaidGlobal >= totalDebtFull - 0.1) {
+                    details.status = 'finished';
+                }
             }
             
             return details;
@@ -8913,4 +8966,5 @@ async function showRefinanceVerificationModal(clientId) {
     </script>
 </body>
     </html>
+
 
