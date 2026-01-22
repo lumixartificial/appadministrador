@@ -6366,7 +6366,6 @@ async function submitCollectorReport(collectorId) {
 
             const detailModal = document.getElementById('clientDetailModal');
             
-            // --- TRADUCCIONES ---
             const localLang = {
                 pt: { clientData: 'Dados do Cliente', noAddress: 'Sem endereço', edit: 'Editar' },
                 es: { clientData: 'Datos del Cliente', noAddress: 'Sin dirección', edit: 'Editar' },
@@ -6375,10 +6374,22 @@ async function submitCollectorReport(collectorId) {
             const txt = localLang[currentLang] || localLang.pt;
             const t = translations[currentLang] || translations['pt'];
             
-            // --- LOGO OFICIAL WHATSAPP ---
+            // --- SOLUCIÓN WHATSAPP ROBUSTA ---
+            let whatsappLink = null;
+            if (client.whatsapp) {
+                // 1. Limpiar todo lo que no sea número
+                let cleanNumber = client.whatsapp.replace(/\D/g, '');
+                // 2. Si el número es corto (10 u 11 dígitos, ej: 62999999999), le falta el país.
+                //    Asumimos Brasil (55) por defecto para que no salga "Invitar".
+                if (cleanNumber.length >= 10 && cleanNumber.length <= 11) {
+                    cleanNumber = '55' + cleanNumber;
+                }
+                // 3. Crear enlace API directo
+                whatsappLink = `https://api.whatsapp.com/send?phone=${cleanNumber}`;
+            }
             const whatsappLogoUrl = "https://firebasestorage.googleapis.com/v0/b/lumix-financas-app.firebasestorage.app/o/LOGO%20WHATSAPP%20OFI.png?alt=media&token=e022ad51-a151-4812-bb3d-9be867dac891";
 
-            // --- LÓGICA PRÉSTAMO ---
+            // --- LÓGICA DE SELECCIÓN DE PRÉSTAMO ---
             const displayableLoans = (client.loans || []).filter(l => l.status !== 'finished');
             const activeOrLastFinishedLoans = displayableLoans.length > 0 ? displayableLoans : (client.loans && client.loans.length > 0 ? [client.loans[client.loans.length - 1]] : []);
             
@@ -6396,8 +6407,11 @@ async function submitCollectorReport(collectorId) {
 
             const hasMultipleDisplayable = activeOrLastFinishedLoans.length > 1;
             
-            // --- CÁLCULOS ---
-            const paidAmount = (loan.history || []).filter(h => h.status === 'approved' || (!h.status && h.date)).reduce((sum, h) => sum + (h.amount || 0), 0) + (loan.initialMigratedAmount || 0);
+            // --- CÁLCULOS FINANCIEROS ---
+            const paidAmount = (loan.history || [])
+                .filter(h => h.status === 'approved' || (!h.status && h.date))
+                .reduce((sum, h) => sum + (h.amount || 0), 0) + (loan.initialMigratedAmount || 0);
+
             const loanDetails = calculateLoanDetails(loan);
             const fineAmount = loanDetails.lateFeesAccumulated || 0;
             const totalAmountWithFine = (loan.totalLoan || 0) + fineAmount;
@@ -6479,8 +6493,6 @@ async function submitCollectorReport(collectorId) {
                 `;
             }).join('') || `<div style="text-align:center; color:gray; font-size:0.8em; margin-top:10px;">${currentLang === 'es' ? 'Inicia la conversación...' : 'Inicie a conversa...'}</div>`;
 
-            const whatsappLink = client.whatsapp ? `https://wa.me/${client.whatsapp.replace(/\D/g, '')}` : null;
-
             detailModal.innerHTML = `
                 <header class="modal-header">
                     <button id="closeClientDetail"><i data-lucide="arrow-left"></i></button>
@@ -6490,15 +6502,14 @@ async function submitCollectorReport(collectorId) {
                 ${hasMultipleDisplayable ? `<div class="loan-tabs-wrapper"><div class="loan-tabs-container" id="loan-tabs-container">${client.loans.map((l, index) => (activeOrLastFinishedLoans.includes(l) || index === currentLoanIndex) ? `<button class="loan-tab ${index === currentLoanIndex ? 'active' : ''}" data-loan-index="${index}">Préstamo ${index + 1} ${l.status === 'finished' ? '(Finalizado)' : ''}</button>` : '').join('')}</div></div>` : ''}
 
                 <div class="modal-content-wrapper container">
-                    <!-- ESTADO DEL PRÉSTAMO (Bordes Dobles Dinámicos) -->
+                    <!-- ESTADO DEL PRÉSTAMO -->
                     <div class="kpi-card" style="text-align: center; margin-bottom: 20px; border-left: 4px solid ${statusColorCode}; border-right: 4px solid ${statusColorCode};">
                         <h3 class="kpi-title" style="justify-content: center;">Estado do Préstamo ${currentLoanIndex + 1}</h3>
                         <span class="payment-status status-${currentStatus}" style="font-size: 1.2em; font-weight: 600; padding: 8px 20px; color: ${statusColorCode};">${statusText}</span>
                     </div>
 
-                    <!-- TARJETA: DADOS PESSOAIS + BOTONES ABAJO (Bordes Dobles Azules) -->
+                    <!-- TARJETA DE DATOS (CON BOTONES) -->
                     <div class="kpi-card" style="margin-bottom: 20px; border-left: 4px solid var(--accent-blue); border-right: 4px solid var(--accent-blue);">
-                        <!-- DATOS SUPERIORES -->
                         <div style="margin-bottom: 20px;">
                             <h4 class="kpi-title" style="margin-bottom: 15px; color: var(--text-primary); border-bottom: 1px dashed var(--border-color); padding-bottom: 5px;">
                                 <i data-lucide="user-circle" style="width: 16px; height: 16px; margin-right: 5px;"></i> ${txt.clientData}
@@ -6520,7 +6531,7 @@ async function submitCollectorReport(collectorId) {
                             </p>` : ''}
                         </div>
 
-                        <!-- BOTONES DE ACCIÓN (INFERIORES Y ALARGADOS) -->
+                        <!-- BOTONES DE ACCIÓN (WhatsApp corregido) -->
                         <div style="display: flex; gap: 10px; width: 100%; padding-top: 15px; border-top: 1px solid var(--border-color);">
                             <button id="editClientBtn" data-client-id="${client.id}" data-loan-index="${currentLoanIndex}" class="btn-secondary" style="flex: 1; border-radius: 8px; display: flex; align-items: center; justify-content: center; background-color: var(--bg); border: 1px solid var(--border-color); color: var(--text-secondary); font-weight: 600; padding: 12px;">
                                 <i data-lucide="edit-2" style="width: 18px; height: 18px; margin-right: 6px;"></i> ${txt.edit}
@@ -6531,9 +6542,7 @@ async function submitCollectorReport(collectorId) {
                             </a>` : ''}
                         </div>
                     </div>
-                    <!-- FIN TARJETA DATOS -->
                     
-                    <!-- KPI GRID (Bordes Dobles de Colores) -->
                     <section class="kpi-grid-profile" style="margin-bottom: 30px;">
                         <div class="kpi-card" style="border-left: 4px solid var(--text-primary); border-right: 4px solid var(--text-primary);">
                             <h3 class="kpi-title"><i data-lucide="coins"></i> <span data-lang-key="totalValue">Valor Total</span></h3>
@@ -6578,7 +6587,7 @@ async function submitCollectorReport(collectorId) {
                         ${docsHtml}
                     </section>
 
-                    <!-- SECCIÓN CHAT (Bordes Dobles Azules) -->
+                    <!-- SECCIÓN CHAT -->
                     <section style="margin-top: 30px; background-color: var(--surface); padding: 15px; border-radius: 12px; border: 1px solid var(--border-color); border-left: 4px solid var(--accent-blue); border-right: 4px solid var(--accent-blue);">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                             <h2 class="section-title" style="border: none; margin: 0; padding: 0; color: var(--accent-blue); font-size: 1.1em;">
@@ -6617,7 +6626,6 @@ async function submitCollectorReport(collectorId) {
             const chatContainer = document.getElementById('chat-history-container');
             if(chatContainer) chatContainer.scrollTop = chatContainer.scrollHeight;
 
-            // --- Lógica del Chat ---
             const sendChatBtn = document.getElementById('send-chat-btn');
             const chatInput = document.getElementById('chat-input-field');
             const clearChatBtn = document.getElementById('clear-chat-btn');
@@ -6733,7 +6741,6 @@ async function submitCollectorReport(collectorId) {
             });
 
             detailModal.querySelector('#closeClientDetail').addEventListener('click', () => detailModal.classList.remove('active'));
-            
             detailModal.querySelector('#editClientBtn').addEventListener('click', () => showClientFormModal(clientId));
             
             const historyList = detailModal.querySelector('#client-payment-history-list');
@@ -6923,157 +6930,178 @@ async function submitCollectorReport(collectorId) {
 /* Reemplaza la función 'updateAdminNotificationsView' (aprox. línea 2011 o 2583 dependiendo de la versión) */
 
 function updateAdminNotificationsView() {
-    const container = document.getElementById('admin-notifications-list');
-    const badge = document.getElementById('admin-notification-badge');
-    if (!badge) return; 
+            const container = document.getElementById('admin-notifications-list');
+            const badge = document.getElementById('admin-notification-badge');
+            if (!badge) return; 
 
-    let notifications = [];
+            let notifications = [];
 
-    // 1. Pagos Pendientes
-    allClients.forEach(client => {
-        (client.loans || []).forEach((loan, loanIndex) => {
-            (loan.history || []).forEach((payment, historyIndex) => {
-                if (payment && payment.status === 'pending_verification') {
+            // 1. Pagos Pendientes
+            allClients.forEach(client => {
+                (client.loans || []).forEach((loan, loanIndex) => {
+                    (loan.history || []).forEach((payment, historyIndex) => {
+                        if (payment && payment.status === 'pending_verification') {
+                            notifications.push({
+                                type: 'payment',
+                                date: payment.date,
+                                clientId: client.id,
+                                clientName: client.name,
+                                profilePictureUrl: client.profilePictureUrl,
+                                amount: payment.amount,
+                                loanIndex: loanIndex,
+                                historyIndex: historyIndex
+                            });
+                        }
+                    });
+
+                    // 2. Mensajes de Chat (AHORA CON FILTRO DE LEÍDOS)
+                    if (loan.chatHistory && loan.chatHistory.length > 0) {
+                        const lastMsg = loan.chatHistory[loan.chatHistory.length - 1];
+                        // Solo mostramos si es del cobrador Y no ha sido marcado como leído/borrado
+                        if (lastMsg.sender === 'collector' && !lastMsg.adminRead) {
+                            notifications.push({
+                                type: 'message', 
+                                date: lastMsg.timestamp,
+                                clientId: client.id,
+                                clientName: client.name,
+                                profilePictureUrl: client.profilePictureUrl,
+                                amount: 0, 
+                                loanIndex: loanIndex,
+                                messageText: lastMsg.text 
+                            });
+                        }
+                    }
+                });
+            });
+
+            // 3. Liquidaciones
+            allSettlements.forEach(settlement => {
+                if (settlement && settlement.status === 'pending_verification') {
+                    const collector = allCollectors.find(c => c.id === settlement.collectorId);
                     notifications.push({
-                        type: 'payment',
-                        date: payment.date,
-                        clientId: client.id,
-                        clientName: client.name,
-                        profilePictureUrl: client.profilePictureUrl,
-                        amount: payment.amount,
-                        loanIndex: loanIndex,
-                        historyIndex: historyIndex
+                        type: 'settlement',
+                        date: settlement.date,
+                        collectorId: settlement.collectorId,
+                        collectorName: settlement.collectorName || collector?.name || 'Desconhecido',
+                        profilePictureUrl: collector?.profilePictureUrl,
+                        amount: settlement.amount,
+                        settlementId: settlement.id
                     });
                 }
             });
 
-            // 2. Mensajes de Chat
-            if (loan.chatHistory && loan.chatHistory.length > 0) {
-                const lastMsg = loan.chatHistory[loan.chatHistory.length - 1];
-                if (lastMsg.sender === 'collector') {
-                    notifications.push({
-                        type: 'message', 
-                        date: lastMsg.timestamp,
+            // 4. Refinanciamientos
+            allClients.forEach(client => {
+                if (client.refinanceRequest && client.refinanceRequest.status === 'pending') {
+                     notifications.push({
+                        type: 'refinance',
+                        date: client.refinanceRequest.requestDate,
                         clientId: client.id,
                         clientName: client.name,
                         profilePictureUrl: client.profilePictureUrl,
-                        amount: 0, 
-                        loanIndex: loanIndex,
-                        messageText: lastMsg.text 
+                        amount: client.refinanceRequest.amount
                     });
                 }
-            }
-        });
-    });
-
-    // 3. Liquidaciones
-    allSettlements.forEach(settlement => {
-        if (settlement && settlement.status === 'pending_verification') {
-            const collector = allCollectors.find(c => c.id === settlement.collectorId);
-            notifications.push({
-                type: 'settlement',
-                date: settlement.date,
-                collectorId: settlement.collectorId,
-                collectorName: settlement.collectorName || collector?.name || 'Desconhecido',
-                profilePictureUrl: collector?.profilePictureUrl,
-                amount: settlement.amount,
-                settlementId: settlement.id
             });
-        }
-    });
-
-    // 4. Refinanciamientos
-    allClients.forEach(client => {
-        if (client.refinanceRequest && client.refinanceRequest.status === 'pending') {
-             notifications.push({
-                type: 'refinance',
-                date: client.refinanceRequest.requestDate,
-                clientId: client.id,
-                clientName: client.name,
-                profilePictureUrl: client.profilePictureUrl,
-                amount: client.refinanceRequest.amount
+            
+            notifications.sort((a, b) => {
+                const timeA = a.date?.seconds ? a.date.seconds : (a.date instanceof Date ? a.date.getTime()/1000 : 0);
+                const timeB = b.date?.seconds ? b.date.seconds : (b.date instanceof Date ? b.date.getTime()/1000 : 0);
+                return timeB - timeA;
             });
-        }
-    });
-    
-    notifications.sort((a, b) => {
-        const timeA = a.date?.seconds ? a.date.seconds : (a.date instanceof Date ? a.date.getTime()/1000 : 0);
-        const timeB = b.date?.seconds ? b.date.seconds : (b.date instanceof Date ? b.date.getTime()/1000 : 0);
-        return timeB - timeA;
-    });
 
-    badge.textContent = notifications.length;
-    badge.style.display = notifications.length > 0 ? 'flex' : 'none';
-    badge.classList.toggle('visible', notifications.length > 0);
+            badge.textContent = notifications.length;
+            badge.style.display = notifications.length > 0 ? 'flex' : 'none';
+            badge.classList.toggle('visible', notifications.length > 0);
 
-    const viewIsActive = document.getElementById('notifications-view')?.classList.contains('active');
-    if (container && viewIsActive) {
-        console.log("[ADMIN-APP] Renderizando lista de notificaciones...");
-        
-        const t = translations[currentLang];
-        
-        // --- TRADUCCIÓN ETIQUETA NUEVO ---
-        let newLabel = 'NOVO';
-        if (currentLang === 'es') newLabel = 'NUEVO';
-        else if (currentLang === 'en') newLabel = 'NEW';
-        
-        if (notifications.length === 0) {
-            container.innerHTML = `<p class="no-items" style="text-align: center; padding: 20px; color: var(--text-secondary);" data-lang-key="noNotifications">${t.noNotifications}</p>`;
-            return;
-        }
-
-        container.innerHTML = notifications.map(n => {
-            const name = n.clientName || n.collectorName || 'N/A';
-            const nameInitial = (name).charAt(0).toUpperCase();
-            const placeholderUrl = `https://placehold.co/80x80/6f42c1/FFFFFF?text=${nameInitial}`;
-            const photoUrl = n.profilePictureUrl || placeholderUrl;
-            
-            let subtitle = '';
-            let iconBadge = '';
-            
-            if (n.type === 'payment') {
-                subtitle = `${t.notifPaymentMsg} <strong>${money(n.amount)}</strong>. ${t.notifVerifyMsg}`;
-                iconBadge = `<i data-lucide="dollar-sign" style="color: var(--accent-green);"></i>`;
-            } else if (n.type === 'settlement') {
-                subtitle = `${t.notifSettlementMsg} <strong>${money(n.amount)}</strong>. ${t.notifApproveMsg}`;
-                iconBadge = `<i data-lucide="arrow-down-circle" style="color: var(--accent-purple);"></i>`;
-            } else if (n.type === 'refinance') {
-                subtitle = `${t.notifRefinanceMsg} <strong>${money(n.amount)}</strong>. ${t.notifIdentityMsg}`;
-                iconBadge = `<i data-lucide="refresh-cw" style="color: var(--warning-color);"></i>`;
-            } else if (n.type === 'message') {
-                const msgPreview = n.messageText.length > 50 ? n.messageText.substring(0, 50) + '...' : n.messageText;
-                let timeStr = '';
-                if (n.date) {
-                    const d = n.date.seconds ? new Date(n.date.seconds * 1000) : new Date(n.date);
-                    timeStr = d.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-                }
+            const viewIsActive = document.getElementById('notifications-view')?.classList.contains('active');
+            if (container && viewIsActive) {
+                const t = translations[currentLang];
                 
-                subtitle = `<div style="display:flex; justify-content:space-between; align-items:center;">
-                                <span style="font-style: italic; color: var(--text-primary);">"${msgPreview}"</span>
-                                <span style="font-size: 0.75em; color: var(--text-secondary); margin-left: 10px; white-space: nowrap;">${timeStr}</span>
-                            </div>`;
-                iconBadge = `<i data-lucide="message-circle" style="color: var(--accent-blue);"></i>`;
-            }
+                let newLabel = 'NOVO';
+                if (currentLang === 'es') newLabel = 'NUEVO';
+                else if (currentLang === 'en') newLabel = 'NEW';
+                
+                if (notifications.length === 0) {
+                    container.innerHTML = `<p class="no-items" style="text-align: center; padding: 20px; color: var(--text-secondary);" data-lang-key="noNotifications">${t.noNotifications}</p>`;
+                    return;
+                }
 
-            return `
-            <div class="client-card" data-type="${n.type}" data-client-id="${n.clientId || ''}" data-collector-id="${n.collectorId || ''}" data-loan-index="${n.loanIndex || 0}" data-history-index="${n.historyIndex || 0}" data-settlement-id="${n.settlementId || ''}" style="cursor: pointer; border-left: 4px solid ${n.type === 'message' ? 'var(--accent-blue)' : 'transparent'};">
-                <img src="${photoUrl}" alt="Foto" class="item-avatar" style="width: 48px; height: 48px;">
-                <div class="item-info">
-                    <div style="display: flex; align-items: center; gap: 6px;">
-                        <h4 class="item-name">${name}</h4>
-                        ${n.type === 'message' ? `<span style="background-color: var(--accent-blue); color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.6em; font-weight: bold;">${newLabel}</span>` : ''}
-                    </div>
-                    <div class="item-subtext" style="font-size: 0.9em;">${subtitle}</div>
-                </div>
-                ${iconBadge}
-            </div>`;
-        }).join('');
-        
-        lucide.createIcons({nodes: container.querySelectorAll('[data-lucide]')});
-    } else {
-         console.log("[ADMIN-APP] Badge de notificaciones actualizado en segundo plano.");
-    }
-}
+                container.innerHTML = notifications.map(n => {
+                    const name = n.clientName || n.collectorName || 'N/A';
+                    const nameInitial = (name).charAt(0).toUpperCase();
+                    const placeholderUrl = `https://placehold.co/80x80/6f42c1/FFFFFF?text=${nameInitial}`;
+                    const photoUrl = n.profilePictureUrl || placeholderUrl;
+                    
+                    let subtitle = '';
+                    let iconBadge = '';
+                    let deleteBtnHtml = ''; 
+                    
+                    if (n.type === 'payment') {
+                        subtitle = `${t.notifPaymentMsg} <strong>${money(n.amount)}</strong>. ${t.notifVerifyMsg}`;
+                        iconBadge = `<i data-lucide="dollar-sign" style="color: var(--accent-green);"></i>`;
+                    } else if (n.type === 'settlement') {
+                        subtitle = `${t.notifSettlementMsg} <strong>${money(n.amount)}</strong>. ${t.notifApproveMsg}`;
+                        iconBadge = `<i data-lucide="arrow-down-circle" style="color: var(--accent-purple);"></i>`;
+                    } else if (n.type === 'refinance') {
+                        subtitle = `${t.notifRefinanceMsg} <strong>${money(n.amount)}</strong>. ${t.notifIdentityMsg}`;
+                        iconBadge = `<i data-lucide="refresh-cw" style="color: var(--warning-color);"></i>`;
+                    } else if (n.type === 'message') {
+                        const msgPreview = n.messageText.length > 50 ? n.messageText.substring(0, 50) + '...' : n.messageText;
+                        let timeStr = '';
+                        if (n.date) {
+                            const d = n.date.seconds ? new Date(n.date.seconds * 1000) : new Date(n.date);
+                            timeStr = d.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                        }
+                        
+                        subtitle = `<div style="display:flex; justify-content:space-between; align-items:center;">
+                                        <span style="font-style: italic; color: var(--text-primary);">"${msgPreview}"</span>
+                                        <span style="font-size: 0.75em; color: var(--text-secondary); margin-left: 10px; white-space: nowrap;">${timeStr}</span>
+                                    </div>`;
+                        iconBadge = `<i data-lucide="message-circle" style="color: var(--accent-blue);"></i>`;
+                        
+                        // --- BOTÓN ELIMINAR (SOLO PARA MENSAJES) ---
+                        deleteBtnHtml = `
+                        <button class="dismiss-notif-btn" title="Apagar Notificação" 
+                                data-type="message" 
+                                data-client-id="${n.clientId}" 
+                                data-loan-index="${n.loanIndex}"
+                                style="background: none; border: none; color: var(--text-secondary); cursor: pointer; padding: 10px; margin-left: 5px; z-index: 50;">
+                            <i data-lucide="x" style="width: 20px; height: 20px;"></i>
+                        </button>`;
+                    }
+
+                    return `
+                    <div class="client-card notification-card" style="cursor: default; border-left: 4px solid ${n.type === 'message' ? 'var(--accent-blue)' : 'transparent'}; padding-right: 5px; display: flex; align-items: center;">
+                        <!-- Área Clickeable para abrir detalle -->
+                        <div class="notification-click-area" 
+                             data-type="${n.type}" 
+                             data-client-id="${n.clientId || ''}" 
+                             data-collector-id="${n.collectorId || ''}" 
+                             data-loan-index="${n.loanIndex || 0}" 
+                             data-history-index="${n.historyIndex || 0}" 
+                             data-settlement-id="${n.settlementId || ''}"
+                             style="display: flex; align-items: center; gap: 15px; flex-grow: 1; cursor: pointer;">
+                             
+                            <img src="${photoUrl}" alt="Foto" class="item-avatar" style="width: 48px; height: 48px;">
+                            <div class="item-info">
+                                <div style="display: flex; align-items: center; gap: 6px;">
+                                    <h4 class="item-name">${name}</h4>
+                                    ${n.type === 'message' ? `<span style="background-color: var(--accent-blue); color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.6em; font-weight: bold;">${newLabel}</span>` : ''}
+                                </div>
+                                <div class="item-subtext" style="font-size: 0.9em;">${subtitle}</div>
+                            </div>
+                            ${iconBadge}
+                        </div>
+                        
+                        <!-- Botón Borrar (Separado) -->
+                        ${deleteBtnHtml}
+                    </div>`;
+                }).join('');
+                
+                lucide.createIcons({nodes: container.querySelectorAll('[data-lucide]')});
+            }
+        }
 /* === FIN: REEMPLAZO COMPLETO (FASE 3 - BLOQUE 3/6) === */
 
 
@@ -8114,55 +8142,83 @@ function updateAdminNotificationsView() {
 
 function setupEventListeners() {
             // --- NUEVO: La barra desaparece al soltar el dedo ---
-    document.addEventListener('touchend', (e) => {
-        const tooltipEl = document.getElementById('chartjs-tooltip');
-        
-        // Si soltaste el dedo sobre el gráfico...
-        if (tooltipEl && e.target.id === 'ultra-chart') {
-            // ...ocultamos la barra inmediatamente (con un pequeño retraso técnico)
-            setTimeout(() => { 
-                tooltipEl.style.opacity = '0'; 
-            }, 100); 
-        }
-    });
-    // ---------------------------------------------------- 
+            document.addEventListener('touchend', (e) => {
+                const tooltipEl = document.getElementById('chartjs-tooltip');
+                if (tooltipEl && e.target.id === 'ultra-chart') {
+                    setTimeout(() => { tooltipEl.style.opacity = '0'; }, 100); 
+                }
+            });
 
             window.addEventListener('popstate', (event) => {
-                console.log("[POPSTATE] Evento popstate disparado.");
-        
-                // Cierra TODOS los modales de pantalla completa
-                document.querySelectorAll('.modal-view.active').forEach(modal => {
-                    console.log(`[POPSTATE] Forçando fechamento do modal: #${modal.id}`);
-                    modal.classList.remove('active');
-                });
-        
-                // Lógica para reabrir un modal si el estado lo indica (navegación entre modales)
+                document.querySelectorAll('.modal-view.active').forEach(modal => { modal.classList.remove('active'); });
                 if (event.state && event.state.modal) {
                     const modalToRestore = document.getElementById(event.state.modal);
                     if (modalToRestore) {
-                        console.log(`[POPSTATE] Restaurando modal: #${modalToRestore.id}`);
                         modalToRestore.classList.add('active');
-        
-                        // Si volvemos a la vista de detalles del cliente, refresca los datos
                         if (event.state.modal === 'clientDetailView' && event.state.clientId) {
-                            console.log(`[POPSTATE] Restaurando e atualizando clientDetailView...`);
                             showClientDetails(event.state.clientId, event.state.loanIndex || 0);
                         }
                     }
                 } else {
-                    // Si no hay estado de modal, estamos volviendo a una vista principal.
-                    // Actualiza la vista principal basada en el hash.
                     const viewName = location.hash.substring(1) || 'dashboard';
-                    console.log(`[POPSTATE] Voltando para a vista principal: ${viewName}`);
                     showView(viewName);
                 }
             });
 
-
-
-            document.body.addEventListener('click', e => {
+            document.body.addEventListener('click', async e => {
                 const target = e.target;
 
+                // --- LOGICA PARA BORRAR NOTIFICACIÓN (ELIMINADOR) ---
+                const dismissBtn = target.closest('.dismiss-notif-btn');
+                if (dismissBtn) {
+                    e.stopPropagation(); // Evita abrir la tarjeta al borrar
+                    const { type, clientId, loanIndex } = dismissBtn.dataset;
+                    
+                    if (type === 'message') {
+                        try {
+                            const clientRef = doc(db, 'companies', currentCompanyId, "clients", clientId);
+                            const clientDoc = allClients.find(c => c.id === clientId);
+                            if (clientDoc) {
+                                const updatedLoans = JSON.parse(JSON.stringify(clientDoc.loans));
+                                const lIdx = parseInt(loanIndex);
+                                if (updatedLoans[lIdx] && updatedLoans[lIdx].chatHistory) {
+                                    const chatLen = updatedLoans[lIdx].chatHistory.length;
+                                    if (chatLen > 0) {
+                                        // Marcamos el último mensaje como "leído por admin"
+                                        updatedLoans[lIdx].chatHistory[chatLen - 1].adminRead = true;
+                                        await updateDoc(clientRef, { loans: updatedLoans });
+                                        showToast("Notificação removida.", "blue");
+                                    }
+                                }
+                            }
+                        } catch (err) {
+                            console.error("Erro ao apagar notificação:", err);
+                        }
+                    }
+                    return; 
+                }
+                // ---------------------------------------------------
+
+                // --- LOGICA PARA ABRIR NOTIFICACIÓN ---
+                const notificationArea = target.closest('.notification-click-area');
+                if (notificationArea) {
+                    const { type, clientId, collectorId, loanIndex, historyIndex, settlementId } = notificationArea.dataset;
+                    
+                    if (type === 'payment' || type === 'message') {
+                        showClientDetails(clientId, parseInt(loanIndex, 10));
+                    }
+                    else if (type === 'settlement') {
+                        const settlement = allSettlements.find(s => s.id === settlementId);
+                        if (settlement) showSettlementVerificationModal(settlement);
+                        else showToast('Erro: Liquidação não encontrada.', true);
+                    }
+                    else if (type === 'refinance') {
+                        showRefinanceVerificationModal(clientId);
+                    }
+                    return;
+                }
+
+                // ... Resto de listeners normales ...
                 if (target.closest('#theme-toggle')) {
                     const isDarkMode = document.body.classList.toggle('dark-mode');
                     localStorage.setItem('adminTheme', isDarkMode ? 'dark' : 'light');
@@ -8177,113 +8233,66 @@ function setupEventListeners() {
                     if (langDropdown) langDropdown.style.display = 'none';
                 }
                 const langBtn = target.closest('[data-lang]');
-            if(langBtn) {
-                const newLang = langBtn.dataset.lang;
+                if(langBtn) {
+                    const newLang = langBtn.dataset.lang;
+                    localStorage.setItem('adminLanguage', newLang);
+                    applyLanguage(newLang);
+                    if (document.getElementById('dashboard-view').classList.contains('active')) updateDashboard();
+                    if (document.getElementById('profile-view').classList.contains('active')) updateProfileView();
+                    if (document.getElementById('reports-view').classList.contains('active')) updateReportsView(); 
+                    if (document.getElementById('notifications-view').classList.contains('active')) updateAdminNotificationsView();
+                    const langDropdown = document.getElementById('lang-dropdown');
+                    if (langDropdown) langDropdown.style.display = 'none';
+                    showToast(`Idioma alterado para: ${langBtn.textContent.trim()}`, 'blue');
+                }
                 
-                // 1. Guardar y Aplicar
-                localStorage.setItem('adminLanguage', newLang);
-                applyLanguage(newLang);
-                
-                // 2. Forzar actualización de vistas dinámicas
-                if (document.getElementById('dashboard-view').classList.contains('active')) {
-                    updateDashboard();
-                }
-                if (document.getElementById('profile-view').classList.contains('active')) {
-                    updateProfileView();
-                }
-                if (document.getElementById('reports-view').classList.contains('active')) {
-                    updateReportsView(); 
-                }
+                if (target.closest('#submit-post-btn')) submitNewPost();
 
-                // --- NUEVO: Actualizar notificaciones si es la vista activa ---
-                if (document.getElementById('notifications-view').classList.contains('active')) {
-                    updateAdminNotificationsView();
-                }
-                // --------------------------------------------------------------
-                
-                // 3. Cerrar menú
-                const langDropdown = document.getElementById('lang-dropdown');
-                if (langDropdown) langDropdown.style.display = 'none';
-                
-                // Usamos 'blue' para que el mensaje salga azul bonito
-                showToast(`Idioma alterado para: ${langBtn.textContent.trim()}`, 'blue');
-            }
-                
+                const likeBtn = target.closest('.action-btn[data-action="like"]');
+                if (likeBtn) { e.preventDefault(); handlePostLike(likeBtn.dataset.postId); }
 
-                if (target.closest('#submit-post-btn')) {
-                submitNewPost();
+                const commentBtn = target.closest('.action-btn[data-action="comment"]');
+                if (commentBtn) { e.preventDefault(); toggleCommentSection(commentBtn.dataset.postId); }
+
+                const submitCommentBtn = target.closest('.submit-comment-btn');
+                if (submitCommentBtn) {
+                    e.preventDefault();
+                    const postId = submitCommentBtn.dataset.postId;
+                    const inputElement = submitCommentBtn.closest('.post-comment-input-area').querySelector('.comment-input');
+                    submitNewComment(postId, inputElement);
                 }
 
-            const likeBtn = target.closest('.action-btn[data-action="like"]');
-            if (likeBtn) {
-                e.preventDefault(); 
-                handlePostLike(likeBtn.dataset.postId);
-            }
+                const deletePostBtn = target.closest('.post-delete-btn[data-action="delete-post"]');
+                if (deletePostBtn) { e.preventDefault(); showDeleteConfirmationModal(deletePostBtn.dataset.postId); }
 
-            const commentBtn = target.closest('.action-btn[data-action="comment"]');
-            if (commentBtn) {
-                e.preventDefault();
-                toggleCommentSection(commentBtn.dataset.postId);
-            }
+                const cancelDeleteBtn = target.closest('#cancel-delete-btn');
+                if (cancelDeleteBtn) document.getElementById('reportOptionsModal').classList.remove('active');
 
-            const submitCommentBtn = target.closest('.submit-comment-btn');
-            if (submitCommentBtn) {
-                e.preventDefault();
-                const postId = submitCommentBtn.dataset.postId;
-                const inputElement = submitCommentBtn.closest('.post-comment-input-area').querySelector('.comment-input');
-                submitNewComment(postId, inputElement);
-            }
+                const confirmDeleteBtn = target.closest('#confirm-delete-btn');
+                if (confirmDeleteBtn) handlePostDelete(confirmDeleteBtn.dataset.postId);
 
-            const deletePostBtn = target.closest('.post-delete-btn[data-action="delete-post"]');
-            if (deletePostBtn) {
-                e.preventDefault();
-                showDeleteConfirmationModal(deletePostBtn.dataset.postId);
-            }
-
-            const cancelDeleteBtn = target.closest('#cancel-delete-btn');
-            if (cancelDeleteBtn) {
-                document.getElementById('reportOptionsModal').classList.remove('active');
-            }
-
-            const confirmDeleteBtn = target.closest('#confirm-delete-btn');
-            if (confirmDeleteBtn) {
-                handlePostDelete(confirmDeleteBtn.dataset.postId);
-            }
-
-            const reportCollectorBtn = target.closest('#reportCollectorBtn');
-            if (reportCollectorBtn) {
-                e.preventDefault();
-                const formModal = document.getElementById('collectorFormModal');
-                const collectorIdInput = formModal.querySelector('#collector-username'); 
-                const collectorNameInput = formModal.querySelector('#collector-name');
-                if (collectorIdInput && collectorNameInput) {
-                    showReportCollectorModal(collectorIdInput.value, collectorNameInput.value);
+                const reportCollectorBtn = target.closest('#reportCollectorBtn');
+                if (reportCollectorBtn) {
+                    e.preventDefault();
+                    const formModal = document.getElementById('collectorFormModal');
+                    const collectorIdInput = formModal.querySelector('#collector-username'); 
+                    const collectorNameInput = formModal.querySelector('#collector-name');
+                    if (collectorIdInput && collectorNameInput) showReportCollectorModal(collectorIdInput.value, collectorNameInput.value);
                 }
-            }
 
-            const cancelReportBtn = target.closest('#cancel-report-btn');
-            if (cancelReportBtn) {
-                document.getElementById('reportOptionsModal').classList.remove('active');
-            }
+                const cancelReportBtn = target.closest('#cancel-report-btn');
+                if (cancelReportBtn) document.getElementById('reportOptionsModal').classList.remove('active');
 
-            const confirmReportBtn = target.closest('#confirm-report-btn');
-            if (confirmReportBtn) {
-                submitCollectorReport(confirmReportBtn.dataset.collectorId);
-            }
+                const confirmReportBtn = target.closest('#confirm-report-btn');
+                if (confirmReportBtn) submitCollectorReport(confirmReportBtn.dataset.collectorId);
 
-                if (target.closest('#header-profile-link')) {
-                showView('profile');
-        }
+                if (target.closest('#header-profile-link')) showView('profile');
 
                 const collectorCard = target.closest('.collector-card');
-                if (collectorCard) {
-                    showCollectorDetails(collectorCard.dataset.collectorId);
-                }
+                if (collectorCard) showCollectorDetails(collectorCard.dataset.collectorId);
 
                 const reportCollectorCard = target.closest('.report-item-card.clickable');
-                 if (reportCollectorCard) {
-                    showCollectorDetails(reportCollectorCard.dataset.collectorId);
-                }
+                if (reportCollectorCard) showCollectorDetails(reportCollectorCard.dataset.collectorId);
 
                 const filterBtn = target.closest('#dashboard-view .filter-btn[data-filter]');
                 if (filterBtn) {
@@ -8293,143 +8302,70 @@ function setupEventListeners() {
                 }
 
                 const sortBtn = target.closest('#dashboard-view .filter-btn[data-sort]');
-                if (sortBtn) {
-                    sortBtn.classList.toggle('active');
-                    updateDashboard();
-                }
+                if (sortBtn) { sortBtn.classList.toggle('active'); updateDashboard(); }
                 
                 const navItem = target.closest('.nav-item');
-                if (navItem) {
-                    if (mapInstance) {
-                        mapInstance.closePopup();
-                    }
-                    showView(navItem.dataset.view); 
-                }
-                 
+                if (navItem) { if (mapInstance) mapInstance.closePopup(); showView(navItem.dataset.view); }
+                    
                 if (target.closest('#addCollectorBtn')) {
-                let limit = Infinity; 
-                let planType = 'pro'; 
-
-                if (currentCompanyData && currentCompanyData.plan) {
-                    planType = currentCompanyData.plan.type; 
-
-                    if (planType === 'demo') {
-                        limit = currentCompanyData.plan.collectorLimit || 1; 
-                    } else if (currentCompanyData.plan.collectorLimit && currentCompanyData.plan.collectorLimit !== -1) {
-                        limit = currentCompanyData.plan.collectorLimit;
-                    } 
-                } else {
-                     console.warn("Dados do plano não encontrados para verificação de limite.");
-                     limit = Infinity; 
+                    let limit = Infinity; 
+                    let planType = 'pro'; 
+                    if (currentCompanyData && currentCompanyData.plan) {
+                        planType = currentCompanyData.plan.type; 
+                        if (planType === 'demo') limit = currentCompanyData.plan.collectorLimit || 1; 
+                        else if (currentCompanyData.plan.collectorLimit && currentCompanyData.plan.collectorLimit !== -1) limit = currentCompanyData.plan.collectorLimit;
+                    }
+                    const currentCount = allCollectors.length;
+                    if (currentCount >= limit) showToast(`Limite de ${limit} cobradores atingido para o plano ${planType.toUpperCase()}.`, true);
+                    else showCollectorFormModal(); 
                 }
-                const currentCount = allCollectors.length;
-                if (currentCount >= limit) {
-                    showToast(`Limite de ${limit} cobradores atingido para o plano ${planType.toUpperCase()}. Contate o suporte para upgrade.`, true);
-                } else {
-                    showCollectorFormModal(); 
-                }
-            }
 
-
-                if (target.closest('#save-settings-btn')) {
-                    saveGlobalSettings();
-                }
+                if (target.closest('#save-settings-btn')) saveGlobalSettings();
 
                 if (target.closest('#logout-btn')) {
-                signOut(auth).catch((error) => {
-                    console.error("Erro ao sair:", error);
-                    showToast('Erro ao tentar sair.', true);
-                });
-}
+                    signOut(auth).catch((error) => { console.error("Erro ao sair:", error); showToast('Erro ao tentar sair.', true); });
+                }
 
-                 if (target.closest('#reportOptionsModal')) {
+                if (target.closest('#reportOptionsModal')) {
                     if (target.classList.contains('modal-overlay') || target.closest('.close-modal-btn')) {
                         document.getElementById('reportOptionsModal').classList.remove('active');
                     }
                 }
 
-                if (target.closest('#report-generate-btn')) {
-                    updateReportsView(); 
-                }
-
-
-                 const notificationCard = target.closest('#admin-notifications-list .client-card');
-                if (notificationCard) {
-                    const { type, clientId, collectorId, loanIndex, historyIndex, settlementId } = notificationCard.dataset;
-                    
-                    if (type === 'payment') {
-                        // Ver detalle de pago
-                        showClientDetails(clientId, parseInt(loanIndex, 10));
-                        // Esperar un poco a que cargue y abrir el modal específico si se desea
-                        // showPaymentDetailModal(...) se llama desde la lista de historial
-                    } 
-                    else if (type === 'message') {
-                        // IR DIRECTO AL CHAT (Abre la ficha del cliente)
-                        showClientDetails(clientId, parseInt(loanIndex, 10));
-                    }
-                    else if (type === 'settlement') {
-                        const settlement = allSettlements.find(s => s.id === settlementId);
-                        if (settlement) {
-                            showSettlementVerificationModal(settlement);
-                        } else {
-                            showToast('Erro: Liquidação não encontrada ou já processada.', true);
-                        }
-                    }
-                    else if (type === 'refinance') {
-                        showRefinanceVerificationModal(clientId);
-                    }
-                }               
-
-
+                if (target.closest('#report-generate-btn')) updateReportsView(); 
             });
 
-
             document.body.addEventListener('change', e => {
-                if (e.target.id === 'admin-profile-pic-input') {
-                    const file = e.target.files[0];
-                    if (file) showCropperModal(file);
-                }
-                if (e.target.id === 'report-collector-filter') {
-                    updateReportsView();
-                }
-                 if (e.target.id === 'settings-logo-input') {
+                if (e.target.id === 'admin-profile-pic-input') { const file = e.target.files[0]; if (file) showCropperModal(file); }
+                if (e.target.id === 'report-collector-filter') updateReportsView();
+                if (e.target.id === 'settings-logo-input') {
                     const file = e.target.files[0];
                     if (file) {
                         const reader = new FileReader();
-                        reader.onload = (e) => {
-                            document.getElementById('settings-logo-preview').src = e.target.result;
-                        };
+                        reader.onload = (e) => { document.getElementById('settings-logo-preview').src = e.target.result; };
                         reader.readAsDataURL(file);
                         document.getElementById('save-settings-btn').disabled = false;
                     }
                 }
-
                 if (e.target.id === 'post-image-input' && e.target.files && e.target.files[0]) {
-                const preview = document.getElementById('post-image-preview');
-                preview.src = URL.createObjectURL(e.target.files[0]);
-                preview.style.display = 'block';
-                document.getElementById('submit-post-btn').disabled = false; 
+                    const preview = document.getElementById('post-image-preview');
+                    preview.src = URL.createObjectURL(e.target.files[0]);
+                    preview.style.display = 'block';
+                    document.getElementById('submit-post-btn').disabled = false; 
                 }
-
             });
             
             document.body.addEventListener('input', e => {
                 const target = e.target;
-                if (target.id === 'collector-search-input') {
-                    updateDashboard();
-                }
+                if (target.id === 'collector-search-input') updateDashboard();
                 if (target.closest('.settings-section')) {
                     document.getElementById('save-settings-btn').disabled = false;
-                    if(target.id === 'settings-company-name'){
-                         document.getElementById('header-logo-text').textContent = target.value;
-                    }
+                    if(target.id === 'settings-company-name') document.getElementById('header-logo-text').textContent = target.value;
                 }
-
                 if (target.id === 'post-text-input') {
-                const hasImage = document.getElementById('post-image-preview').style.display === 'block';
-                document.getElementById('submit-post-btn').disabled = target.value.trim().length === 0 && !hasImage;
+                    const hasImage = document.getElementById('post-image-preview').style.display === 'block';
+                    document.getElementById('submit-post-btn').disabled = target.value.trim().length === 0 && !hasImage;
                 }
-
             });
         }
 /* === FIN: REEMPLAZO COMPLETO (FASE 3 - BLOQUE 4/6) === */
