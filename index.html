@@ -2452,19 +2452,13 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                 });
             });
 
-            // --- LISTA DE CLIENTES (Vista General) ---
+            // --- LISTA DE CLIENTES ---
             let clientsListHtml = '';
             if (clients.length > 0) {
                 const sortedClients = clients.map(client => {
                     const loansWithStatus = (client.loans || []).map((loan, index) => {
                         const details = calculateLoanDetails(loan);
-                        return { 
-                            ...loan, 
-                            status: details.status, 
-                            lateDays: details.lateDays, 
-                            lateFeesAccumulated: details.lateFeesAccumulated,
-                            originalIndex: index 
-                        };
+                        return { ...loan, status: details.status, lateDays: details.lateDays, originalIndex: index };
                     });
                     
                     let displayLoan = loansWithStatus.find(l => l.status === 'late') || 
@@ -2474,15 +2468,13 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                     if (!displayLoan) displayLoan = { amount: 0, status: 'n/a', lateDays: 0, originalIndex: 0 };
 
                     const activeLoansCount = loansWithStatus.filter(l => l.status !== 'finished').length;
-                    return { client, displayLoan, hasMultipleActive: activeLoansCount > 1, activeLoansCount };
+                    return { client, displayLoan, activeLoansCount };
                 }).sort((a, b) => a.client.name.localeCompare(b.client.name));
 
-                clientsListHtml = sortedClients.map(({ client, displayLoan, hasMultipleActive, activeLoansCount }) => {
-                    // --- CÁLCULOS PARA LA TARJETA ---
+                clientsListHtml = sortedClients.map(({ client, displayLoan, activeLoansCount }) => {
                     const details = calculateLoanDetails(displayLoan); 
                     const statusKey = details.status;
                     
-                    // TRADUCCIONES DE ESTADO (CORREGIDO)
                     const statusDict = {
                         'paid': { pt: 'EM DIA', es: 'AL DÍA', en: 'ON TIME' },
                         'pending': { pt: 'EM DIA', es: 'AL DÍA', en: 'ON TIME' },
@@ -2492,46 +2484,31 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                     const lang = currentLang || 'pt';
                     let statusLabel = statusDict[statusKey] ? statusDict[statusKey][lang] : '---';
 
-                    // Colores y Lógica Visual
                     let statusColor = 'var(--text-secondary)';
                     let progressColor = 'var(--text-secondary)';
                     let cardBorderColor = 'var(--border-color)';
 
                     if (statusKey === 'paid' || statusKey === 'pending') {
-                        statusColor = 'var(--accent-green)'; 
-                        progressColor = 'var(--accent-green)';
-                        cardBorderColor = 'var(--accent-green)';
+                        statusColor = 'var(--accent-green)'; progressColor = 'var(--accent-green)'; cardBorderColor = 'var(--accent-green)';
                     } else if (statusKey === 'late') {
-                        statusColor = 'var(--danger-color)';
-                        // Agregamos días de atraso al texto
+                        statusColor = 'var(--danger-color)'; progressColor = 'var(--danger-color)'; cardBorderColor = 'var(--danger-color)';
                         const daysText = lang === 'es' ? 'días' : 'dias';
                         statusLabel = `${statusLabel} (${details.lateDays}${daysText[0]})`; 
-                        progressColor = 'var(--danger-color)';
-                        cardBorderColor = 'var(--danger-color)';
                     } else if (statusKey === 'finished') {
-                        statusColor = '#3b82f6'; // Azul
-                        progressColor = '#3b82f6';
-                        cardBorderColor = '#3b82f6';
+                        statusColor = '#3b82f6'; progressColor = '#3b82f6'; cardBorderColor = '#3b82f6';
                     }
 
-                    // Foto
                     const cInitial = (client.name || 'C').charAt(0).toUpperCase();
                     const cPhoto = client.profilePictureUrl || ('https://placehold.co/80x80/3b82f6/FFFFFF?text=' + cInitial);
-
-                    // Fechas (Formato Corto)
                     let startDateStr = '--/--';
                     if (displayLoan.startDate && displayLoan.startDate.seconds) {
                         startDateStr = new Date(displayLoan.startDate.seconds * 1000).toLocaleDateString(currentLang === 'pt' ? 'pt-BR' : 'es-ES', {day:'2-digit', month:'2-digit'});
                     }
 
-                    // Progreso (Rueda)
-                    let totalInst = 0;
-                    let paidInst = 0;
-                    
+                    let totalInst = 0; let paidInst = 0;
                     if (displayLoan.installments && typeof displayLoan.installments === 'string' && displayLoan.installments.includes('/')) {
                         const parts = displayLoan.installments.split('/');
-                        paidInst = parseInt(parts[0]) || 0;
-                        totalInst = parseInt(parts[1]) || 0;
+                        paidInst = parseInt(parts[0]) || 0; totalInst = parseInt(parts[1]) || 0;
                     } else {
                         totalInst = parseInt(displayLoan.installments) || 0;
                         const totalPaidVal = (displayLoan.history || []).reduce((acc, h) => acc + (h.amount||0), 0);
@@ -2539,62 +2516,29 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                         paidInst = Math.floor(totalPaidVal / instVal);
                         if (paidInst > totalInst) paidInst = totalInst;
                     }
-                    
                     const progressPercent = totalInst > 0 ? (paidInst / totalInst) * 100 : 0;
 
-                    // --- DISEÑO GRID (SOLUCIÓN DEFINITIVA DE SUPERPOSICIÓN) ---
-                    // Estructura: 
-                    // [ FOTO ]  [ INFO PRINCIPAL ....... ]  [ RUEDA ]
+                    // TARJETA DE CLIENTE EN LISTA (Bordes dobles también aquí)
                     return `
                         <div class="client-card client-card-modern" data-client-id="${client.id}" data-loan-index="${displayLoan.originalIndex}" 
-                             style="
-                                display: grid; 
-                                grid-template-columns: auto 1fr auto; 
-                                gap: 15px; 
-                                align-items: center; 
-                                padding: 15px; 
-                                background-color: var(--surface); 
-                                border-radius: 12px; 
-                                margin-bottom: 12px; 
-                                border: 1px solid var(--border-color); 
-                                border-left: 4px solid ${cardBorderColor};
-                                position: relative; 
-                                cursor: pointer;
-                                transition: transform 0.2s;
-                             ">
-                            
-                            <!-- COLUMNA 1: FOTO -->
+                             style="display: grid; grid-template-columns: auto 1fr auto; gap: 15px; align-items: center; padding: 15px; background-color: var(--surface); border-radius: 12px; margin-bottom: 12px; border-top: 1px solid var(--border-color); border-bottom: 1px solid var(--border-color); border-left: 4px solid ${cardBorderColor}; border-right: 4px solid ${cardBorderColor}; position: relative; cursor: pointer; transition: transform 0.2s;">
                             <div style="position: relative;"> 
                                 <img src="${cPhoto}" alt="Foto" style="width: 55px; height: 55px; border-radius: 50%; object-fit: cover; border: 2px solid var(--bg); box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
                                 ${activeLoansCount > 1 ? `<span style="position: absolute; bottom: -2px; right: -2px; background: var(--accent-blue); color: white; font-size: 0.65em; font-weight: bold; padding: 2px 5px; border-radius: 10px; border: 2px solid var(--surface);">+${activeLoansCount-1}</span>` : ''}
                             </div>
-
-                            <!-- COLUMNA 2: INFORMACIÓN (Flexible, sin superponerse) -->
                             <div style="display: flex; flex-direction: column; gap: 4px; overflow: hidden;">
-                                <!-- Nombre y Chat -->
                                 <div style="display: flex; justify-content: space-between; align-items: center;">
                                     <h4 class="client-name-modern" style="margin: 0; font-size: 1em; color: var(--text-primary); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${client.name}</h4>
                                 </div>
-                                
-                                <!-- Dirección -->
                                 <div style="font-size: 0.8em; color: var(--text-secondary); display: flex; align-items: center; gap: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                                     <i data-lucide="map-pin" style="width: 12px; height: 12px; flex-shrink: 0;"></i> ${client.address || 'Sem endereço'}
                                 </div>
-
-                                <!-- Detalles Financieros (Parcela y Fecha) -->
                                 <div style="display: flex; align-items: center; gap: 10px; margin-top: 2px;">
-                                    <span style="font-size: 0.85em; font-weight: 700; color: var(--text-primary); background: var(--bg); padding: 2px 6px; border-radius: 4px;">
-                                        ${money(displayLoan.originalInstallmentAmount)}
-                                    </span>
-                                    <span style="font-size: 0.75em; color: var(--text-secondary);">
-                                        Início: ${startDateStr}
-                                    </span>
+                                    <span style="font-size: 0.85em; font-weight: 700; color: var(--text-primary); background: var(--bg); padding: 2px 6px; border-radius: 4px;">${money(displayLoan.originalInstallmentAmount)}</span>
+                                    <span style="font-size: 0.75em; color: var(--text-secondary);">Início: ${startDateStr}</span>
                                 </div>
                             </div>
-
-                            <!-- COLUMNA 3: RUEDA Y ESTADO (Fijo a la derecha) -->
                             <div style="display: flex; flex-direction: column; align-items: center; gap: 5px; width: 70px;">
-                                <!-- Rueda -->
                                 <div class="progress-wheel-container" style="width: 55px; height: 55px;">
                                     <div class="progress-wheel" style="background: conic-gradient(${progressColor} ${progressPercent}%, var(--bg) 0%);">
                                         <div class="inner-wheel" style="width: 88%; height: 88%;">
@@ -2602,25 +2546,17 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                                         </div>
                                     </div>
                                 </div>
-                                <!-- Estado -->
-                                <span style="font-size: 0.65em; font-weight: 800; text-transform: uppercase; color: ${statusColor}; text-align: center; line-height: 1;">
-                                    ${statusLabel}
-                                </span>
+                                <span style="font-size: 0.65em; font-weight: 800; text-transform: uppercase; color: ${statusColor}; text-align: center; line-height: 1;">${statusLabel}</span>
                             </div>
-
-                            <!-- BOTÓN CHAT (Absoluto arriba derecha, discreto) -->
                             <div style="position: absolute; top: 10px; right: 10px; display: ${displayLoan.notes || (displayLoan.chatHistory && displayLoan.chatHistory.length > 0) ? 'flex' : 'none'}; align-items: center; justify-content: center; background: var(--bg); border: 1px solid var(--border-color); border-radius: 50%; width: 24px; height: 24px;">
                                 <i data-lucide="message-circle" style="width: 14px; height: 14px; color: var(--accent-blue);"></i>
                             </div>
-
-                        </div>
-                    `;
+                        </div>`;
                 }).join('');
             } else {
                 clientsListHtml = '<p style="padding: 20px; text-align: center; color: var(--text-secondary);">Nenhum cliente para este cobrador.</p>';
             }
 
-            // Textos Alertas
             const alertTitle = currentLang === 'es' ? 'ALERTAS / MENSAJES (App)' : (currentLang === 'en' ? 'ALERTS / MESSAGES' : 'ALERTAS / MENSAGENS (App)');
             const searchPlace = currentLang === 'es' ? 'Buscar alerta...' : (currentLang === 'en' ? 'Search alert...' : 'Buscar alerta...');
             const noAlerts = currentLang === 'es' ? 'Sin alertas pendientes.' : (currentLang === 'en' ? 'No pending alerts.' : 'Sem alertas pendentes.');
@@ -2635,7 +2571,8 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                 </header>
                 
                 <div class="modal-content-wrapper container">
-                    <div class="collector-detail-header">
+                    <!-- CABECERA DE PERFIL (Bordes Dobles Azules) -->
+                    <div class="collector-detail-header" style="border-left: 4px solid var(--accent-blue); border-right: 4px solid var(--accent-blue);">
                         <img src="${photoUrl}" alt="Foto do Cobrador">
                         <div class="collector-detail-info">
                             <h3 class="item-name" style="margin-bottom: 5px;">${collector.name}</h3>
@@ -2650,64 +2587,62 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                         </div>
                     </div>
 
-                    <div class="kpi-card" style="margin-bottom: 20px; text-align: center; border-color: var(--accent-green); border-width: 2px;">
+                    <!-- CAPITAL EN MANOS (Bordes Dobles Verdes) -->
+                    <div class="kpi-card" style="margin-bottom: 20px; text-align: center; border-color: var(--border-color); border-left: 4px solid var(--accent-green); border-right: 4px solid var(--accent-green);">
                         <h3 class="kpi-title" style="justify-content: center; color: var(--accent-green);" data-lang-key="capitalOnHand"><i data-lucide="banknote"></i></h3>
                         <p class="kpi-value" id="kpi-capital-total" style="color: var(--accent-green); font-size: 2em;">${money(capitalOnHand)}</p>
                     </div>
 
+                    <!-- KPI GRID (Bordes Dobles Específicos) -->
                     <section class="kpi-grid" style="grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
-                        <div class="kpi-card"><h3 class="kpi-title" style="font-size: 0.8em;" data-lang-key="collectedToday">Hoje</h3><p class="kpi-value" style="color: var(--accent-green); font-size: 1.2em;">${money(dailyCollected)}</p></div>
-                        <div class="kpi-card"><h3 class="kpi-title" style="font-size: 0.8em;" data-lang-key="collectedWeek">Semana</h3><p class="kpi-value" style="color: var(--accent-green); font-size: 1.2em;">${money(weeklyCollected)}</p></div>
-                        <div class="kpi-card"><h3 class="kpi-title" style="font-size: 0.8em;">Clientes</h3><p class="kpi-value">${totalClientsCount !== undefined ? totalClientsCount : activeClientsCount}</p></div>
-                        <div class="kpi-card"><h3 class="kpi-title" style="font-size: 0.8em; color: #0ea5e9;"><i data-lucide="shield-check" style="width: 14px; height: 14px; margin-right: 5px;"></i><span data-lang-key="microInsurance">Micro Seguro</span></h3><p class="kpi-value" style="color: #0ea5e9;">${money(collectorTotalInsurance)}</p></div>
+                        <div class="kpi-card" style="border-left: 4px solid var(--accent-green); border-right: 4px solid var(--accent-green);">
+                            <h3 class="kpi-title" style="font-size: 0.8em;" data-lang-key="collectedToday">Hoje</h3>
+                            <p class="kpi-value" style="color: var(--accent-green); font-size: 1.2em;">${money(dailyCollected)}</p>
+                        </div>
+                        <div class="kpi-card" style="border-left: 4px solid var(--accent-green); border-right: 4px solid var(--accent-green);">
+                            <h3 class="kpi-title" style="font-size: 0.8em;" data-lang-key="collectedWeek">Semana</h3>
+                            <p class="kpi-value" style="color: var(--accent-green); font-size: 1.2em;">${money(weeklyCollected)}</p>
+                        </div>
+                        <div class="kpi-card" style="border-left: 4px solid var(--text-primary); border-right: 4px solid var(--text-primary);">
+                            <h3 class="kpi-title" style="font-size: 0.8em;">Clientes</h3>
+                            <p class="kpi-value">${totalClientsCount !== undefined ? totalClientsCount : activeClientsCount}</p>
+                        </div>
+                        <div class="kpi-card" style="border-left: 4px solid #0ea5e9; border-right: 4px solid #0ea5e9;">
+                            <h3 class="kpi-title" style="font-size: 0.8em; color: #0ea5e9;"><i data-lucide="shield-check" style="width: 14px; height: 14px; margin-right: 5px;"></i><span data-lang-key="microInsurance">Micro Seguro</span></h3>
+                            <p class="kpi-value" style="color: #0ea5e9;">${money(collectorTotalInsurance)}</p>
+                        </div>
                     </section>
-                    <!-- TARJETA DE BLOQUEOS (MEJORADA CON TEXTO ON/OFF) -->
-                    <div class="kpi-card" style="margin-bottom: 30px; border-color: var(--text-secondary);">
+
+                    <!-- TARJETA SEGURIDAD (Bordes Dobles Grises) -->
+                    <div class="kpi-card" style="margin-bottom: 30px; border-left: 4px solid var(--text-secondary); border-right: 4px solid var(--text-secondary);">
                         <h3 class="kpi-title" style="margin-bottom: 15px; color: var(--text-primary);">
                             <i data-lucide="lock"></i> <span data-lang-key="securitySettings">Segurança</span>
                         </h3>
-                        
                         <div style="display: flex; flex-direction: column; gap: 15px;">
-                            <!-- INTERRUPTOR 1: BLOQUEAR PAGOS -->
                             <div class="toggle-switch" style="justify-content: space-between; width: 100%;">
                                 <div>
                                     <label style="font-weight: 600; display: block; font-size: 0.95em;" data-lang-key="blockPayments">Bloquear Pagamentos</label>
                                     <p style="font-size: 0.8em; color: var(--text-secondary); margin: 0; display: flex; align-items: center; gap: 6px;">
-                                        Status: 
-                                        <strong id="status-text-payment" style="color: ${collector.blockPayments ? 'var(--danger-color)' : 'var(--accent-green)'};">
-                                            ${collector.blockPayments ? 'BLOQUEADO (ON)' : 'LIBERADO (OFF)'}
-                                        </strong>
+                                        Status: <strong id="status-text-payment" style="color: ${collector.blockPayments ? 'var(--danger-color)' : 'var(--accent-green)'};">${collector.blockPayments ? 'BLOQUEADO (ON)' : 'LIBERADO (OFF)'}</strong>
                                     </p>
                                 </div>
-                                <label class="switch">
-                                    <input type="checkbox" id="toggle-block-payments" ${collector.blockPayments ? 'checked' : ''}>
-                                    <span class="slider"></span>
-                                </label>
+                                <label class="switch"><input type="checkbox" id="toggle-block-payments" ${collector.blockPayments ? 'checked' : ''}><span class="slider"></span></label>
                             </div>
-
                             <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 0;">
-
-                            <!-- INTERRUPTOR 2: BLOQUEAR EDICIÓN CLIENTES -->
                             <div class="toggle-switch" style="justify-content: space-between; width: 100%;">
                                 <div>
                                     <label style="font-weight: 600; display: block; font-size: 0.95em;" data-lang-key="blockClientEdit">Bloquear Edição</label>
                                     <p style="font-size: 0.8em; color: var(--text-secondary); margin: 0; display: flex; align-items: center; gap: 6px;">
-                                        Status: 
-                                        <strong id="status-text-edit" style="color: ${collector.blockClientEdit ? 'var(--danger-color)' : 'var(--accent-green)'};">
-                                            ${collector.blockClientEdit ? 'BLOQUEADO (ON)' : 'LIBERADO (OFF)'}
-                                        </strong>
+                                        Status: <strong id="status-text-edit" style="color: ${collector.blockClientEdit ? 'var(--danger-color)' : 'var(--accent-green)'};">${collector.blockClientEdit ? 'BLOQUEADO (ON)' : 'LIBERADO (OFF)'}</strong>
                                     </p>
                                 </div>
-                                <label class="switch">
-                                    <input type="checkbox" id="toggle-block-edit" ${collector.blockClientEdit ? 'checked' : ''}>
-                                    <span class="slider"></span>
-                                </label>
+                                <label class="switch"><input type="checkbox" id="toggle-block-edit" ${collector.blockClientEdit ? 'checked' : ''}><span class="slider"></span></label>
                             </div>
                         </div>
                     </div>
-                    <!-- FIN TARJETA BLOQUEOS -->
-                    <!-- SECCIÓN ALERTAS -->
-                    <div class="kpi-card" style="margin-bottom: 30px; border-color: #dc3545; background-color: var(--surface);">
+
+                    <!-- SECCIÓN ALERTAS (Bordes Dobles Rojos) -->
+                    <div class="kpi-card" style="margin-bottom: 30px; background-color: var(--surface); border-left: 4px solid #dc3545; border-right: 4px solid #dc3545;">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">
                             <h3 class="kpi-title" style="color: #dc3545; margin: 0; font-size: 1em;"><i data-lucide="bell-ring"></i> ${alertTitle}</h3>
                             <span style="background-color: #dc3545; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.8em; font-weight: 700;">${clientsWithAlerts.length}</span>
@@ -2721,17 +2656,12 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                         </div>
                     </div>
 
-                    <!-- NUEVA SECCIÓN MEJORADA: GESTIÓN DE MULTAS (CON DÍAS Y VALOR) -->
-                    <!-- SECCIÓN GESTIÓN DE MULTAS (TRADUCIDA) -->
-                    <div class="kpi-card" style="margin-bottom: 30px; border-color: #f59e0b; background-color: var(--surface);">
+                    <!-- SECCIÓN GESTIÓN MULTAS (Bordes Dobles Ambar) -->
+                    <div class="kpi-card" style="margin-bottom: 30px; background-color: var(--surface); border-left: 4px solid #f59e0b; border-right: 4px solid #f59e0b;">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">
-                            <h3 class="kpi-title" style="color: #f59e0b; margin: 0; font-size: 1em;">
-                                <i data-lucide="gavel"></i> ${t.fineManagerTitle || 'Gestão de Multas'}
-                            </h3>
+                            <h3 class="kpi-title" style="color: #f59e0b; margin: 0; font-size: 1em;"><i data-lucide="gavel"></i> ${t.fineManagerTitle || 'Gestão de Multas'}</h3>
                         </div>
-                        <p style="font-size: 0.85em; color: var(--text-secondary); margin-bottom: 10px;">
-                            ${t.fineManagerDesc || 'Busque um cliente para configurar dias de atraso e valor da multa.'}
-                        </p>
+                        <p style="font-size: 0.85em; color: var(--text-secondary); margin-bottom: 10px;">${t.fineManagerDesc || 'Busque um cliente para configurar dias de atraso e valor da multa.'}</p>
                         <div class="search-bar-wrapper" style="margin-bottom: 10px;">
                             <input type="text" id="fine-manager-search" placeholder="${t.searchClientPlaceholder || 'Buscar cliente...'}" style="padding: 8px 12px 8px 35px; font-size: 0.9em;">
                             <i class="icon" data-lucide="search" style="width: 16px; left: 10px;"></i>
@@ -2742,17 +2672,11 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                     </div>
 
                     <h2 class="section-title">Clientes</h2>
-                    
-                    <!-- NUEVO BUSCADOR DE CLIENTES -->
                     <div class="search-bar-wrapper" style="margin-bottom: 15px;">
                         <input type="text" id="client-list-search" placeholder="${t.searchClientPlaceholder || 'Buscar cliente...'}" style="padding: 10px 12px 10px 40px; font-size: 0.95em; border-radius: 8px; border: 1px solid var(--border-color); background-color: var(--bg); width: 100%;">
                         <i class="icon" data-lucide="search" style="width: 18px; left: 12px; top: 50%; transform: translateY(-50%); position: absolute; color: var(--text-secondary);"></i>
                     </div>
-                    
                     <div class="item-list" id="clients-list-container">${clientsListHtml}</div>
-                    <!-- FIN NUEVA SECCIÓN -->
-
-                    
 
                     <section style="margin-top: 30px;">
                         <h2 class="section-title" data-lang-key="settlementHistory">Histórico de Retiradas</h2>
@@ -2760,7 +2684,6 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                     </section>
                 </div>
 
-                <!-- BOTONES DE ACCIÓN -->
                 <div class="action-buttons">
                     <button id="download-report-btn" data-collector-id="${collectorId}" class="btn-secondary" style="border: 2px solid #3b82f6; color: #3b82f6; background-color: transparent;">
                         <i data-lucide="file-text"></i> <span data-lang-key="downloadReport">Relatório</span>
@@ -2776,268 +2699,150 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                     </button>
                 </div>
             `;
-                     // --- LÓGICA DE BLOQUEOS (VERSIÓN DIRECTA Y ESTÁNDAR) ---
+            
+            // --- LISTENERS (Igual que antes) ---
             const togglePayments = detailView.querySelector('#toggle-block-payments');
             const toggleEdit = detailView.querySelector('#toggle-block-edit');
             const statusTextPayment = detailView.querySelector('#status-text-payment');
             const statusTextEdit = detailView.querySelector('#status-text-edit');
 
-            // 1. Bloqueo de Pagos
             if (togglePayments) {
-                // Eliminamos cloneNode para evitar conflictos de referencia
                 togglePayments.addEventListener('change', async (e) => {
                     const isChecked = e.target.checked;
-                    
-                    // Actualización Visual Inmediata
                     if (statusTextPayment) {
                         statusTextPayment.textContent = isChecked ? 'BLOQUEADO (ON)' : 'LIBERADO (OFF)';
                         statusTextPayment.style.color = isChecked ? 'var(--danger-color)' : 'var(--accent-green)';
                     }
-
                     try {
-                        // Enviamos comando a la base de datos
-                        await updateDoc(doc(db, 'collectors', collectorId), { 
-                            blockPayments: isChecked,
-                            // Agregamos un timestamp para forzar que la App detecte el cambio si está dormida
-                            lastUpdate: serverTimestamp() 
-                        });
+                        await updateDoc(doc(db, 'collectors', collectorId), { blockPayments: isChecked, lastUpdate: serverTimestamp() });
                         showToast(isChecked ? "Pagamentos bloqueados." : "Pagamentos liberados.", isChecked ? 'purple' : 'success');
                     } catch (err) {
-                        console.error("Error al bloquear pagos:", err);
-                        showToast("Erro de conexão.", true);
-                        e.target.checked = !isChecked; // Revertir si falla
-                        
-                        // Revertir texto
-                        if (statusTextPayment) {
-                            statusTextPayment.textContent = !isChecked ? 'BLOQUEADO (ON)' : 'LIBERADO (OFF)';
-                            statusTextPayment.style.color = !isChecked ? 'var(--danger-color)' : 'var(--accent-green)';
-                        }
+                        console.error(err); showToast("Erro de conexão.", true); e.target.checked = !isChecked;
                     }
                 });
             }
-
-            // 2. Bloqueo de Edición
             if (toggleEdit) {
                 toggleEdit.addEventListener('change', async (e) => {
                     const isChecked = e.target.checked;
-
-                    // Actualización Visual Inmediata
                     if (statusTextEdit) {
                         statusTextEdit.textContent = isChecked ? 'BLOQUEADO (ON)' : 'LIBERADO (OFF)';
                         statusTextEdit.style.color = isChecked ? 'var(--danger-color)' : 'var(--accent-green)';
                     }
-
                     try {
-                        await updateDoc(doc(db, 'collectors', collectorId), { 
-                            blockClientEdit: isChecked,
-                            lastUpdate: serverTimestamp()
-                        });
+                        await updateDoc(doc(db, 'collectors', collectorId), { blockClientEdit: isChecked, lastUpdate: serverTimestamp() });
                         showToast(isChecked ? "Edição bloqueada." : "Edição liberada.", isChecked ? 'purple' : 'success');
                     } catch (err) {
-                        console.error("Error al bloquear edición:", err);
-                        showToast("Erro de conexão.", true);
-                        e.target.checked = !isChecked;
-                        if (statusTextEdit) {
-                            statusTextEdit.textContent = !isChecked ? 'BLOQUEADO (ON)' : 'LIBERADO (OFF)';
-                            statusTextEdit.style.color = !isChecked ? 'var(--danger-color)' : 'var(--accent-green)';
-                        }
+                        console.error(err); showToast("Erro de conexão.", true); e.target.checked = !isChecked;
                     }
                 });
             }
-            // ----------------------------------------
 
-            
-            // 1. Lógica Alertas
+            // Alertas
             const renderAlerts = (filterText = '') => {
                 const container = document.getElementById('alerts-list-container');
                 if(!container) return;
                 const filtered = clientsWithAlerts.filter(a => a.clientName.toLowerCase().includes(filterText.toLowerCase()) || a.note.toLowerCase().includes(filterText.toLowerCase()));
-                if(filtered.length === 0) {
-                    container.innerHTML = `<p style="text-align: center; color: var(--text-secondary); font-size: 0.9em; padding: 10px;">${filterText ? 'Nenhuma alerta encontrada.' : noAlerts}</p>`;
-                    return;
-                }
+                if(filtered.length === 0) { container.innerHTML = `<p style="text-align: center; color: var(--text-secondary); font-size: 0.9em; padding: 10px;">${filterText ? 'Nenhuma alerta encontrada.' : noAlerts}</p>`; return; }
                 container.innerHTML = filtered.map(a => `
                     <div style="background-color: var(--bg); border: 1px solid var(--border-color); border-radius: 8px; padding: 10px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;">
                         <div style="flex-grow: 1;">
                             <strong style="color: var(--text-primary); font-size: 0.95em; display: block; margin-bottom: 4px;">${a.clientName}</strong>
                             <p style="color: #dc3545; margin: 0; font-size: 0.9em; font-weight: 600; line-height: 1.3;">${a.note}</p>
                         </div>
-                        <button class="delete-alert-btn" data-client-id="${a.clientId}" data-loan-index="${a.loanIndex}" style="background: none; border: none; color: var(--text-secondary); cursor: pointer; padding: 4px;">
-                            <i data-lucide="trash-2" style="width: 16px; height: 16px;"></i>
-                        </button>
-                    </div>
-                `).join('');
+                        <button class="delete-alert-btn" data-client-id="${a.clientId}" data-loan-index="${a.loanIndex}" style="background: none; border: none; color: var(--text-secondary); cursor: pointer; padding: 4px;"><i data-lucide="trash-2" style="width: 16px; height: 16px;"></i></button>
+                    </div>`).join('');
                 lucide.createIcons({nodes: container.querySelectorAll('[data-lucide]')});
-
                 container.querySelectorAll('.delete-alert-btn').forEach(btn => {
                     btn.addEventListener('click', async (e) => {
-                        const cId = e.currentTarget.dataset.clientId;
-                        const lIdx = parseInt(e.currentTarget.dataset.loanIndex);
+                        const cId = e.currentTarget.dataset.clientId; const lIdx = parseInt(e.currentTarget.dataset.loanIndex);
                         const confirmed = await showConfirmationModal(t.deleteAlertTitle || 'Apagar Alerta?', t.deleteAlertMsg || 'Deseja remover esta observação do cliente?', t.confirmDeleteShort || 'Apagar');
                         if(!confirmed) return;
                         try {
                             const clientRef = doc(db, 'companies', currentCompanyId, "clients", cId);
                             const clientData = allClients.find(c => c.id === cId);
                             const updatedLoans = JSON.parse(JSON.stringify(clientData.loans));
-                            updatedLoans[lIdx].notes = ""; 
-                            await updateDoc(clientRef, { loans: updatedLoans });
-                            showToast("Alerta removida.");
-                            clientsWithAlerts = clientsWithAlerts.filter(item => !(item.clientId === cId && item.loanIndex === lIdx));
+                            updatedLoans[lIdx].notes = ""; await updateDoc(clientRef, { loans: updatedLoans });
+                            showToast("Alerta removida."); clientsWithAlerts = clientsWithAlerts.filter(item => !(item.clientId === cId && item.loanIndex === lIdx));
                             renderAlerts(document.getElementById('alert-search-input').value);
                         } catch(err) { console.error(err); showToast("Erro ao apagar.", true); }
                     });
                 });
             };
-            renderAlerts(); 
+            renderAlerts();
             const alertSearch = document.getElementById('alert-search-input');
-            if(alertSearch) { alertSearch.addEventListener('input', (e) => renderAlerts(e.target.value)); }
+            if(alertSearch) alertSearch.addEventListener('input', (e) => renderAlerts(e.target.value));
 
-            // 2. Lógica GESTIÓN DE MULTAS (NUEVO: DÍAS Y VALOR)
+            // Fine Manager (Igual que antes, solo estructura)
             const fineSearch = document.getElementById('fine-manager-search');
             const fineResults = document.getElementById('fine-manager-results');
-
             const renderFineResults = (text) => {
-                if (!text || text.length < 2) {
-                    fineResults.innerHTML = `<p style="text-align: center; color: var(--text-secondary); font-size: 0.9em; padding: 10px;">Digite o nome do cliente...</p>`;
-                    return;
-                }
+                if (!text || text.length < 2) { fineResults.innerHTML = `<p style="text-align: center; color: var(--text-secondary); font-size: 0.9em; padding: 10px;">Digite o nome do cliente...</p>`; return; }
                 const filteredClients = clients.filter(c => c.name.toLowerCase().includes(text.toLowerCase()));
-                
-                if (filteredClients.length === 0) {
-                    fineResults.innerHTML = `<p style="text-align: center; color: var(--text-secondary); font-size: 0.9em; padding: 10px;">Nenhum cliente encontrado.</p>`;
-                    return;
-                }
-
+                if (filteredClients.length === 0) { fineResults.innerHTML = `<p style="text-align: center; color: var(--text-secondary); font-size: 0.9em; padding: 10px;">Nenhum cliente encontrado.</p>`; return; }
                 fineResults.innerHTML = filteredClients.map(c => {
-                    // Buscar el préstamo activo o el último
                     let activeLoanIdx = c.loans ? c.loans.findIndex(l => l.status !== 'finished') : -1;
                     if (activeLoanIdx === -1 && c.loans && c.loans.length > 0) activeLoanIdx = c.loans.length - 1;
                     const loan = activeLoanIdx >= 0 ? c.loans[activeLoanIdx] : null;
-                    
-                    if (!loan) return ''; // Skip si no hay préstamo
-
-                    const currentFine = loan.lateFeeAmount || 0;
-                    const currentDays = loan.lateFeeDelay || 5; // Default 5 días si no existe
-                    
-                    // Calculamos atraso real para mostrar contexto
-                    const details = calculateLoanDetails(loan);
-                    const realLateDays = details.lateDays || 0;
+                    if (!loan) return '';
+                    const currentFine = loan.lateFeeAmount || 0; const currentDays = loan.lateFeeDelay || 5;
+                    const details = calculateLoanDetails(loan); const realLateDays = details.lateDays || 0;
                     const lateStatusColor = realLateDays >= currentDays ? '#ef4444' : (realLateDays > 0 ? '#f59e0b' : '#10b981');
-                    
-                    return `
-                    <div class="client-fine-card" style="background-color: var(--bg); border: 1px solid var(--border-color); border-radius: 8px; padding: 10px; display: flex; flex-direction: column; gap: 8px;">
+                    return `<div class="client-fine-card" style="background-color: var(--bg); border: 1px solid var(--border-color); border-radius: 8px; padding: 10px; display: flex; flex-direction: column; gap: 8px;">
                         <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-                            <div>
-                                <strong style="font-size: 0.95em; display: block; color: var(--text-primary);">${c.name}</strong>
-                                <span style="font-size: 0.75em; color: ${lateStatusColor}; font-weight: 600;">
-                                    ${realLateDays > 0 ? `${realLateDays} Dias de Atraso` : 'Em Dia'}
-                                </span>
-                            </div>
-                            <button class="btn-edit-fine" data-client-id="${c.id}" data-loan-index="${activeLoanIdx}" data-current-fine="${currentFine}" data-current-days="${currentDays}" style="background: var(--surface); border: 1px solid var(--border-color); color: var(--accent-blue); border-radius: 6px; padding: 6px 10px; font-size: 0.8em; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 4px;">
-                                <i data-lucide="edit-2" style="width: 14px; height: 14px;"></i> Alterar
-                            </button>
+                            <div><strong style="font-size: 0.95em; display: block; color: var(--text-primary);">${c.name}</strong><span style="font-size: 0.75em; color: ${lateStatusColor}; font-weight: 600;">${realLateDays > 0 ? `${realLateDays} Dias de Atraso` : 'Em Dia'}</span></div>
+                            <button class="btn-edit-fine" data-client-id="${c.id}" data-loan-index="${activeLoanIdx}" data-current-fine="${currentFine}" data-current-days="${currentDays}" style="background: var(--surface); border: 1px solid var(--border-color); color: var(--accent-blue); border-radius: 6px; padding: 6px 10px; font-size: 0.8em; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 4px;"><i data-lucide="edit-2" style="width: 14px; height: 14px;"></i> Alterar</button>
                         </div>
-                        <div style="display: flex; gap: 10px; font-size: 0.85em; color: var(--text-secondary); background-color: var(--surface); padding: 6px; border-radius: 6px;">
-                            <span>Multa: <strong style="color: var(--text-primary);">${money(currentFine)}</strong></span>
-                            <span>Aplica após: <strong style="color: var(--text-primary);">${currentDays} dias</strong></span>
-                        </div>
+                        <div style="display: flex; gap: 10px; font-size: 0.85em; color: var(--text-secondary); background-color: var(--surface); padding: 6px; border-radius: 6px;"><span>Multa: <strong style="color: var(--text-primary);">${money(currentFine)}</strong></span><span>Aplica após: <strong style="color: var(--text-primary);">${currentDays} dias</strong></span></div>
                     </div>`;
                 }).join('');
                 lucide.createIcons({nodes: fineResults.querySelectorAll('[data-lucide]')});
-
-                // Listeners para los botones "Alterar"
                 fineResults.querySelectorAll('.btn-edit-fine').forEach(btn => {
                     btn.addEventListener('click', (e) => {
                         const card = e.currentTarget.closest('.client-fine-card');
-                        const cId = e.currentTarget.dataset.clientId;
-                        const lIdx = e.currentTarget.dataset.loanIndex;
-                        const currentVal = e.currentTarget.dataset.currentFine;
-                        const currentDays = e.currentTarget.dataset.currentDays;
-                        
-                        // Reemplazar la tarjeta con el modo edición COMPLETO
-                        card.innerHTML = `
-                            <div style="margin-bottom: 8px;">
-                                <strong style="font-size: 0.9em;">Editar Configuração de Multa</strong>
-                            </div>
+                        const cId = e.currentTarget.dataset.clientId; const lIdx = e.currentTarget.dataset.loanIndex;
+                        const currentVal = e.currentTarget.dataset.currentFine; const currentDays = e.currentTarget.dataset.currentDays;
+                        card.innerHTML = `<div style="margin-bottom: 8px;"><strong style="font-size: 0.9em;">Editar Configuração de Multa</strong></div>
                             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
-                                <div>
-                                    <label style="font-size: 0.75em; color: var(--text-secondary);">Dias p/ Aplicar</label>
-                                    <input type="number" class="fine-days-input" value="${currentDays}" min="1" style="width: 100%; padding: 6px; border-radius: 6px; border: 1px solid var(--border-color); font-weight: 600;">
-                                </div>
-                                <div>
-                                    <label style="font-size: 0.75em; color: var(--text-secondary);">Valor da Multa</label>
-                                    <input type="number" class="fine-amount-input" value="${currentVal}" step="0.01" style="width: 100%; padding: 6px; border-radius: 6px; border: 1px solid var(--accent-blue); font-weight: 700; color: var(--accent-blue);">
-                                </div>
+                                <div><label style="font-size: 0.75em; color: var(--text-secondary);">Dias p/ Aplicar</label><input type="number" class="fine-days-input" value="${currentDays}" min="1" style="width: 100%; padding: 6px; border-radius: 6px; border: 1px solid var(--border-color); font-weight: 600;"></div>
+                                <div><label style="font-size: 0.75em; color: var(--text-secondary);">Valor da Multa</label><input type="number" class="fine-amount-input" value="${currentVal}" step="0.01" style="width: 100%; padding: 6px; border-radius: 6px; border: 1px solid var(--accent-blue); font-weight: 700; color: var(--accent-blue);"></div>
                             </div>
-                            <div style="display: flex; gap: 10px;">
-                                <button class="btn-cancel-edit" style="flex: 1; background: transparent; border: 1px solid var(--border-color); color: var(--text-secondary); padding: 6px; border-radius: 6px; cursor: pointer;">Cancelar</button>
-                                <button class="btn-save-fine" style="flex: 1; background: var(--accent-blue); border: none; color: white; border-radius: 6px; padding: 6px; cursor: pointer; font-weight: 600;">Salvar</button>
-                            </div>
-                        `;
-                        
-                        // Cancelar
-                        card.querySelector('.btn-cancel-edit').addEventListener('click', () => {
-                            renderFineResults(fineSearch.value); // Re-renderiza para cancelar
-                        });
-
-                        // Guardar
+                            <div style="display: flex; gap: 10px;"><button class="btn-cancel-edit" style="flex: 1; background: transparent; border: 1px solid var(--border-color); color: var(--text-secondary); padding: 6px; border-radius: 6px; cursor: pointer;">Cancelar</button><button class="btn-save-fine" style="flex: 1; background: var(--accent-blue); border: none; color: white; border-radius: 6px; padding: 6px; cursor: pointer; font-weight: 600;">Salvar</button></div>`;
+                        card.querySelector('.btn-cancel-edit').addEventListener('click', () => renderFineResults(fineSearch.value));
                         card.querySelector('.btn-save-fine').addEventListener('click', async () => {
                             const newDays = parseInt(card.querySelector('.fine-days-input').value) || 5;
                             const newAmount = parseFloat(card.querySelector('.fine-amount-input').value) || 0;
-                            
-                            // AVISO AMARILLO DE CONFIRMACIÓN DETALLADO
-                            const confirmed = await showConfirmationModal(
-                                'Alterar Multa?', 
-                                `Confirma a configuração?<br><br>
-                                 <b>Dias de Carência:</b> ${newDays} dias<br>
-                                 <b>Valor da Multa:</b> ${money(newAmount)}`, 
-                                'Sim, Salvar', 
-                                'btn-primary', 
-                                'var(--warning-color)', // Color Amarillo
-                                '#000000' // Texto negro
-                            );
-                            
+                            const confirmed = await showConfirmationModal('Alterar Multa?', `Confirma a configuração?<br><br><b>Dias de Carência:</b> ${newDays} dias<br><b>Valor da Multa:</b> ${money(newAmount)}`, 'Sim, Salvar', 'btn-primary', 'var(--warning-color)', '#000000');
                             if(!confirmed) return;
-
                             try {
                                 const clientRef = doc(db, 'companies', currentCompanyId, "clients", cId);
                                 const clientData = allClients.find(c => c.id === cId);
                                 const updatedLoans = JSON.parse(JSON.stringify(clientData.loans));
-                                
-                                // ACTUALIZAMOS AMBOS VALORES
-                                updatedLoans[lIdx].lateFeeDelay = newDays;
-                                updatedLoans[lIdx].lateFeeAmount = newAmount;
-                                
+                                updatedLoans[lIdx].lateFeeDelay = newDays; updatedLoans[lIdx].lateFeeAmount = newAmount;
                                 await updateDoc(clientRef, { loans: updatedLoans });
-                                showToast("Configuração de multa atualizada!", "yellow");
-                                renderFineResults(fineSearch.value); // Refrescar lista
-                            } catch(err) {
-                                console.error(err);
-                                showToast("Erro ao salvar.", true);
-                            }
+                                showToast("Configuração de multa atualizada!", "yellow"); renderFineResults(fineSearch.value);
+                            } catch(err) { console.error(err); showToast("Erro ao salvar.", true); }
                         });
                     });
                 });
             };
-
             if(fineSearch) fineSearch.addEventListener('input', (e) => renderFineResults(e.target.value));
 
-
-            // 3. Lógica Histórico Retiros
+            // Histórico
             const settlementsListContainer = detailView.querySelector('#settlements-history-list');
             const collectorSettlements = allSettlements.filter(s => s.collectorId === collectorId).sort((a, b) => (b.date?.seconds || 0) - (a.date?.seconds || 0)); 
             if (settlementsListContainer) {
-                if (collectorSettlements.length === 0) {
-                    settlementsListContainer.innerHTML = `<p class="no-items" style="text-align: center; color: var(--text-secondary);">Nenhuma retirada registrada.</p>`;
-                } else {
+                if (collectorSettlements.length === 0) { settlementsListContainer.innerHTML = `<p class="no-items" style="text-align: center; color: var(--text-secondary);">Nenhuma retirada registrada.</p>`; } else {
                     settlementsListContainer.innerHTML = collectorSettlements.map(settlement => {
                         const date = settlement.date?.seconds ? new Date(settlement.date.seconds * 1000) : null;
                         const dateString = date ? date.toLocaleDateString('pt-BR') : '--/--';
                         const timeString = date ? date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '';
                         const isInsurance = settlement.type === 'insurance';
                         const typeLabel = isInsurance ? '<span style="color: #0ea5e9; font-weight: bold; font-size: 0.8em; display: block;">MICRO SEGURO</span>' : '';
+                        
+                        // HISTORIAL DE RETIROS (Bordes Dobles)
+                        const borderColor = isInsurance ? '#0ea5e9' : 'var(--border-color)';
                         return `
-                        <div class="payment-history-item" style="cursor: default;">
+                        <div class="payment-history-item" style="cursor: default; border-left: 4px solid ${borderColor}; border-right: 4px solid ${borderColor};">
                             <div class="payment-history-details">
                                 <h4 class="payment-history-title">${dateString} - ${timeString}</h4>
                                 ${typeLabel}
@@ -3052,29 +2857,20 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             }
             
             detailView.classList.add('active');
-            // --- INICIO: CÓDIGO DEL BUSCADOR DE CLIENTES ---
             const clientSearchInput = detailView.querySelector('#client-list-search');
             if (clientSearchInput) {
                 clientSearchInput.addEventListener('input', (e) => {
                     const term = e.target.value.toLowerCase();
-                    const cards = detailView.querySelectorAll('.client-card'); // Busca todas las tarjetas
-                    
+                    const cards = detailView.querySelectorAll('.client-card');
                     cards.forEach(card => {
-                        // Busca el nombre dentro de la nueva estructura
                         const nameEl = card.querySelector('.client-name-modern'); 
                         if (nameEl) {
                             const name = nameEl.textContent.toLowerCase();
-                            // Si el nombre incluye lo que escribes, muestra la tarjeta, si no, la oculta
-                            if (name.includes(term)) {
-                                card.style.display = ''; 
-                            } else {
-                                card.style.display = 'none'; 
-                            }
+                            if (name.includes(term)) { card.style.display = ''; } else { card.style.display = 'none'; }
                         }
                     });
                 });
             }
-            // --- FIN: CÓDIGO DEL BUSCADOR ---
             lucide.createIcons({nodes: detailView.querySelectorAll('[data-lucide]')});
             applyLanguage(currentLang);
 
@@ -3093,28 +2889,17 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             if (settlementBtn) settlementBtn.addEventListener('click', (e) => { const cId = e.currentTarget.dataset.collectorId; const cObj = allCollectors.find(c => c.id === cId); showSettlementModal(cId, cObj.name, capitalOnHand); });
             const injectionBtn = detailView.querySelector('#add-capital-injection-btn');
             if (injectionBtn) injectionBtn.addEventListener('click', (e) => { const cId = e.currentTarget.dataset.collectorId; const cObj = allCollectors.find(c => c.id === cId); showCapitalInjectionModal(cId, cObj.name); });
-
-            // Lógica Desbloqueo (VERDE)
             const unlockBtn = detailView.querySelector('#unlock-app-btn');
             if (unlockBtn) {
                 unlockBtn.addEventListener('click', async (e) => {
                     const cId = e.currentTarget.dataset.collectorId;
-                    const confirmed = await showConfirmationModal(
-                        t.unlockAppTitle || 'Desbloquear App',
-                        t.unlockAppMsg || 'Isso permitirá que o cobrador acesse o aplicativo por 30 minutos, ignorando horários. Continuar?',
-                        t.unlockConfirm || 'Sim, Desbloquear', 
-                        'btn-primary', 'var(--warning-color)', '#000000'
-                    );
+                    const confirmed = await showConfirmationModal(t.unlockAppTitle || 'Desbloquear App', t.unlockAppMsg || 'Isso permitirá que o cobrador acesse o aplicativo por 30 minutos, ignorando horários. Continuar?', t.unlockConfirm || 'Sim, Desbloquear', 'btn-primary', 'var(--warning-color)', '#000000');
                     if (!confirmed) return;
                     try {
-                        const unlockUntil = new Date();
-                        unlockUntil.setMinutes(unlockUntil.getMinutes() + 30); 
+                        const unlockUntil = new Date(); unlockUntil.setMinutes(unlockUntil.getMinutes() + 30); 
                         await updateDoc(doc(db, 'collectors', cId), { tempUnlockUntil: Timestamp.fromDate(unlockUntil) });
                         showToast(t.appUnlockedSuccess || "App do cobrador desbloqueado!", 'yellow');
-                    } catch (error) {
-                        console.error("Erro ao desbloquear:", error);
-                        showToast("Erro ao desbloquear app.", true);
-                    }
+                    } catch (error) { console.error("Erro ao desbloquear:", error); showToast("Erro ao desbloquear app.", true); }
                 });
             }
         }
@@ -3437,8 +3222,8 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
                     <div id="dashboard-view" class="view active container">
                         
                         <section class="kpi-grid">
-                            <!-- KPI 1: PATRIMONIO (RESTAURADO) -->
-                            <div class="kpi-card" style="grid-column: 1 / -1; border-left: 4px solid var(--accent-purple);">
+                            <!-- KPI 1: PATRIMONIO (Bordes Dobles Morados) -->
+                            <div class="kpi-card" style="grid-column: 1 / -1; border-left: 4px solid var(--accent-purple); border-right: 4px solid var(--accent-purple);">
                                 <h3 class="kpi-title" style="color: var(--accent-purple);">
                                     <i data-lucide="gem" style="filter: drop-shadow(0 0 5px var(--accent-purple));"></i> 
                                     <span data-lang-key="kpiGlobalPatrimony">Total Patrimônio Neto</span>
@@ -3446,7 +3231,7 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
                                 <p class="kpi-value" id="kpi-global-patrimonio" style="color: var(--text-primary);"></p>
                             </div>
 
-                            <!-- KPI 2: CAPITAL DISTRIBUIDO -->
+                            <!-- KPI 2: CAPITAL DISTRIBUIDO (INTACTA - Borde Superior Amarillo) -->
                             <div class="kpi-card" style="border-top: 4px solid var(--warning-color);">
                                 <h3 class="kpi-title" style="color: var(--warning-color);">
                                     <i data-lucide="briefcase" style="filter: drop-shadow(0 0 5px var(--warning-color));"></i> 
@@ -3455,7 +3240,7 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
                                 <p class="kpi-value" id="kpi-global-distributed" style="color: var(--text-primary);"></p>
                             </div>
                             
-                            <!-- KPI 3: CAPITAL EN CAJAS -->
+                            <!-- KPI 3: CAPITAL EN CAJAS (INTACTA - Borde Superior Verde) -->
                             <div class="kpi-card" style="border-top: 4px solid var(--accent-green);">
                                 <h3 class="kpi-title" style="color: var(--accent-green);">
                                     <i data-lucide="banknote" style="filter: drop-shadow(0 0 5px var(--accent-green));"></i> 
@@ -3464,7 +3249,7 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
                                 <p class="kpi-value" id="kpi-global-capital-on-hand" style="color: var(--text-primary);"></p>
                             </div>
 
-                            <!-- KPI 4: MICRO SEGURO (NUEVA TARJETA - POSICIÓN CORRECTA) -->
+                            <!-- KPI 4: MICRO SEGURO (INTACTA - Borde Superior Azul) -->
                             <div class="kpi-card" style="border-top: 4px solid #0ea5e9; background-color: color-mix(in srgb, #0ea5e9 5%, var(--card-bg));">
                                 <h3 class="kpi-title" style="color: #0ea5e9;">
                                     <i data-lucide="shield-check" style="filter: drop-shadow(0 0 5px #0ea5e9);"></i> 
@@ -3473,14 +3258,16 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
                                 <p class="kpi-value" id="kpi-global-micro-insurance" style="color: var(--text-primary);"></p>
                             </div>
 
-                            <!-- KPI 5 & 6: CONTADORES -->
-                            <div class="kpi-card">
-                                <h3 class="kpi-title" data-lang-key="activeCollectors"><i data-lucide="users"></i></h3>
-                                <p class="kpi-value" id="kpi-active-collectors"></p>
+                            <!-- KPI 5: COBRADORES (Bordes Dobles Naranja/Ámbar) -->
+                            <div class="kpi-card" style="border-left: 4px solid #f59e0b; border-right: 4px solid #f59e0b;">
+                                <h3 class="kpi-title" style="color: #f59e0b;" data-lang-key="activeCollectors"><i data-lucide="users"></i> Cobradores</h3>
+                                <p class="kpi-value" id="kpi-active-collectors" style="color: #f59e0b;"></p>
                             </div>
-                            <div class="kpi-card">
-                                <h3 class="kpi-title" data-lang-key="activeClients"><i data-lucide="user-check"></i></h3>
-                                <p class="kpi-value" id="kpi-active-clients"></p>
+
+                            <!-- KPI 6: CLIENTES (Bordes Dobles Azules) -->
+                            <div class="kpi-card" style="border-left: 4px solid #3b82f6; border-right: 4px solid #3b82f6;">
+                                <h3 class="kpi-title" style="color: #3b82f6;" data-lang-key="activeClients"><i data-lucide="user-check"></i> Clientes</h3>
+                                <p class="kpi-value" id="kpi-active-clients" style="color: #3b82f6;"></p>
                             </div>
                         </section>
 
@@ -6408,16 +6195,19 @@ async function submitCollectorReport(collectorId) {
                 const status = calculateCollectorStatus(collector.id); 
                 const isTrackingActive = collector.isRealtimeTrackingActive;
 
-                // LÓGICA VISUAL DE LA CAMPANITA (Siempre visible)
+                // LÓGICA VISUAL DE LA CAMPANITA
                 const hasAlerts = collector.alertsCount > 0;
-                const bellBg = hasAlerts ? '#fef2f2' : 'var(--bg)'; // Rojo suave o Gris fondo
-                const bellBorder = hasAlerts ? '#fca5a5' : 'var(--border-color)'; // Borde rojo o gris
-                const bellColor = hasAlerts ? '#dc3545' : 'var(--text-secondary)'; // Icono rojo o gris
-                const bellFill = hasAlerts ? '#dc3545' : 'none'; // Relleno solo si hay alerta
+                const bellBg = hasAlerts ? '#fef2f2' : 'var(--bg)';
+                const bellBorder = hasAlerts ? '#fca5a5' : 'var(--border-color)';
+                const bellColor = hasAlerts ? '#dc3545' : 'var(--text-secondary)';
+                const bellFill = hasAlerts ? '#dc3545' : 'none';
                 const countWeight = hasAlerts ? '700' : '500';
 
+                // --- BORDES DOBLES BASADOS EN ESTADO ---
+                const cardBorderStyle = `border-left: 4px solid ${status.color}; border-right: 4px solid ${status.color};`;
+
                 return `
-                    <div class="collector-card" data-collector-id="${collector.id}">
+                    <div class="collector-card" data-collector-id="${collector.id}" style="${cardBorderStyle}">
                         <div class="item-avatar">
                             <img src="${collector.profilePictureUrl || placeholderUrl}" alt="Foto do Cobrador">
                         </div>
@@ -6428,12 +6218,10 @@ async function submitCollectorReport(collectorId) {
                                     <p class="item-subtext">${collector.clientCount} <span data-lang-key="activeClients"></span></p>
                                 </div>
                                 
-                                <!-- INDICADOR DE ALERTAS (SIEMPRE VISIBLE) -->
                                 <div style="display: flex; align-items: center; background-color: ${bellBg}; padding: 4px 8px; border-radius: 12px; border: 1px solid ${bellBorder}; margin-right: 10px;">
                                     <i data-lucide="bell" style="width: 14px; height: 14px; color: ${bellColor}; fill: ${bellFill};"></i>
                                     <span style="font-size: 0.8em; font-weight: ${countWeight}; color: ${bellColor}; margin-left: 4px;">${collector.alertsCount}</span>
                                 </div>
-                                <!-- FIN CAMPANITA -->
 
                                 <div class="item-details" style="display: flex; align-items: center; gap: 6px; color: var(--accent-purple);">
                                     <i data-lucide="gem" style="width: 16px; height: 16px;"></i>
@@ -6567,7 +6355,7 @@ async function submitCollectorReport(collectorId) {
 
         
 
-             function showClientDetails(clientId, loanIndex = 0) { 
+            function showClientDetails(clientId, loanIndex = 0) { 
             const client = allClients.find(c => c.id === clientId);
             window.showClientDetails = showClientDetails; 
             
@@ -6577,9 +6365,20 @@ async function submitCollectorReport(collectorId) {
             }
 
             const detailModal = document.getElementById('clientDetailModal');
+            
+            // --- TRADUCCIONES ---
+            const localLang = {
+                pt: { clientData: 'Dados do Cliente', noAddress: 'Sem endereço', edit: 'Editar' },
+                es: { clientData: 'Datos del Cliente', noAddress: 'Sin dirección', edit: 'Editar' },
+                en: { clientData: 'Client Data', noAddress: 'No address', edit: 'Edit' }
+            };
+            const txt = localLang[currentLang] || localLang.pt;
             const t = translations[currentLang] || translations['pt'];
             
-            // --- LÓGICA DE SELECCIÓN DE PRÉSTAMO ---
+            // --- LOGO OFICIAL WHATSAPP ---
+            const whatsappLogoUrl = "https://firebasestorage.googleapis.com/v0/b/lumix-financas-app.firebasestorage.app/o/LOGO%20WHATSAPP%20OFI.png?alt=media&token=e022ad51-a151-4812-bb3d-9be867dac891";
+
+            // --- LÓGICA PRÉSTAMO ---
             const displayableLoans = (client.loans || []).filter(l => l.status !== 'finished');
             const activeOrLastFinishedLoans = displayableLoans.length > 0 ? displayableLoans : (client.loans && client.loans.length > 0 ? [client.loans[client.loans.length - 1]] : []);
             
@@ -6597,19 +6396,16 @@ async function submitCollectorReport(collectorId) {
 
             const hasMultipleDisplayable = activeOrLastFinishedLoans.length > 1;
             
-            // --- CÁLCULOS FINANCIEROS ---
-            const paidAmount = (loan.history || [])
-                .filter(h => h.status === 'approved' || (!h.status && h.date))
-                .reduce((sum, h) => sum + (h.amount || 0), 0) + (loan.initialMigratedAmount || 0);
-
+            // --- CÁLCULOS ---
+            const paidAmount = (loan.history || []).filter(h => h.status === 'approved' || (!h.status && h.date)).reduce((sum, h) => sum + (h.amount || 0), 0) + (loan.initialMigratedAmount || 0);
             const loanDetails = calculateLoanDetails(loan);
             const fineAmount = loanDetails.lateFeesAccumulated || 0;
             const totalAmountWithFine = (loan.totalLoan || 0) + fineAmount;
             const remainingAmount = Math.max(0, totalAmountWithFine - paidAmount);
 
-            // --- 1. TRADUCCIÓN Y ESTADO ---
+            // --- ESTADO Y COLORES ---
             const currentStatus = loanDetails.status;
-            let statusClass = `status-${currentStatus}`;
+            let statusColorCode = 'var(--text-secondary)'; 
             
             const statusMap = {
                 'paid': { pt: 'EM DIA', es: 'AL DÍA', en: 'UP TO DATE' },
@@ -6620,7 +6416,9 @@ async function submitCollectorReport(collectorId) {
 
             let statusText = statusMap[currentStatus] ? statusMap[currentStatus][currentLang] : currentStatus.toUpperCase();
 
-            if (currentStatus === 'pending' || currentStatus === 'paid') statusClass = 'status-paid';
+            if (currentStatus === 'pending' || currentStatus === 'paid') statusColorCode = 'var(--accent-green)';
+            if (currentStatus === 'late') statusColorCode = 'var(--danger-color)';
+            if (currentStatus === 'finished') statusColorCode = '#3b82f6';
 
             if (currentStatus === 'late' && loanDetails.lateDays > 0) {
                 const daysLabel = { pt: 'dias', es: 'días', en: 'days' }[currentLang] || 'dias';
@@ -6629,13 +6427,13 @@ async function submitCollectorReport(collectorId) {
 
             const displayMicroInsurance = currentStatus === 'finished' ? 0 : (loan.microInsurance || 0);
 
-            // --- HISTORIAL ---
+            // --- HISTORIAL (Bordes Dobles) ---
             const historyHtml = (loan.history && loan.history.length > 0) ? 
                 [...loan.history].sort((a,b) => (b.date?.seconds || 0) - (a.date?.seconds || 0)).map((p) => {
                     const originalIndex = loan.history.indexOf(p);
                     let dateStr = 'N/A';
                     if (p.date?.seconds) dateStr = new Date(p.date.seconds * 1000).toLocaleDateString(currentLang === 'pt' ? 'pt-BR' : 'es-ES');
-                    return `<div class="payment-history-item" data-history-index="${originalIndex}"><span>${dateStr}</span><strong>${money(p.amount)}</strong></div>`;
+                    return `<div class="payment-history-item" data-history-index="${originalIndex}" style="border-left: 4px solid var(--accent-green); border-right: 4px solid var(--accent-green);"><span>${dateStr}</span><strong>${money(p.amount)}</strong></div>`;
                 }).join('') : '<p style="color: var(--text-secondary); padding: 10px;">Nenhum histórico de pagamento.</p>';
             
             // --- DOCUMENTOS ---
@@ -6644,7 +6442,7 @@ async function submitCollectorReport(collectorId) {
                     ${client.documents.map(doc => {
                         const isImage = doc.name.toLowerCase().match(/\.(jpeg|jpg|gif|png|webp)$/) || doc.url.includes('alt=media');
                         return `
-                            <div class="kpi-card doc-preview-trigger" data-doc-url="${doc.url}" data-doc-name="${doc.name}" style="padding: 10px; height: 100%; display: flex; flex-direction: column; align-items: center; text-align: center; border: 1px solid var(--border-color); transition: transform 0.2s; cursor: pointer;">
+                            <div class="kpi-card doc-preview-trigger" data-doc-url="${doc.url}" data-doc-name="${doc.name}" style="padding: 10px; height: 100%; display: flex; flex-direction: column; align-items: center; text-align: center; border-left: 4px solid var(--text-secondary); border-right: 4px solid var(--text-secondary); transition: transform 0.2s; cursor: pointer;">
                                 <div style="width: 100%; height: 80px; background-color: var(--bg); border-radius: 6px; margin-bottom: 8px; display: flex; align-items: center; justify-content: center; overflow: hidden;">
                                     ${isImage ? `<img src="${doc.url}" style="width: 100%; height: 100%; object-fit: cover;">` : `<i data-lucide="file-text" style="width: 32px; height: 32px; color: var(--text-secondary);"></i>`}
                                 </div>
@@ -6660,7 +6458,7 @@ async function submitCollectorReport(collectorId) {
                 if (remainder > 0.05 && (instVal - remainder) > 0.05) picoValue = remainder;
             }
 
-            // --- 3. PREPARACIÓN DEL CHAT ---
+            // --- CHAT ---
             const chatTitle = currentLang === 'es' ? 'Chat con el Cobrador' : (currentLang === 'en' ? 'Chat with Collector' : 'Chat com o Cobrador');
             const chatPlaceholder = currentLang === 'es' ? 'Escribe un mensaje...' : (currentLang === 'en' ? 'Type a message...' : 'Digite uma mensagem...');
             const historyTitle = currentLang === 'es' ? 'Historial de Pagos' : (currentLang === 'en' ? 'Payment History' : 'Histórico de Pagamentos');
@@ -6681,43 +6479,93 @@ async function submitCollectorReport(collectorId) {
                 `;
             }).join('') || `<div style="text-align:center; color:gray; font-size:0.8em; margin-top:10px;">${currentLang === 'es' ? 'Inicia la conversación...' : 'Inicie a conversa...'}</div>`;
 
+            const whatsappLink = client.whatsapp ? `https://wa.me/${client.whatsapp.replace(/\D/g, '')}` : null;
 
             detailModal.innerHTML = `
                 <header class="modal-header">
                     <button id="closeClientDetail"><i data-lucide="arrow-left"></i></button>
                     <span class="modal-title">${client.name}</span>
-                    <button id="editClientBtn" data-client-id="${client.id}" data-loan-index="${currentLoanIndex}"><i data-lucide="edit"></i></button>
                 </header>
                 
                 ${hasMultipleDisplayable ? `<div class="loan-tabs-wrapper"><div class="loan-tabs-container" id="loan-tabs-container">${client.loans.map((l, index) => (activeOrLastFinishedLoans.includes(l) || index === currentLoanIndex) ? `<button class="loan-tab ${index === currentLoanIndex ? 'active' : ''}" data-loan-index="${index}">Préstamo ${index + 1} ${l.status === 'finished' ? '(Finalizado)' : ''}</button>` : '').join('')}</div></div>` : ''}
 
                 <div class="modal-content-wrapper container">
-                    <!-- ESTADO -->
-                    <div class="kpi-card" style="text-align: center; margin-bottom: 20px;">
+                    <!-- ESTADO DEL PRÉSTAMO (Bordes Dobles Dinámicos) -->
+                    <div class="kpi-card" style="text-align: center; margin-bottom: 20px; border-left: 4px solid ${statusColorCode}; border-right: 4px solid ${statusColorCode};">
                         <h3 class="kpi-title" style="justify-content: center;">Estado do Préstamo ${currentLoanIndex + 1}</h3>
-                        <span class="payment-status ${statusClass}" style="font-size: 1.2em; font-weight: 600; padding: 8px 20px;">${statusText}</span>
+                        <span class="payment-status status-${currentStatus}" style="font-size: 1.2em; font-weight: 600; padding: 8px 20px; color: ${statusColorCode};">${statusText}</span>
                     </div>
+
+                    <!-- TARJETA: DADOS PESSOAIS + BOTONES ABAJO (Bordes Dobles Azules) -->
+                    <div class="kpi-card" style="margin-bottom: 20px; border-left: 4px solid var(--accent-blue); border-right: 4px solid var(--accent-blue);">
+                        <!-- DATOS SUPERIORES -->
+                        <div style="margin-bottom: 20px;">
+                            <h4 class="kpi-title" style="margin-bottom: 15px; color: var(--text-primary); border-bottom: 1px dashed var(--border-color); padding-bottom: 5px;">
+                                <i data-lucide="user-circle" style="width: 16px; height: 16px; margin-right: 5px;"></i> ${txt.clientData}
+                            </h4>
+                            
+                            <p style="margin: 0 0 10px; color: var(--text-secondary); font-size: 0.95em; display: flex; align-items: center; gap: 8px; white-space: normal; word-break: break-word;">
+                                <i data-lucide="map-pin" style="width: 16px; height: 16px; flex-shrink: 0; color: var(--accent-blue);"></i> 
+                                ${client.address || txt.noAddress}
+                            </p>
+                            
+                            ${client.phone ? `
+                            <p style="margin: 0 0 10px; color: var(--text-secondary); font-size: 0.95em; display: flex; align-items: center; gap: 8px;">
+                                <i data-lucide="phone" style="width: 16px; height: 16px; color: var(--accent-blue);"></i> ${client.phone}
+                            </p>` : ''}
+
+                            ${client.documentNumber ? `
+                            <p style="margin: 0; color: var(--text-secondary); font-size: 0.95em; display: flex; align-items: center; gap: 8px;">
+                                <i data-lucide="credit-card" style="width: 16px; height: 16px; color: var(--accent-blue);"></i> ${client.documentNumber}
+                            </p>` : ''}
+                        </div>
+
+                        <!-- BOTONES DE ACCIÓN (INFERIORES Y ALARGADOS) -->
+                        <div style="display: flex; gap: 10px; width: 100%; padding-top: 15px; border-top: 1px solid var(--border-color);">
+                            <button id="editClientBtn" data-client-id="${client.id}" data-loan-index="${currentLoanIndex}" class="btn-secondary" style="flex: 1; border-radius: 8px; display: flex; align-items: center; justify-content: center; background-color: var(--bg); border: 1px solid var(--border-color); color: var(--text-secondary); font-weight: 600; padding: 12px;">
+                                <i data-lucide="edit-2" style="width: 18px; height: 18px; margin-right: 6px;"></i> ${txt.edit}
+                            </button>
+                            ${whatsappLink ? `
+                            <a href="${whatsappLink}" target="_blank" class="btn-primary" style="flex: 1; background-color: #25D366; border-color: #25D366; border-radius: 8px; display: flex; align-items: center; justify-content: center; text-decoration: none; box-shadow: 0 2px 5px rgba(0,0,0,0.1); font-weight: 600; color: white; padding: 12px;">
+                                <img src="${whatsappLogoUrl}" style="width: 20px; height: 20px; margin-right: 6px;"> WhatsApp
+                            </a>` : ''}
+                        </div>
+                    </div>
+                    <!-- FIN TARJETA DATOS -->
                     
+                    <!-- KPI GRID (Bordes Dobles de Colores) -->
                     <section class="kpi-grid-profile" style="margin-bottom: 30px;">
-                        <div class="kpi-card"><h3 class="kpi-title"><i data-lucide="coins"></i> <span data-lang-key="totalValue">Valor Total</span></h3><p class="kpi-value">${money(totalAmountWithFine)}</p></div>
-                        <div class="kpi-card"><h3 class="kpi-title"><i data-lucide="receipt"></i> <span data-lang-key="installmentValue">Valor da Parcela</span></h3><p class="kpi-value" style="color: var(--accent-purple);">${money(loan.originalInstallmentAmount)}</p></div>
-                        <div class="kpi-card" style="border-color: var(--accent-orange); border-width: 1px;">
+                        <div class="kpi-card" style="border-left: 4px solid var(--text-primary); border-right: 4px solid var(--text-primary);">
+                            <h3 class="kpi-title"><i data-lucide="coins"></i> <span data-lang-key="totalValue">Valor Total</span></h3>
+                            <p class="kpi-value">${money(totalAmountWithFine)}</p>
+                        </div>
+                        
+                        <div class="kpi-card" style="border-left: 4px solid var(--accent-purple); border-right: 4px solid var(--accent-purple);">
+                            <h3 class="kpi-title"><i data-lucide="receipt"></i> <span data-lang-key="installmentValue">Valor da Parcela</span></h3>
+                            <p class="kpi-value" style="color: var(--accent-purple);">${money(loan.originalInstallmentAmount)}</p>
+                        </div>
+                        
+                        <div class="kpi-card" style="border-left: 4px solid var(--accent-orange); border-right: 4px solid var(--accent-orange);">
                             <h3 class="kpi-title"><i data-lucide="trending-up" style="color: var(--accent-orange);"></i> Pico</h3>
                             <p class="kpi-value" style="color: var(--accent-orange);">${money(picoValue)}</p>
                         </div>
-                        <div class="kpi-card"><h3 class="kpi-title"><i data-lucide="trending-up"></i> <span data-lang-key="totalPaid">Pago</span></h3><p class="kpi-value green">${money(paidAmount)}</p></div>
                         
-                        <div class="kpi-card" style="border-color: #ef4444; border-width: 1px;">
+                        <div class="kpi-card" style="border-left: 4px solid var(--accent-green); border-right: 4px solid var(--accent-green);">
+                            <h3 class="kpi-title"><i data-lucide="trending-up"></i> <span data-lang-key="totalPaid">Pago</span></h3>
+                            <p class="kpi-value green">${money(paidAmount)}</p>
+                        </div>
+                        
+                        <div class="kpi-card" style="border-left: 4px solid #ef4444; border-right: 4px solid #ef4444;">
                             <h3 class="kpi-title"><i data-lucide="alert-triangle" style="color: #ef4444;"></i> Multa</h3>
                             <p class="kpi-value" style="color: #ef4444;">${money(fineAmount)}</p>
                         </div>
 
-                        <div class="kpi-card" style="background-color: color-mix(in srgb, #0ea5e9 10%, var(--surface)); border-color: #0ea5e9;">
+                        <div class="kpi-card" style="background-color: color-mix(in srgb, #0ea5e9 10%, var(--surface)); border-color: #0ea5e9; border-left: 4px solid #0ea5e9; border-right: 4px solid #0ea5e9;">
                            <h3 class="kpi-title"><i data-lucide="shield-check" style="color: #0ea5e9;"></i> <span data-lang-key="microInsurance">Micro Seguro</span></h3>
                            <p class="kpi-value" style="color: #0ea5e9;">${money(displayMicroInsurance)}</p>
                         </div>
 
-                       <div class="kpi-card" style="border-color: var(--danger-color);">
+                       <div class="kpi-card" style="border-left: 4px solid var(--danger-color); border-right: 4px solid var(--danger-color);">
                            <h3 class="kpi-title"><i data-lucide="receipt-text"></i> <span data-lang-key="remainingBalance">Total Devido Agora</span></h3>
                            <p class="kpi-value" style="color: var(--danger-color); font-size: 1.4em;">${money(remainingAmount)}</p>
                        </div>
@@ -6730,8 +6578,8 @@ async function submitCollectorReport(collectorId) {
                         ${docsHtml}
                     </section>
 
-                    <!-- SECCIÓN CHAT -->
-                    <section style="margin-top: 30px; background-color: var(--surface); padding: 15px; border-radius: 12px; border: 1px solid var(--border-color);">
+                    <!-- SECCIÓN CHAT (Bordes Dobles Azules) -->
+                    <section style="margin-top: 30px; background-color: var(--surface); padding: 15px; border-radius: 12px; border: 1px solid var(--border-color); border-left: 4px solid var(--accent-blue); border-right: 4px solid var(--accent-blue);">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                             <h2 class="section-title" style="border: none; margin: 0; padding: 0; color: var(--accent-blue); font-size: 1.1em;">
                                 <i data-lucide="message-circle" style="width: 20px; height: 20px; vertical-align: middle;"></i> ${chatTitle}
@@ -6762,7 +6610,6 @@ async function submitCollectorReport(collectorId) {
                 </div>
             `;
 
-            //history.pushState({ modal: 'clientDetailView', clientId: clientId, loanIndex: currentLoanIndex }, `Details for ${client.name}`, `#client/${clientId}/${currentLoanIndex}`);
             detailModal.classList.add('active');
             lucide.createIcons({ nodes: detailModal.querySelectorAll('[data-lucide]') });
             applyLanguage(currentLang);
@@ -6802,8 +6649,6 @@ async function submitCollectorReport(collectorId) {
 
                         await updateDoc(clientRef, { loans: updatedLoans });
 
-                        // --- TRADUCCIÓN DE NOTIFICACIÓN ---
-                        // "Nuevo mensaje sobre CLIENTE: TEXTO"
                         let msgPrefix = 'Nova mensagem sobre';
                         if (currentLang === 'es') msgPrefix = 'Nuevo mensaje sobre';
                         else if (currentLang === 'en') msgPrefix = 'New message regarding';
@@ -6888,6 +6733,7 @@ async function submitCollectorReport(collectorId) {
             });
 
             detailModal.querySelector('#closeClientDetail').addEventListener('click', () => detailModal.classList.remove('active'));
+            
             detailModal.querySelector('#editClientBtn').addEventListener('click', () => showClientFormModal(clientId));
             
             const historyList = detailModal.querySelector('#client-payment-history-list');
@@ -8966,5 +8812,3 @@ async function showRefinanceVerificationModal(clientId) {
     </script>
 </body>
     </html>
-
-
