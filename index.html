@@ -1465,6 +1465,7 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
         // ... código existente ...
     const translations = {
         pt: {
+            weeklyLoans: 'Empréstimos na Semana', // <--- NUEVO
             securitySettings: 'Segurança e Permissões',
             blockPayments: 'Bloquear Pagamentos',
             blockPaymentsDesc: 'Impede o cobrador de receber.',
@@ -1483,7 +1484,7 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             mapRemaining: 'Resta',
             viewDetails: 'Ver Ficha',
             clientLabel: 'CLIENTE',
-            editData: 'Editar Dados', // <--- AGREGAR ESTA LÍNEA
+            editData: 'Editar Dados',
             routeName: 'Nome da Rota (Visível no App)',
             routeNameDesc: 'Este nome aparecerá de forma profissional no topo do aplicativo do cobrador.',
             routePlaceholder: 'Ex: Rota Centro, Rota Norte...',
@@ -1591,11 +1592,8 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             settlementRejected: 'Retirada Rejeitada',
             settlementApproved: 'Retirada APROVADA com sucesso!',
             downloadGraphicPDF: 'Baixar PDF Gráfico',
-            // --- NUEVO ---
             chartCenterBalance: 'SALDO (CAIXA)',  
             activeFines: 'Multas Ativas (Total)',
-            registerSettlement: 'Registrar Retirada',
-            aportarCapital: 'Aportar Capital',
             unlockAppButton: 'Desbloquear (30m)',
             unlockAppTitle: 'Desbloquear App',
             unlockAppMsg: 'Isso permitirá que o cobrador acesse o aplicativo por 30 minutos, ignorando horários. Continuar?',
@@ -1612,12 +1610,6 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             cancel: 'Cancelar',
             capitalOnHandLabel: 'Capital em Mãos',
             microInsuranceLabelSimple: 'Micro Seguro',
-            appUnlockedSuccess: 'App do cobrador desbloqueado!', // Mensaje corregido
-            welcomeAdmin: 'Bienvenido, Administrador',
-            manageTeamDesc: 'Gestione su equipo y operaciones con eficiencia.',
-            accessPanel: 'Acceder al Panel',
-            emailLabel: 'Correo Electrónico',
-            passwordLabel: 'Contraseña',
             fineManagerTitle: 'Gestão de Multas',
             fineManagerDesc: 'Busque um cliente para configurar dias de atraso e valor da multa.',
             searchClientPlaceholder: 'Buscar cliente...',
@@ -1627,6 +1619,7 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
         },  
 
         es: {
+            weeklyLoans: 'Préstamos en la Semana', // <--- NUEVO
             securitySettings: 'Seguridad y Permisos',
             blockPayments: 'Bloquear Pagos',
             blockPaymentsDesc: 'Impide al cobrador recibir dinero.',
@@ -1640,7 +1633,7 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             mapRemaining: 'Resta',
             viewDetails: 'Ver Ficha',
             clientLabel: 'CLIENTE',
-            editData: 'Editar Datos', // <--- AGREGAR ESTA LÍNEA
+            editData: 'Editar Datos',
             routeName: 'Nombre de la Ruta (Visible en App)',
             routeNameDesc: 'Este nombre aparecerá de forma profesional en la parte superior de la app del cobrador.',
             routePlaceholder: 'Ej: Ruta Centro, Ruta Norte...',
@@ -1743,12 +1736,8 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             settlementRejected: 'Retiro Rechazado',
             settlementApproved: '¡Retiro APROBADO con éxito!',
             downloadGraphicPDF: 'Descargar PDF Gráfico',
-            // --- NUEVO ---
             chartCenterBalance: 'SALDO (CAJA)', 
-            // --- NUEVOS (PEGAR AL FINAL DEL BLOQUE ES) ---
             activeFines: 'Multas Activas (Total)',
-            registerSettlement: 'Registrar Retiro',
-            aportarCapital: 'Aportar Capital',
             unlockAppButton: 'Desbloquear (30m)',
             unlockAppTitle: 'Desbloquear App',
             unlockAppMsg: 'Esto permitirá al cobrador acceder a la app por 30 minutos, ignorando horarios. ¿Continuar?',
@@ -1757,7 +1746,6 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             deleteAlertTitle: '¿Borrar Alerta?',
             deleteAlertMsg: '¿Desea eliminar esta observación del cliente?',
             confirmDeleteShort: 'Eliminar',
-            // --- NUEVOS (MODALES Y DESBLOQUEO) ---
             valToWithdraw: 'Valor a Retirar',
             valToInject: 'Valor a Aportar',
             obsOptional: 'Observaciones (Opcional)',
@@ -1766,7 +1754,7 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             cancel: 'Cancelar',
             capitalOnHandLabel: 'Capital en Mano',
             microInsuranceLabelSimple: 'Micro Seguro',
-            appUnlockedSuccess: 'App cobrador desbloqueada', // Mensaje corregido exacto
+            appUnlockedSuccess: 'App cobrador desbloqueada', 
             welcomeAdmin: 'Welcome, Administrator',
             manageTeamDesc: 'Manage your team and operations efficiently.',
             accessPanel: 'Access Dashboard',
@@ -1780,6 +1768,7 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             insuranceLabelShort: 'Seguro',
         },
         en: {
+            weeklyLoans: 'Weekly Loans', // <--- NUEVO
             securitySettings: 'Security & Permissions',
             blockPayments: 'Block Payments',
             blockPaymentsDesc: 'Prevents collector from receiving.',
@@ -1793,7 +1782,7 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             mapRemaining: 'Balance',
             viewDetails: 'View Details',
             clientLabel: 'CLIENT',
-            editData: 'Edit Data', // <--- AGREGAR ESTA LÍNEA
+            editData: 'Edit Data',
             routeName: 'Route Name (Visible in App)',
             routeNameDesc: 'This name will appear professionally at the top of the collector app.',
             routePlaceholder: 'Ex: Downtown Route, North Route...',
@@ -1896,9 +1885,7 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             settlementRejected: 'Withdrawal Rejected',
             settlementApproved: 'Withdrawal APPROVED successfully!',
             downloadGraphicPDF: 'Download Graphic PDF',
-            // --- NUEVO ---
             chartCenterBalance: 'CASH BALANCE',
-             // --- NUEVOS (MODALES Y DESBLOQUEO) ---
             valToWithdraw: 'Amount to Withdraw',
             valToInject: 'Amount to Inject',
             obsOptional: 'Observations (Optional)',
@@ -1907,7 +1894,7 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             cancel: 'Cancel',
             capitalOnHandLabel: 'Capital on Hand',
             microInsuranceLabelSimple: 'Micro Insurance',
-            appUnlockedSuccess: 'Collector app unlocked!', // Mensaje corregido
+            appUnlockedSuccess: 'Collector app unlocked!', 
             fineManagerTitle: 'Fine Management',
             fineManagerDesc: 'Search for a client to configure delay days and fine amount.',
             searchClientPlaceholder: 'Search client...',
@@ -2439,15 +2426,39 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                 dailyCollected = 0, weeklyCollected = 0
             } = metrics; 
 
-            // --- RECOLECTAR ALERTAS ---
+            // --- RECOLECTAR ALERTAS Y CALCULAR PRÉSTAMOS SEMANALES ---
             let clientsWithAlerts = [];
+            
+            // Lógica para calcular préstamos de la semana
+            let weeklyLoansAmount = 0;
+            const todayForLoans = new Date();
+            todayForLoans.setHours(0,0,0,0);
+            const weekStartForLoans = new Date(todayForLoans);
+            weekStartForLoans.setDate(weekStartForLoans.getDate() - weekStartForLoans.getDay()); // Domingo como inicio de semana
+
             const clients = allClients.filter(c => c.collectorId === collectorId); 
             clients.forEach(c => {
+                // Alertas
                 (c.loans || []).forEach((l, idx) => {
                     if (l.status !== 'finished' && l.notes && l.notes.trim() !== '') {
                         clientsWithAlerts.push({
                             clientId: c.id, clientName: c.name, loanIndex: idx, note: l.notes
                         });
+                    }
+                    
+                    // Cálculo de Préstamos Semanales
+                    if (l.startDate && l.startDate.seconds) {
+                        const loanDate = new Date(l.startDate.seconds * 1000);
+                        // Si el préstamo se hizo esta semana (y no es migración)
+                        if (loanDate >= weekStartForLoans && !l.migrationDate) {
+                            let principal = parseFloat(l.principalAmount);
+                            if (isNaN(principal) && l.totalLoan) {
+                                // Estimación segura si no existe el capital explícito
+                                const rate = parseFloat(c.interestRate) || 20; 
+                                principal = parseFloat(l.totalLoan) / (1 + (rate / 100));
+                            }
+                            weeklyLoansAmount += (principal || 0);
+                        }
                     }
                 });
             });
@@ -2612,6 +2623,15 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                             <p class="kpi-value" style="color: #0ea5e9;">${money(collectorTotalInsurance)}</p>
                         </div>
                     </section>
+
+                    <!-- AQUÍ ESTÁ LA NUEVA TARJETA DE PRÉSTAMOS SEMANALES -->
+                    <div class="kpi-card" style="margin-bottom: 20px; text-align: center; border-left: 4px solid #00f2ff; border-right: 4px solid #00f2ff;">
+                        <h3 class="kpi-title" style="justify-content: center; color: #00f2ff;">
+                            <i data-lucide="briefcase" style="margin-right: 8px;"></i> 
+                            <span data-lang-key="weeklyLoans">Empréstimos na Semana</span>
+                        </h3>
+                        <p class="kpi-value" style="color: #00f2ff; font-size: 1.8em;">${money(weeklyLoansAmount)}</p>
+                    </div>
 
                     <!-- TARJETA SEGURIDAD (Bordes Dobles Grises) -->
                     <div class="kpi-card" style="margin-bottom: 30px; border-left: 4px solid var(--text-secondary); border-right: 4px solid var(--text-secondary);">
@@ -8757,4 +8777,5 @@ async function showRefinanceVerificationModal(clientId) {
     </script>
 </body>
     </html>
+
 
