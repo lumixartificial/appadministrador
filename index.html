@@ -7859,28 +7859,23 @@ function updateAdminNotificationsView() {
             }
             const loan = (client.loans && client.loans[loanIndex]) ? client.loans[loanIndex] : {};
 
-            // === CÁLCULOS DE SEGURIDAD (CORRECCIÓN CRÍTICA) ===
-            // Calculamos los valores en variables antes de usarlos en el HTML.
-            // Esto evita que un valor nulo rompa todo el formulario y devuelva "NaN".
-            
-            // Tasa: Si no existe, usamos 0 para evitar errores matemáticos
+            // === CÁLCULOS DE SEGURIDAD ===
             const safeInterest = parseFloat(loan.interestRate || client.interestRate) || 0;
             const safeTotal = parseFloat(loan.totalLoan) || 0;
             const safeMicroInsurance = parseFloat(loan.microInsurance) || 0;
             
-            // Capital (Valor Prestado): Derivado del Total y la Tasa
-            // Si Total=1200 y Tasa=20%, Capital = 1000.
-            let safePrincipal = 0;
-            if (safeTotal > 0) {
-                // Si la tasa es 0, evitamos dividir por 1 (queda igual). Si hay tasa, aplicamos fórmula.
+            // Intentamos recuperar el capital original guardado, si no, lo calculamos
+            let safePrincipal = parseFloat(loan.principalAmount);
+            if (!safePrincipal && safeTotal > 0) {
                 const divisor = 1 + (safeInterest / 100);
                 safePrincipal = (safeTotal / divisor).toFixed(2);
+            } else if (!safePrincipal) {
+                safePrincipal = 0;
             }
 
             // Cuotas
             const installmentsStr = loan.installments || '0/0';
             const safeInstallmentsCount = installmentsStr.split('/')[1] || 0;
-            // ===================================================
 
             const formModal = document.getElementById('clientFormModal');
             const collectorOptions = allCollectors.map(c =>
@@ -7921,9 +7916,8 @@ function updateAdminNotificationsView() {
                             <select id="client-collector">${collectorOptions}</select>
                         </div>
                         <div class="form-group grid-2">
-                            <!-- USAMOS LAS VARIABLES SEGURAS AQUÍ -->
                             <div>
-                                <label>Valor do Empréstimo</label>
+                                <label>Valor do Empréstimo (Capital)</label>
                                 <input type="number" id="client-loan-amount" required value="${safePrincipal}">
                             </div>
                             <div>
@@ -7947,7 +7941,6 @@ function updateAdminNotificationsView() {
                         <div class="form-group grid-2">
                              <div>
                                 <label>Número de Parcelas</label>
-                                <!-- USAMOS LA VARIABLE SEGURA AQUÍ -->
                                 <input type="number" id="client-installments" required value="${safeInstallmentsCount}">
                              </div>
                             <div><label>Valor da Parcela</label><input type="text" id="client-installment-value" readonly></div>
@@ -7998,7 +7991,6 @@ function updateAdminNotificationsView() {
             formModal.querySelector('#closeClientForm').addEventListener('click', () => formModal.classList.remove('active'));
             
             formModal.querySelector('#saveClientBtn').addEventListener('click', async () => {
-                 // SEGURIDAD EXTRA: Usamos || 0 por si el usuario borró todo el campo
                  const loanAmount = parseFloat(loanAmountInput.value) || 0;
                  const interest = parseFloat(interestInput.value) || 0;
                  const installments = parseInt(installmentsInput.value) || 0;
@@ -8017,8 +8009,9 @@ function updateAdminNotificationsView() {
                          originalInstallmentAmount: installmentValue,
                          installments: `${(updatedLoans[loanIndex].installments || '0/0').split('/')[0]}/${installments}`,
                          
-                         // Mantenemos la corrección de estado que pediste antes
-                        
+                         // [CORRECCIÓN CRÍTICA] Forzamos la actualización del Capital Principal
+                         // Esto es lo que arregla el descuadre de caja.
+                         principalAmount: loanAmount, 
                      };
                  }
 
@@ -8029,8 +8022,10 @@ function updateAdminNotificationsView() {
                     phone: document.getElementById('client-phone').value,
                     collectorId: document.getElementById('client-collector').value,
                     
+                    // Actualizamos también la raíz por compatibilidad
                     totalLoan: totalToPay,
                     amount: installmentValue,
+                    principalAmount: loanAmount, // <-- Importante
                     installments: `${(client.installments || '0/0').split('/')[0]}/${installments}`,
                     interestRate: interest,
                     paymentDays: Array.from(document.querySelectorAll('#clientFormModal .day-selector input:checked')).map(el => parseInt(el.value)),
@@ -8777,5 +8772,6 @@ async function showRefinanceVerificationModal(clientId) {
     </script>
 </body>
     </html>
+
 
 
