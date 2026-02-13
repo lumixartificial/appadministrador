@@ -4464,9 +4464,11 @@ async function submitCollectorReport(collectorId) {
                         else if (status === 'pending') { statusLabel = 'PENDENTE'; statusColor = '#f59e0b'; }
                         else if (status === 'finished') { statusLabel = 'FINALIZADO'; statusColor = '#3b82f6'; }
 
-                        const historyPaid = (activeLoan.history || [])
-                            .filter(h => h.status !== 'pending_verification' && h.status !== 'rejected' && h.status !== 'postponed' && h.method !== 'migration')
-                            .reduce((sum, h) => sum + (parseFloat(h.amount) || 0), 0);
+                        // === CORRECCIÓN ADMINISTRADOR: NO SUMAR MIGRACIÓN DOBLE ===
+                     const historyPaid = (loan.history || [])
+                    .filter(h => h.status !== 'pending_verification' && h.status !== 'rejected' && h.status !== 'postponed' && h.method !== 'migration')
+                    .reduce((sum, h) => sum + (h.amount || 0), 0);
+                    // ==========================================================
                         
                         const totalPaid = (activeLoan.initialMigratedAmount || 0) + historyPaid;
                         const totalDebt = (parseFloat(activeLoan.totalLoan) || 0) + (details.lateFeesAccumulated || 0);
@@ -6535,8 +6537,9 @@ async function submitCollectorReport(collectorId) {
             
             // --- CÁLCULOS FINANCIEROS ---
             const paidAmount = (loan.history || [])
-                .filter(h => h.status === 'approved' || (!h.status && h.date))
+                .filter(h => (h.status === 'approved' || (!h.status && h.date)) && h.method !== 'migration') // <--- AQUÍ ESTÁ LA CORRECCIÓN
                 .reduce((sum, h) => sum + (h.amount || 0), 0) + (loan.initialMigratedAmount || 0);
+        
 
             const loanDetails = calculateLoanDetails(loan);
             const fineAmount = loanDetails.lateFeesAccumulated || 0;
@@ -8937,7 +8940,3 @@ async function showRefinanceVerificationModal(clientId) {
     </script>
 </body>
     </html>
-
-
-
-
