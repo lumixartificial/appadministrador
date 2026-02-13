@@ -1465,6 +1465,9 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
         // ... código existente ...
     const translations = {
         pt: {
+            financialOperations: 'Histórico Financeiro (Gastos/Retiradas)',
+            editExpenseTitle: 'Editar Gasto',
+            saveChanges: 'Salvar Alterações',
             weeklyLoans: 'Empréstimos na Semana', // <--- NUEVO
             securitySettings: 'Segurança e Permissões',
             blockPayments: 'Bloquear Pagamentos',
@@ -1619,6 +1622,9 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
         },  
 
         es: {
+            financialOperations: 'Historial Financiero (Gastos/Retiros)',
+            editExpenseTitle: 'Editar Gasto',
+            saveChanges: 'Guardar Cambios',
             weeklyLoans: 'Préstamos en la Semana', // <--- NUEVO
             securitySettings: 'Seguridad y Permisos',
             blockPayments: 'Bloquear Pagos',
@@ -1768,6 +1774,9 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             insuranceLabelShort: 'Seguro',
         },
         en: {
+            financialOperations: 'Financial History (Expenses/Withdrawals)',
+            editExpenseTitle: 'Edit Expense',
+            saveChanges: 'Save Changes',
             weeklyLoans: 'Weekly Loans', // <--- NUEVO
             securitySettings: 'Security & Permissions',
             blockPayments: 'Block Payments',
@@ -2331,6 +2340,13 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                 allExpenses = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 expensesReady = true; 
                 checkAndRunGlobalUpdate(); 
+                
+                // --- ARREGLO: Actualizar perfil si está abierto ---
+                const detailView = document.getElementById('collectorDetailView');
+                if (detailView && detailView.classList.contains('active')) {
+                    const collectorId = detailView.querySelector('#editCollectorBtn')?.dataset.collectorId; 
+                    if (collectorId) showCollectorDetails(collectorId); 
+                }
             });
 
             onSnapshot(collection(db, 'companies', currentCompanyId, 'settlements'), snapshot => {
@@ -2571,6 +2587,72 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             const alertTitle = currentLang === 'es' ? 'ALERTAS / MENSAJES (App)' : (currentLang === 'en' ? 'ALERTS / MESSAGES' : 'ALERTAS / MENSAGENS (App)');
             const searchPlace = currentLang === 'es' ? 'Buscar alerta...' : (currentLang === 'en' ? 'Search alert...' : 'Buscar alerta...');
             const noAlerts = currentLang === 'es' ? 'Sin alertas pendientes.' : (currentLang === 'en' ? 'No pending alerts.' : 'Sem alertas pendentes.');
+            
+            // === [INICIO] NUEVA LÓGICA DE LISTA UNIFICADA ===
+    // 1. Unimos Gastos + Retiros + Aportes en una sola lista
+    const mixedOperations = [
+        ...allExpenses.filter(e => e.collectorId === collectorId).map(e => ({
+            ...e, type: 'expense', 
+            label: translations[currentLang].other || 'Gasto', // Usa traducción o fallback
+            labelCategory: e.category ? (translations[currentLang][e.category] || e.category) : 'Outros',
+            color: '#ef4444', icon: 'shopping-cart', // Rojo para gastos
+            val: e.value,
+            canEdit: true 
+        })),
+        ...allSettlements.filter(s => s.collectorId === collectorId && s.status === 'approved').map(s => ({
+            ...s, type: 'settlement', 
+            label: s.type === 'insurance' ? 'Micro Seguro' : (translations[currentLang].withdrawal || 'Retirada'),
+            labelCategory: s.notes || '-',
+            color: s.type === 'insurance' ? '#0ea5e9' : '#a855f7', icon: s.type === 'insurance' ? 'shield-check' : 'arrow-down-circle', // Azul/Morado
+            val: s.amount,
+            canEdit: false
+        })),
+        ...allCapitalInjections.filter(i => i.collectorId === collectorId && i.status === 'approved').map(i => ({
+            ...i, type: 'injection', 
+            label: translations[currentLang].aportarCapital || 'Aporte',
+            labelCategory: i.notes || '-',
+            color: '#10b981', icon: 'arrow-up-circle', // Verde
+            val: i.amount,
+            canEdit: false
+        }))
+    ].sort((a, b) => { // Ordenar por fecha (más reciente primero)
+        const dateA = a.date?.seconds || 0;
+        const dateB = b.date?.seconds || 0;
+        return dateB - dateA;
+    });
+
+    // 2. Generamos el HTML
+    let operationsHtml = '';
+    if (mixedOperations.length === 0) {
+        operationsHtml = `<p style="text-align: center; color: var(--text-secondary); padding: 15px; font-size: 0.9em;">Sem registros.</p>`;
+    } else {
+        operationsHtml = mixedOperations.slice(0, 30).map(op => { // Mostramos los últimos 30
+            const dateStr = op.date?.seconds ? new Date(op.date.seconds * 1000).toLocaleDateString() : '--/--';
+            
+            // Botón de editar SOLO si es gasto
+            const editButton = op.canEdit 
+                ? `<button onclick="window.editExpense('${op.id}', '${op.val}', '${op.description || ''}')" style="background:none; border:none; color:var(--text-secondary); cursor:pointer; text-decoration:underline; font-size:0.75em; margin-left:8px;">(Editar)</button>` 
+                : '';
+
+            return `
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; margin-bottom: 8px; background-color: var(--surface); border-radius: 8px; border-left: 4px solid ${op.color}; border: 1px solid var(--border-color); border-left-width: 4px; border-left-color: ${op.color};">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <div style="color: ${op.color}; background-color: ${op.color}15; padding: 6px; border-radius: 50%;">
+                        <i data-lucide="${op.icon}" style="width: 16px; height: 16px;"></i>
+                    </div>
+                    <div>
+                        <strong style="font-size: 0.9em; color: var(--text-primary); display:block;">${op.label} <span style="font-weight:400; font-size:0.85em; opacity:0.8;">- ${op.labelCategory}</span></strong>
+                        <span style="font-size: 0.75em; color: var(--text-secondary);">${dateStr}</span>
+                    </div>
+                </div>
+                <div style="text-align: right;">
+                    <span style="font-weight: 700; color: ${op.color}; font-size: 1em;">${money(op.val)}</span>
+                    <div>${editButton}</div>
+                </div>
+            </div>`;
+        }).join('');
+    }
+    // === [FIN] NUEVA LÓGICA ===
 
             detailView.innerHTML = `
                 <header class="modal-header">
@@ -2625,6 +2707,21 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                     </section>
 
                     <!-- AQUÍ ESTÁ LA NUEVA TARJETA DE PRÉSTAMOS SEMANALES -->
+                    <!-- NUEVA SECCIÓN: HISTORIAL DE GASTOS Y MOVIMIENTOS (COLAPSIBLE) -->
+    <details class="kpi-card" style="margin-bottom: 30px; border-left: 4px solid var(--text-secondary); border-right: 4px solid var(--text-secondary); padding: 0; overflow: hidden;">
+        <summary style="cursor: pointer; padding: 15px; display: flex; align-items: center; justify-content: space-between; font-weight: 700; color: var(--text-primary); list-style: none;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <i data-lucide="list"></i> <span>${t.financialOperations || 'Histórico Financeiro'}</span>
+            </div>
+            <i data-lucide="chevron-down" style="width: 18px; height: 18px; opacity: 0.6;"></i>
+        </summary>
+        
+        <div style="max-height: 300px; overflow-y: auto; padding: 0 10px 15px 10px; border-top: 1px solid var(--border-color); background-color: var(--bg);">
+            <div style="padding-top: 10px;">
+                ${operationsHtml}
+            </div>
+        </div>
+    </details>
                     <div class="kpi-card" style="margin-bottom: 20px; text-align: center; border-left: 4px solid #00f2ff; border-right: 4px solid #00f2ff;">
                         <h3 class="kpi-title" style="justify-content: center; color: #00f2ff;">
                             <i data-lucide="briefcase" style="margin-right: 8px;"></i> 
@@ -8768,10 +8865,79 @@ async function showRefinanceVerificationModal(clientId) {
         // --- HACER FUNCIONES ACCESIBLES DESDE EL MAPA ---
         window.showClientDetails = showClientDetails;
         window.showCollectorDetails = showCollectorDetails;
+        // === NUEVA FUNCIÓN PARA EDITAR GASTOS ===
+        window.editExpense = async function(expenseId, currentValue, currentDesc) {
+            const modal = document.getElementById('reportOptionsModal');
+            const t = translations[currentLang];
+            modal.classList.add('active');
+
+            modal.innerHTML = `
+                <div class="modal-content" style="max-width: 400px;">
+                    <button class="close-modal-btn" style="position: absolute; top: 10px; right: 10px; background: none; border: none; font-size: 24px; color: var(--text-secondary);">&times;</button>
+                    
+                    <h3 style="margin-bottom: 15px; text-align: center;">${t.editExpenseTitle || 'Editar Gasto'}</h3>
+                    
+                    <div class="form-group">
+                        <label>Valor</label>
+                        <input type="number" id="edit-expense-val" step="0.01" value="${currentValue}" style="font-size: 1.2em; text-align: center; font-weight: bold; color: var(--danger-color);">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Descrição / Obs</label>
+                        <textarea id="edit-expense-desc" rows="2">${currentDesc}</textarea>
+                    </div>
+
+                    <div style="display: flex; gap: 10px; margin-top: 20px;">
+                        <button class="btn-secondary" id="cancel-edit-exp" style="flex: 1;">Cancelar</button>
+                        <button class="btn-primary" id="save-edit-exp" style="flex: 1;">${t.saveChanges || 'Salvar'}</button>
+                    </div>
+                </div>
+            `;
+
+            // Listeners
+            const close = () => modal.classList.remove('active');
+            modal.querySelector('.close-modal-btn').addEventListener('click', close);
+            modal.querySelector('#cancel-edit-exp').addEventListener('click', close);
+
+            modal.querySelector('#save-edit-exp').addEventListener('click', async (e) => {
+                const newVal = parseFloat(document.getElementById('edit-expense-val').value);
+                const newDesc = document.getElementById('edit-expense-desc').value;
+
+                if (isNaN(newVal) || newVal <= 0) {
+                    showToast('Valor inválido.', true);
+                    return;
+                }
+
+                e.currentTarget.disabled = true;
+                e.currentTarget.innerHTML = '...';
+
+                try {
+                    // Actualizar en Firebase
+                    const expenseRef = doc(db, 'companies', currentCompanyId, 'expenses', expenseId);
+                    await updateDoc(expenseRef, {
+                        value: newVal,
+                        description: newDesc,
+                        // Opcional: registrar quién editó y cuándo
+                        lastEditedBy: auth.currentUser.uid,
+                        lastEditedAt: serverTimestamp()
+                    });
+
+                    showToast('Gasto atualizado com sucesso!', 'success');
+                    close();
+                    // La vista se actualizará sola gracias a los listeners en tiempo real
+                } catch (error) {
+                    console.error("Error updating expense:", error);
+                    showToast('Erro ao atualizar.', true);
+                    e.currentTarget.disabled = false;
+                    e.currentTarget.innerHTML = t.saveChanges;
+                }
+            });
+        };
         init();
     </script>
 </body>
     </html>
+
 
 
 
