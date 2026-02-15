@@ -1465,6 +1465,8 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
         // ... código existente ...
     const translations = {
         pt: {
+            weeklyInterest: 'Lucro (Juros) da Semana',
+            monthlyInterestPDF: 'Lucro de Juros (Gerado no Período)',
             financialOperations: 'Histórico Financeiro (Gastos/Retiradas)',
             editExpenseTitle: 'Editar Gasto',
             saveChanges: 'Salvar Alterações',
@@ -1622,6 +1624,8 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
         },  
 
         es: {
+            weeklyInterest: 'Ganancia (Interés) de la Semana',
+            monthlyInterestPDF: 'Ganancia de Interés (Generado en Período)',
             financialOperations: 'Historial Financiero (Gastos/Retiros)',
             editExpenseTitle: 'Editar Gasto',
             saveChanges: 'Guardar Cambios',
@@ -1774,6 +1778,8 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             insuranceLabelShort: 'Seguro',
         },
         en: {
+            weeklyInterest: 'Weekly Profit (Interest)',
+            monthlyInterestPDF: 'Interest Profit (Generated in Period)',
             financialOperations: 'Financial History (Expenses/Withdrawals)',
             editExpenseTitle: 'Edit Expense',
             saveChanges: 'Save Changes',
@@ -2447,6 +2453,7 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             
             // Lógica para calcular préstamos de la semana
             let weeklyLoansAmount = 0;
+            let weeklyInterestAmount = 0;
             const todayForLoans = new Date();
             todayForLoans.setHours(0,0,0,0);
             const weekStartForLoans = new Date(todayForLoans);
@@ -2474,6 +2481,10 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                                 principal = parseFloat(l.totalLoan) / (1 + (rate / 100));
                             }
                             weeklyLoansAmount += (principal || 0);
+                            // Calcular ganancia de interés
+                            let totalVal = parseFloat(l.totalLoan) || 0;
+                            let interestVal = totalVal - (principal || 0);
+                            weeklyInterestAmount += interestVal;
                         }
                     }
                 });
@@ -2728,6 +2739,14 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                             <span data-lang-key="weeklyLoans">Empréstimos na Semana</span>
                         </h3>
                         <p class="kpi-value" style="color: #00f2ff; font-size: 1.8em;">${money(weeklyLoansAmount)}</p>
+                    </div>
+                    <!-- TARJETA: INTERESES GANADOS (SEMANA) -->
+                    <div class="kpi-card" style="margin-bottom: 20px; text-align: center; border-left: 4px solid #8b5cf6; border-right: 4px solid #8b5cf6;">
+                    <h3 class="kpi-title" style="justify-content: center; color: #8b5cf6;">
+                         <i data-lucide="trending-up" style="margin-right: 8px;"></i> 
+                         <span data-lang-key="weeklyInterest">Lucro (Juros) da Semana</span>
+                    </h3>
+                    <p class="kpi-value" style="color: #8b5cf6; font-size: 1.8em;">${money(weeklyInterestAmount)}</p>
                     </div>
 
                     <!-- TARJETA SEGURIDAD (Bordes Dobles Grises) -->
@@ -5408,6 +5427,7 @@ async function submitCollectorReport(collectorId) {
                                     }
                                     const fmt = safeDate(loanDateObj);
                                     periodNewLoans.push({
+                                        interest: (parseFloat(loan.totalLoan) || 0) - (principal || 0),
                                         clientName: client.name,
                                         amount: principal || 0,
                                         time: fmt.time,
@@ -5519,6 +5539,13 @@ async function submitCollectorReport(collectorId) {
                 addSummaryLine(t.cash, periodTotalCash, '#6c757d');
                 addSummaryLine(t.digital, periodTotalDigital, '#6c757d');
                 addSummaryLine(t.injections, totalInjections, '#28a745');
+                // Calcular Total Interés del periodo
+                const totalInterestGenerated = periodNewLoans.reduce((sum, l) => sum + (l.interest || 0), 0);
+
+                if (totalInterestGenerated > 0) {
+                    addSummaryLine(translations[currentLang].monthlyInterestPDF || 'Lucro de Juros', totalInterestGenerated, '#8b5cf6', true);
+                }
+
                 
                 if (totalMicroInsurance > 0) {
                     addSummaryLine(t.insurancePeriod, totalMicroInsurance, '#0ea5e9', true);
@@ -8940,3 +8967,4 @@ async function showRefinanceVerificationModal(clientId) {
     </script>
 </body>
     </html>
+
