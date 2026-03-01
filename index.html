@@ -2653,7 +2653,8 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                     </div>
                     <div>
                         <strong style="font-size: 0.9em; color: var(--text-primary); display:block;">${op.label} <span style="font-weight:400; font-size:0.85em; opacity:0.8;">- ${op.labelCategory}</span></strong>
-                        <span style="font-size: 0.75em; color: var(--text-secondary);">${dateStr}</span>
+                        <span style="font-size: 0.75em; color: var(--text-secondary); display:block;">${dateStr}</span>
+                        ${(op.type === 'expense' && (op.description || op.observations)) ? `<span style="font-size: 0.85em; color: var(--text-secondary); font-style: italic; display:block; margin-top: 3px;">Obs: ${op.description || op.observations}</span>` : ''}
                     </div>
                 </div>
                 <div style="text-align: right;">
@@ -8969,5 +8970,6 @@ async function showRefinanceVerificationModal(clientId) {
     </script>
 </body>
     </html>
+
 
 
