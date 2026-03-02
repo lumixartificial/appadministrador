@@ -1465,6 +1465,12 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
         // ... código existente ...
     const translations = {
         pt: {
+            trashBtn: 'Lixeira de Clientes',
+            trashTitle: 'Lixeira (Excluídos)',
+            restoreBtn: 'Restaurar',
+            permDeleteBtn: 'Excluir Definitivo',
+            clientRestored: 'Cliente restaurado com sucesso!',
+            emptyTrash: 'A lixeira está vazia.',
             weeklyInterest: 'Lucro (Juros) da Semana',
             monthlyInterestPDF: 'Lucro de Juros (Gerado no Período)',
             financialOperations: 'Histórico Financeiro (Gastos/Retiradas)',
@@ -1624,6 +1630,12 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
         },  
 
         es: {
+            trashBtn: 'Papelera de Clientes',
+            trashTitle: 'Papelera (Eliminados)',
+            restoreBtn: 'Restaurar',
+            permDeleteBtn: 'Eliminar Definitivo',
+            clientRestored: '¡Cliente restaurado con éxito!',
+            emptyTrash: 'La papelera está vacía.',
             weeklyInterest: 'Ganancia (Interés) de la Semana',
             monthlyInterestPDF: 'Ganancia de Interés (Generado en Período)',
             financialOperations: 'Historial Financiero (Gastos/Retiros)',
@@ -1778,6 +1790,12 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             insuranceLabelShort: 'Seguro',
         },
         en: {
+            trashBtn: 'Client Trash',
+            trashTitle: 'Trash (Deleted)',
+            restoreBtn: 'Restore',
+            permDeleteBtn: 'Delete Permanently',
+            clientRestored: 'Client restored successfully!',
+            emptyTrash: 'The trash is empty.',
             weeklyInterest: 'Weekly Profit (Interest)',
             monthlyInterestPDF: 'Interest Profit (Generated in Period)',
             financialOperations: 'Financial History (Expenses/Withdrawals)',
@@ -2808,11 +2826,19 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                         </div>
                     </div>
 
-                    <h2 class="section-title">Clientes</h2>
-                    <div class="search-bar-wrapper" style="margin-bottom: 15px;">
+                         <!-- NUEVO: TÍTULO Y BOTÓN DE PAPELERA ANTES DEL BUSCADOR -->
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <h2 class="section-title" style="margin: 0; border: none; padding: 0;">Clientes</h2>
+                        <button id="open-trash-btn" class="btn-secondary" style="font-size: 0.85em; padding: 6px 12px; display: flex; align-items: center; gap: 6px;" data-collector-id="${collectorId}">
+                            <i data-lucide="trash-2" style="width: 16px; height: 16px;"></i> <span data-lang-key="trashBtn">Papelera</span>
+                        </button>
+                    </div>
+
+                    <div class="search-bar-wrapper" style="margin-bottom: 15px; position: relative;">
                         <input type="text" id="client-list-search" placeholder="${t.searchClientPlaceholder || 'Buscar cliente...'}" style="padding: 10px 12px 10px 40px; font-size: 0.95em; border-radius: 8px; border: 1px solid var(--border-color); background-color: var(--bg); width: 100%;">
                         <i class="icon" data-lucide="search" style="width: 18px; left: 12px; top: 50%; transform: translateY(-50%); position: absolute; color: var(--text-secondary);"></i>
                     </div>
+                    
                     <div class="item-list" id="clients-list-container">${clientsListHtml}</div>
 
                     <section style="margin-top: 30px;">
@@ -3012,6 +3038,13 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             applyLanguage(currentLang);
 
             detailView.querySelector('#closeDetailView').addEventListener('click', () => detailView.classList.remove('active'));
+            // NUEVO: Evento para abrir la papelera
+        const openTrashBtn = detailView.querySelector('#open-trash-btn');
+        if (openTrashBtn) {
+            openTrashBtn.addEventListener('click', (e) => {
+                showTrashModal(e.currentTarget.dataset.collectorId);
+            });
+        }
             detailView.querySelector('.item-list').addEventListener('click', (e) => {
                 const clientCard = e.target.closest('.client-card');
                 if (clientCard) showClientDetails(clientCard.dataset.clientId, parseInt(clientCard.dataset.loanIndex, 10));
@@ -8189,12 +8222,24 @@ function updateAdminNotificationsView() {
                     return;
                 }
 
-                try {
+                 try {
+                    // --- NUEVA LÓGICA DE PAPELERA (SOFT DELETE) ---
+                    const clientData = allClients.find(c => c.id === clientId);
+                    if(clientData) {
+                        await setDoc(doc(db, 'companies', currentCompanyId, "deletedClients", clientId), {
+                            ...clientData,
+                            deletedAt: serverTimestamp(),
+                            deletedBy: auth.currentUser ? auth.currentUser.uid : 'admin'
+                        });
+                    }
+                    
+                    // Eliminamos de la colección activa
                     await deleteDoc(doc(db, 'companies', currentCompanyId, "clients", clientId));
+                    
                     showToast(translations[currentLang].clientDeleted);
                     formModal.classList.remove('active');
                     document.getElementById('clientDetailModal').classList.remove('active');
-                    document.getElementById('collectorDetailView').classList.remove('active');
+                    // Mantenemos la vista del cobrador abierta
                 } catch (error) {
                     console.error("Error deleting client: ", error);
                     showToast("Erro ao excluir cliente.", true);
@@ -8966,10 +9011,115 @@ async function showRefinanceVerificationModal(clientId) {
                 }
             });
         };
+        // === NUEVA FUNCIÓN: MODAL DE PAPELERA ===
+        async function showTrashModal(collectorId) {
+            const modal = document.getElementById('reportOptionsModal'); // Reutilizamos este modal base
+            const t = translations[currentLang];
+            modal.classList.add('active');
+
+            modal.innerHTML = `
+                <div class="modal-content" style="max-width: 500px; max-height: 80vh; display: flex; flex-direction: column;">
+                    <header class="modal-header" style="padding: 0 0 15px 0; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
+                        <h3 style="margin: 0; display: flex; align-items: center; gap: 8px;"><i data-lucide="trash-2" style="color: var(--danger-color);"></i> <span data-lang-key="trashTitle">${t.trashTitle || 'Papelera'}</span></h3>
+                        <button class="close-modal-btn" style="background: none; border: none; font-size: 24px; color: var(--text-secondary); cursor: pointer;">&times;</button>
+                    </header>
+                    
+                    <div id="trash-list-container" style="flex-grow: 1; overflow-y: auto; padding-top: 15px; display: flex; flex-direction: column; gap: 10px;">
+                        <div style="text-align: center; padding: 20px; color: var(--text-secondary);">
+                            <i data-lucide="loader-circle" style="animation: spin 1s linear infinite;"></i> Carregando...
+                        </div>
+                    </div>
+                </div>
+            `;
+            lucide.createIcons({nodes: modal.querySelectorAll('[data-lucide]')});
+
+            modal.querySelector('.close-modal-btn').addEventListener('click', () => modal.classList.remove('active'));
+
+            const container = modal.querySelector('#trash-list-container');
+
+            try {
+                // Obtener clientes eliminados
+                const trashQuery = query(collection(db, 'companies', currentCompanyId, 'deletedClients'), where('collectorId', '==', collectorId));
+                const snapshot = await getDocs(trashQuery);
+                
+                if (snapshot.empty) {
+                    container.innerHTML = `<p style="text-align: center; color: var(--text-secondary); margin-top: 20px;">${t.emptyTrash || 'A lixeira está vazia.'}</p>`;
+                    return;
+                }
+
+                let html = '';
+                snapshot.forEach(docSnap => {
+                    const client = docSnap.data();
+                    html += `
+                    <div class="client-card" style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background-color: var(--bg); border: 1px solid var(--border-color); border-left: 4px solid var(--danger-color);">
+                        <div>
+                            <strong style="font-size: 0.95em; color: var(--text-primary); display: block;">${client.name}</strong>
+                            <span style="font-size: 0.8em; color: var(--text-secondary);"><i data-lucide="phone" style="width: 12px; height: 12px;"></i> ${client.phone || client.whatsapp || 'N/A'}</span>
+                        </div>
+                        <div style="display: flex; gap: 8px;">
+                            <button class="restore-client-btn" data-id="${docSnap.id}" style="background: var(--surface); border: 1px solid var(--accent-green); color: var(--accent-green); border-radius: 6px; padding: 6px; cursor: pointer;" title="${t.restoreBtn || 'Restaurar'}">
+                                <i data-lucide="refresh-cw" style="width: 16px; height: 16px;"></i>
+                            </button>
+                            <button class="perm-delete-client-btn" data-id="${docSnap.id}" style="background: var(--danger-color); border: none; color: white; border-radius: 6px; padding: 6px; cursor: pointer;" title="${t.permDeleteBtn || 'Excluir Definitivo'}">
+                                <i data-lucide="trash" style="width: 16px; height: 16px;"></i>
+                            </button>
+                        </div>
+                    </div>`;
+                });
+                container.innerHTML = html;
+                lucide.createIcons({nodes: container.querySelectorAll('[data-lucide]')});
+
+                // Listeners de Restaurar
+                container.querySelectorAll('.restore-client-btn').forEach(btn => {
+                    btn.addEventListener('click', async (e) => {
+                        const id = e.currentTarget.dataset.id;
+                        btn.disabled = true;
+                        try {
+                            const deletedRef = doc(db, 'companies', currentCompanyId, 'deletedClients', id);
+                            const snap = await getDoc(deletedRef);
+                            if(snap.exists()) {
+                                const data = snap.data();
+                                delete data.deletedAt; delete data.deletedBy;
+                                await setDoc(doc(db, 'companies', currentCompanyId, 'clients', id), data);
+                                await deleteDoc(deletedRef);
+                                showToast(t.clientRestored || 'Cliente restaurado!', 'success');
+                                showTrashModal(collectorId); // Refrescar
+                            }
+                        } catch(err) {
+                            console.error(err); showToast('Erro ao restaurar.', true);
+                        }
+                    });
+                });
+
+                // Listeners de Eliminar Definitivo
+                container.querySelectorAll('.perm-delete-client-btn').forEach(btn => {
+                    btn.addEventListener('click', async (e) => {
+                        const id = e.currentTarget.dataset.id;
+                        const confirmed = await showConfirmationModal(
+                            t.permDeleteBtn || 'Excluir Definitivo', 
+                            'Esta ação NÃO PODE ser desfeita. O histórico deste cliente será perdido para sempre.', 
+                            'Excluir', 'btn-danger'
+                        );
+                        if (!confirmed) return;
+                        
+                        showTrashModal(collectorId); // Reabrir papelera tras confirmar
+
+                        try {
+                            await deleteDoc(doc(db, 'companies', currentCompanyId, 'deletedClients', id));
+                            showToast('Cliente excluído permanentemente.');
+                            showTrashModal(collectorId);
+                        } catch(err) {
+                            console.error(err); showToast('Erro ao excluir.', true);
+                        }
+                    });
+                });
+
+            } catch (error) {
+                console.error("Erro ao abrir lixeira:", error);
+                container.innerHTML = `<p style="text-align: center; color: var(--danger-color); margin-top: 20px;">Erro ao carregar dados.</p>`;
+            }
+        }
         init();
     </script>
 </body>
     </html>
-
-
-
