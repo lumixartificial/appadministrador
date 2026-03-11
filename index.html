@@ -1371,6 +1371,8 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
         
         let allCollectors = [];
         let allClients = [];
+        let allDeletedClients = [];
+        let deletedClientsReady = false;
         let allExpenses = [];
         let globalSettings = {};
         let allCommunityPosts = [];
@@ -1939,7 +1941,7 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
 
             
             function checkAndRunGlobalUpdate() {
-            if (collectorsReady && clientsReady && expensesReady && settlementsReady && capitalInjectionsReady) {
+            if (collectorsReady && clientsReady && expensesReady && settlementsReady && capitalInjectionsReady && deletedClientsReady) {
                 console.log("[ADMIN-APP] Datos listos. Actualizando todo...");
                 
                 calculatedCollectorMetrics.clear(); 
@@ -1998,8 +2000,15 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             const dayOfMonth = today.getDate();
 
             collectors.forEach(c => {
-                totalStartingCapital += (c.startingCapital || 0);
-            });
+            totalStartingCapital += (c.startingCapital || 0);
+
+           // Añadir saldos históricos de clientes eliminados permanentemente
+          if (c.historicDeletedBalances) {
+             totalPaidFromHistory += (c.historicDeletedBalances.totalPaid || 0);
+             totalPrincipalFromLoans += (c.historicDeletedBalances.totalPrincipal || 0);
+             totalMicroInsuranceGlobal += (c.historicDeletedBalances.totalInsurance || 0);
+         }
+    });
 
             clients.forEach(client => {
                 (client.loans || []).forEach(loan => {
@@ -2039,7 +2048,29 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             });
 
             const totalExpensesGlobal = expenses.reduce((sum, expense) => sum + (expense.value || 0), 0);
-            
+            // Sumar la contabilidad de los clientes temporalmente en la papelera al global
+            if (typeof allDeletedClients !== 'undefined') {
+                allDeletedClients.forEach(client => {
+                    (client.loans || []).forEach(loan => {
+                        const insuranceVal = parseFloat(loan.microInsurance);
+                        if (!isNaN(insuranceVal)) totalMicroInsuranceGlobal += insuranceVal;
+
+                        let principal = 0;
+                        if (!loan.migrationDate) {
+                            if (loan.principalAmount) principal = Number(loan.principalAmount);
+                            else if (loan.totalLoan && client.interestRate) principal = (Number(loan.totalLoan) / (1 + (Number(client.interestRate) / 100)));
+                        }
+                        totalPrincipalFromLoans += principal;
+
+                        (loan.history || []).forEach(h => {
+                             if (h.status !== 'pending_verification' && h.status !== 'rejected' && h.status !== 'postponed' && h.method !== 'migration') {
+                                totalPaidFromHistory += (Number(h.amount) || 0);
+                            }
+                        });
+                        totalLateFeesGlobal += (loan.lateFeesAccumulated || 0);
+                    });
+                });
+            }
             // Filtramos retiros de capital (para el balance general)
             const totalSettlementsGlobal = settlements
                 .filter(s => s.status === 'approved' && s.type !== 'insurance')
@@ -2112,14 +2143,38 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
 
             const collectorInjections = allCapitalInjections.filter(i => i.collectorId === collectorId && i.status === 'approved');
 
-            let totalPaid = 0; 
-            let totalPrincipal = 0; 
+            // Sumar el dinero temporal de los clientes en la papelera
+            let trashTotalPaid = 0;
+            let trashTotalPrincipal = 0;
+            let trashTotalInsurance = 0;
+
+            if (typeof allDeletedClients !== 'undefined') {
+                allDeletedClients.filter(c => c.collectorId === collectorId).forEach(trashClient => {
+                    (trashClient.loans || []).forEach(loan => {
+                        if (!loan.migrationDate) {
+                            if (loan.principalAmount) trashTotalPrincipal += (Number(loan.principalAmount) || 0);
+                            else if (loan.totalLoan && trashClient.interestRate) trashTotalPrincipal += (Number(loan.totalLoan) / (1 + (Number(trashClient.interestRate) / 100))) || 0;
+                        }
+                        (loan.history || []).forEach(h => {
+                            if (h.status !== 'pending_verification' && h.status !== 'rejected' && h.status !== 'postponed' && h.method !== 'migration') {
+                                trashTotalPaid += (Number(h.amount) || 0);
+                            }
+                        });
+                        trashTotalInsurance += (Number(loan.microInsurance) || 0);
+                    });
+                });
+            }
+
+            // Unimos historial permanente + el dinero en la papelera
+            let totalPaid = (collector.historicDeletedBalances?.totalPaid || 0) + trashTotalPaid; 
+            let totalPrincipal = (collector.historicDeletedBalances?.totalPrincipal || 0) + trashTotalPrincipal; 
+            let collectorTotalInsuranceGenerated = (collector.historicDeletedBalances?.totalInsurance || 0) + trashTotalInsurance;
             let totalDistributedCapital_Outstanding = 0; 
             let totalLateFees = 0;
             let dailyCollected = 0, weeklyCollected = 0, monthlyCollected = 0;
             
             // Acumulador de Seguro (Bruto generado por sus clientes)
-            let collectorTotalInsuranceGenerated = 0; 
+            
 
             const now = new Date();
             const todayStart = new Date(new Date().setHours(0, 0, 0, 0));
@@ -2372,7 +2427,13 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                     if (collectorId) showCollectorDetails(collectorId); 
                 }
             });
-
+            // === PEGA ESTO AQUÍ: INICIO DE LA ESCUCHA DE LA PAPELERA ===
+                onSnapshot(collection(db, 'companies', currentCompanyId, 'deletedClients'), snapshot => {
+                allDeletedClients = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                deletedClientsReady = true;
+                if (collectorsReady && clientsReady) checkAndRunGlobalUpdate();
+        });
+        // === FIN DE LO QUE PEGAS ===
             onSnapshot(collection(db, 'companies', currentCompanyId, 'settlements'), snapshot => {
                 allSettlements = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 settlementsReady = true; 
@@ -9091,6 +9152,7 @@ async function showRefinanceVerificationModal(clientId) {
                     });
                 });
 
+                
                 // Listeners de Eliminar Definitivo
                 container.querySelectorAll('.perm-delete-client-btn').forEach(btn => {
                     btn.addEventListener('click', async (e) => {
@@ -9105,6 +9167,48 @@ async function showRefinanceVerificationModal(clientId) {
                         showTrashModal(collectorId); // Reabrir papelera tras confirmar
 
                         try {
+                            // 1. Obtener los datos del cliente antes de borrarlo
+                            const deletedRef = doc(db, 'companies', currentCompanyId, 'deletedClients', id);
+                            const snap = await getDoc(deletedRef);
+                            if(snap.exists()) {
+                                const clientData = snap.data();
+
+                                let clientTotalPaid = 0;
+                                let clientTotalPrincipal = 0;
+                                let clientTotalInsurance = 0;
+
+                                // 2. Sumar todo lo que el cliente aportó o se le prestó
+                                (clientData.loans || []).forEach(loan => {
+                                    
+                                    // CORRECCIÓN 1: Ignorar préstamos de migración (Igual que la app principal)
+                                    if (!loan.migrationDate) {
+                                        // CORRECCIÓN 2: Forzar formato Número para evitar que se sumen como texto
+                                        if (loan.principalAmount) {
+                                            clientTotalPrincipal += (Number(loan.principalAmount) || 0);
+                                        } else if (loan.totalLoan && clientData.interestRate) {
+                                            clientTotalPrincipal += (Number(loan.totalLoan) / (1 + (Number(clientData.interestRate) / 100))) || 0;
+                                        }
+                                    }
+
+                                    // Pagos
+                                    (loan.history || []).forEach(h => {
+                                        if (h.status !== 'pending_verification' && h.status !== 'rejected' && h.status !== 'postponed' && h.method !== 'migration') {
+                                            clientTotalPaid += (Number(h.amount) || 0);
+                                        }
+                                    });
+
+                                    // Seguro
+                                    clientTotalInsurance += (Number(loan.microInsurance) || 0);
+                                });
+
+                                // 3. Sumar estos totales al documento del cobrador
+                                const collectorRef = doc(db, 'collectors', collectorId);
+                                await updateDoc(collectorRef, {
+                                    'historicDeletedBalances.totalPaid': increment(clientTotalPaid),
+                                    'historicDeletedBalances.totalPrincipal': increment(clientTotalPrincipal),
+                                    'historicDeletedBalances.totalInsurance': increment(clientTotalInsurance)
+                                });
+                            }
                             await deleteDoc(doc(db, 'companies', currentCompanyId, 'deletedClients', id));
                             showToast('Cliente excluído permanentemente.');
                             showTrashModal(collectorId);
@@ -9123,4 +9227,3 @@ async function showRefinanceVerificationModal(clientId) {
     </script>
 </body>
     </html>
-
