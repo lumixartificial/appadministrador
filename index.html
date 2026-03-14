@@ -4707,7 +4707,7 @@ async function submitCollectorReport(collectorId) {
                         }
                         
                         if ((hasValidDate || !loan.migrationDate) && ld >= startDate && ld <= endDate && !loan.migrationDate) {
-                            filteredNewLoans.push({ ...loan, clientName: client.name });
+                        filteredNewLoans.push({ ...loan, clientName: client.name, clientInterest: client.interestRate });
                         }
                     });
                 }
@@ -4747,13 +4747,25 @@ async function submitCollectorReport(collectorId) {
             const valDeployed = filteredNewLoans.reduce((s, l) => {
                 let principal = Number(l.principalAmount);
                 if (!principal && l.totalLoan) {
-                     principal = Number(l.totalLoan) / 1.2; 
+                     const rate = Number(l.clientInterest) || 20;
+                     principal = Number(l.totalLoan) / (1 + (rate / 100)); 
                 }
                 return s + (principal || 0);
             }, 0);
 
             // Seguro Recaudado
             const valMicroInsurance = filteredNewLoans.reduce((s, l) => s + (Number(l.microInsurance) || 0), 0);
+            // Intereses Generados (NUEVO)
+            const valInterestGenerated = filteredNewLoans.reduce((s, l) => {
+                let principal = Number(l.principalAmount);
+                if (!principal && l.totalLoan) {
+                     const rate = Number(l.clientInterest) || 20;
+                     principal = Number(l.totalLoan) / (1 + (rate / 100)); 
+                }
+                const total = Number(l.totalLoan) || 0;
+                const interest = total - principal;
+                return s + (interest > 0 ? interest : 0);
+            }, 0);
 
             // Retiros separados
             const valSettledCapital = settlementsCapital.reduce((s, i) => s + (Number(i.amount)||0), 0);
@@ -4774,9 +4786,9 @@ async function submitCollectorReport(collectorId) {
             const valInflows = valCollected + valInjected;
             const totalInflow = valInitial + valInflows;
             
-            // Balance Final (incluye seguro como entrada y retiros totales como salida)
-            const totalOutflow = valExpensesTotal + valDeployed + valSettledTotal;
-            const netBalance = (totalInflow + valMicroInsurance) - totalOutflow;
+            // Balance Final EXACTO a la Caja (Aísla el seguro y usa solo retiros de capital)
+            const totalOutflow = valExpensesTotal + valDeployed + valSettledCapital;
+            const netBalance = totalInflow - totalOutflow;
 
             // 4. Preparar Datos Gráfico
             const chartLabels = [];
@@ -4938,14 +4950,28 @@ async function submitCollectorReport(collectorId) {
                                     </div>
                                     <div style="width: 100%; height: 4px; background: #1e293b; border-radius: 2px;">
                                         <div style="width: ${percent}%; height: 100%; background: ${chartColors[i]}; border-radius: 2px;"></div>
-                                    </div>
-                                </div>`;
-                            }).join('')}
-                        </div>
+                                   </div>
+                            </div>`;
+                        }).join('')}
+
+                        ${valInterestGenerated > 0 ? `
+                        <div style="padding: 0 5px; margin-top: 10px; border-top: 1px dashed rgba(255,255,255,0.1); padding-top: 10px;">
+                            <div style="display: flex; align-items: center; justify-content: space-between; font-size: 0.9em;">
+                                <div style="display: flex; align-items: center; gap: 12px;">
+                                    <div style="width: 12px; height: 12px; background: transparent; border: 2px solid #8b5cf6; border-radius: 3px; box-shadow: 0 0 8px #8b5cf6;"></div>
+                                    <span style="color: #c4b5fd; font-weight: 700;">${t.monthlyInterestPDF || 'LUCRO (JUROS GERADOS)'}</span>
+                                </div>
+                                <div style="text-align: right;">
+                                    <span style="color: #8b5cf6; font-weight: 700; font-family: monospace;">+${money(valInterestGenerated)}</span>
+                                </div>
+                            </div>
+                        </div>` : ''}
+
                     </div>
                 </div>
+            </div>
 
-                <div style="margin-top: 30px;">
+            <div style="margin-top: 30px;">
                     <details class="kpi-card" style="background: var(--surface); border: 1px solid var(--border-color);">
                         <summary style="cursor: pointer; font-weight: 600; color: var(--text-secondary); padding: 15px; display: flex; align-items: center; gap: 10px;">
                             <i data-lucide="list"></i> ${t.viewFullList}
@@ -4953,7 +4979,7 @@ async function submitCollectorReport(collectorId) {
                         <div id="report-details-lists" style="margin-top: 0; padding: 0 15px 15px; display: flex; flex-direction: column; gap: 10px;">
                              ${valInitial > 0 ? `<div class="payment-history-item" style="padding: 10px; background-color: var(--bg); border: 1px dashed var(--text-secondary);"><span style="font-weight: 600;">${t.initialCapitalLabel}</span><span style="font-weight: 700; color: var(--text-primary);">${money(valInitial)}</span></div>` : ''}
                              ${generateDetailListHTML(t.inflowLabel, 'arrow-up-circle', '#00ff9d', [...filteredPayments, ...filteredInjections], (item) => `<span>${item.clientName || 'Aporte'}</span><span style="color:var(--accent-green); font-weight:700;">${money(item.amount)}</span>`)}
-                             
+                             ${generateDetailListHTML(t.monthlyInterestPDF || 'Lucro (Juros)', 'trending-up', '#8b5cf6', filteredNewLoans.filter(l => (Number(l.totalLoan) - (Number(l.principalAmount) || Number(l.totalLoan)/1.2)) > 0), (l) => `<span>${l.clientName}</span><span style="color:#8b5cf6; font-weight:700;">${money(Number(l.totalLoan) - (Number(l.principalAmount) || Number(l.totalLoan)/1.2))}</span>`)}
                              ${generateDetailListHTML(t.microInsurance, 'shield-check', '#0ea5e9', filteredNewLoans.filter(l => l.microInsurance > 0), (l) => `<span>${l.clientName} (Seguro Retido)</span><span style="color:#0ea5e9; font-weight:700;">${money(l.microInsurance)}</span>`)}
                              
                              ${generateDetailListHTML(t.outflowLoansLabel, 'briefcase', '#00f2ff', filteredNewLoans, (l) => `<span>${l.clientName}</span><span style="color:#3b82f6; font-weight:700;">${money(l.principalAmount || l.totalLoan/1.2)}</span>`)}
@@ -5120,6 +5146,7 @@ async function submitCollectorReport(collectorId) {
                             inflow: valInflows,
                             microInsurance: valMicroInsurance,
                             totalIn: totalInflow,
+                            interestGenerated: valInterestGenerated,
                             expenses: valExpensesTotal,
                             loans: valDeployed,
                             settlements: valSettledTotal, // <--- CORRECCIÓN APLICADA: valSettledTotal
@@ -5876,7 +5903,10 @@ async function submitCollectorReport(collectorId) {
             if (financials.microInsurance > 0) {
                 addRow(t.microInsurance, financials.microInsurance, '#0ea5e9', true); // Azul Celeste
             }
-            
+            // --- INTERESES GENERADOS (LUCRO) ---
+            if (financials.interestGenerated > 0) {
+                addRow(t.monthlyInterestPDF || 'LUCRO (JUROS GERADOS)', financials.interestGenerated, '#8b5cf6', true);
+            }
             // Salidas
             addRow(t.outflowLoansLabel, financials.loans, '#3b82f6');
             addRow(t.outflowExpensesLabel, financials.expenses, '#ef4444');
@@ -5894,7 +5924,7 @@ async function submitCollectorReport(collectorId) {
             y += 10;
             
             // Saldo Final
-            const balanceLabel = financials.balance >= 0 ? t.netBalancePos : t.netBalanceNeg;
+            const balanceLabel = t.cashBalance;
             const balanceColor = financials.balance >= 0 ? '#22c55e' : '#ef4444';
             
             doc.setFontSize(14);
@@ -8226,6 +8256,55 @@ function updateAdminNotificationsView() {
                     // --- NUEVA LÓGICA DE PAPELERA (SOFT DELETE) ---
                     const clientData = allClients.find(c => c.id === clientId);
                     if(clientData) {
+                        // Calcular el impacto contable antes de borrar
+                        // --- INICIO DEL CÓDIGO A PEGAR ---
+                        let clientTotalPrestado = 0;
+                        let clientTotalPagado = 0;
+
+                        (clientData.loans || []).forEach(loan => {
+                            // 1. Calcular préstamo exacto (Ignorando migraciones, como hace tu sistema)
+                            if (!loan.migrationDate) {
+                                if (loan.principalAmount) {
+                                    clientTotalPrestado += loan.principalAmount;
+                                } else if (loan.totalLoan && clientData.interestRate) {
+                                    clientTotalPrestado += (loan.totalLoan / (1 + (clientData.interestRate / 100)));
+                                }
+                            }
+
+                            // 2. Calcular pagos exactos (Solo los verificados y con fecha)
+                            (loan.history || []).forEach(h => {
+                                if (h.date?.seconds && h.status !== 'pending_verification' && h.status !== 'rejected' && h.status !== 'postponed' && h.method !== 'migration') {
+                                    clientTotalPagado += (h.amount || 0);
+                                }
+                            });
+                        });
+
+                        const impactoNeto = clientTotalPagado - clientTotalPrestado;
+                        const noteText = `Ajuste auto (Lixeira) - Cliente: ${clientData.name}`;
+
+                        // 3. Equilibrar la caja antes de mandar el cliente a la papelera
+                        if (impactoNeto > 0) {
+                            // El cliente dio ganancias. Metemos un Aporte para que la caja no baje.
+                            await addDoc(collection(db, 'companies', currentCompanyId, 'capitalInjections'), {
+                                collectorId: clientData.collectorId,
+                                collectorName: "Sistema (Lixeira)",
+                                amount: impactoNeto,
+                                notes: noteText,
+                                date: serverTimestamp(),
+                                adminId: auth.currentUser ? auth.currentUser.uid : 'admin',
+                                status: 'approved'
+                            });
+                        } else if (impactoNeto < 0) {
+                            // El cliente dio pérdidas. Metemos un Gasto para que la caja no suba sola.
+                            await addDoc(collection(db, 'companies', currentCompanyId, 'expenses'), {
+                                collectorId: clientData.collectorId,
+                                category: 'other',
+                                value: Math.abs(impactoNeto),
+                                description: noteText,
+                                date: serverTimestamp()
+                            });
+                        }
+                        // --- FIN DEL CÓDIGO A PEGAR ---
                         await setDoc(doc(db, 'companies', currentCompanyId, "deletedClients", clientId), {
                             ...clientData,
                             deletedAt: serverTimestamp(),
@@ -9074,19 +9153,53 @@ async function showRefinanceVerificationModal(clientId) {
                     btn.addEventListener('click', async (e) => {
                         const id = e.currentTarget.dataset.id;
                         btn.disabled = true;
+                        
                         try {
                             const deletedRef = doc(db, 'companies', currentCompanyId, 'deletedClients', id);
                             const snap = await getDoc(deletedRef);
+                            
                             if(snap.exists()) {
                                 const data = snap.data();
-                                delete data.deletedAt; delete data.deletedBy;
+                                const clientName = data.name; 
+                                const clientCollector = data.collectorId; // Usamos el ID del cobrador para no cruzar datos
+                                
+                                // 1. Restaurar al cliente a la lista activa
+                                delete data.deletedAt; 
+                                delete data.deletedBy;
                                 await setDoc(doc(db, 'companies', currentCompanyId, 'clients', id), data);
                                 await deleteDoc(deletedRef);
-                                showToast(t.clientRestored || 'Cliente restaurado!', 'success');
-                                showTrashModal(collectorId); // Refrescar
+                                
+                                // --- INICIO: REVERSIÓN AUTOMÁTICA DE CAJA (SUPER BLINDADA) ---
+                                const searchName = clientName.toLowerCase().trim();
+                                
+                                // A) Buscar y borrar Aportes inyectados (Ignora mayúsculas y textos viejos)
+                                const injQuery = query(collection(db, 'companies', currentCompanyId, 'capitalInjections'));
+                                const injSnap = await getDocs(injQuery);
+                                for (const docSnap of injSnap.docs) {
+                                    const notes = (docSnap.data().notes || '').toLowerCase();
+                                    if (notes.includes("ajuste") && notes.includes(searchName)) {
+                                        await deleteDoc(doc(db, 'companies', currentCompanyId, 'capitalInjections', docSnap.id));
+                                    }
+                                }
+
+                                // B) Buscar y borrar Gastos generados (Pérdidas)
+                                const expQuery = query(collection(db, 'companies', currentCompanyId, 'expenses'));
+                                const expSnap = await getDocs(expQuery);
+                                for (const docSnap of expSnap.docs) {
+                                    const desc = (docSnap.data().description || '').toLowerCase();
+                                    if (desc.includes("ajuste") && desc.includes(searchName)) {
+                                        await deleteDoc(doc(db, 'companies', currentCompanyId, 'expenses', docSnap.id));
+                                    }
+                                }
+                                // --- FIN: REVERSIÓN AUTOMÁTICA DE CAJA ---
+
+                                showToast(t.clientRestored || 'Cliente restaurado e caixa balanceada!', 'success');
+                                showTrashModal(collectorId); // Refrescar pantalla
                             }
                         } catch(err) {
-                            console.error(err); showToast('Erro ao restaurar.', true);
+                            console.error(err); 
+                            showToast('Erro ao restaurar.', true);
+                            btn.disabled = false;
                         }
                     });
                 });
@@ -9123,4 +9236,3 @@ async function showRefinanceVerificationModal(clientId) {
     </script>
 </body>
     </html>
-
