@@ -1465,6 +1465,7 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
         // ... código existente ...
     const translations = {
         pt: {
+            blockNewLoans: 'Bloquear Novos Empréstimos',
             trashBtn: 'Lixeira de Clientes',
             trashTitle: 'Lixeira (Excluídos)',
             restoreBtn: 'Restaurar',
@@ -1630,6 +1631,7 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
         },  
 
         es: {
+            blockNewLoans: 'Bloquear Nuevos Préstamos',
             trashBtn: 'Papelera de Clientes',
             trashTitle: 'Papelera (Eliminados)',
             restoreBtn: 'Restaurar',
@@ -1790,6 +1792,7 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             insuranceLabelShort: 'Seguro',
         },
         en: {
+            blockNewLoans: 'Block New Loans',
             trashBtn: 'Client Trash',
             trashTitle: 'Trash (Deleted)',
             restoreBtn: 'Restore',
@@ -2786,6 +2789,16 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                             <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 0;">
                             <div class="toggle-switch" style="justify-content: space-between; width: 100%;">
                                 <div>
+                                    <label style="font-weight: 600; display: block; font-size: 0.95em;" data-lang-key="blockNewLoans">Bloquear Novos Empréstimos</label>
+                                    <p style="font-size: 0.8em; color: var(--text-secondary); margin: 0; display: flex; align-items: center; gap: 6px;">
+                                        Status: <strong id="status-text-loans" style="color: ${collector.blockNewLoans ? 'var(--danger-color)' : 'var(--accent-green)'};">${collector.blockNewLoans ? 'BLOQUEADO (ON)' : 'LIBERADO (OFF)'}</strong>
+                                    </p>
+                                </div>
+                                <label class="switch"><input type="checkbox" id="toggle-block-loans" ${collector.blockNewLoans ? 'checked' : ''}><span class="slider"></span></label>
+                            </div>
+                            <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 0;">
+                            <div class="toggle-switch" style="justify-content: space-between; width: 100%;">
+                                <div>
                                     <label style="font-weight: 600; display: block; font-size: 0.95em;" data-lang-key="blockClientEdit">Bloquear Edição</label>
                                     <p style="font-size: 0.8em; color: var(--text-secondary); margin: 0; display: flex; align-items: center; gap: 6px;">
                                         Status: <strong id="status-text-edit" style="color: ${collector.blockClientEdit ? 'var(--danger-color)' : 'var(--accent-green)'};">${collector.blockClientEdit ? 'BLOQUEADO (ON)' : 'LIBERADO (OFF)'}</strong>
@@ -2868,6 +2881,8 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             const toggleEdit = detailView.querySelector('#toggle-block-edit');
             const statusTextPayment = detailView.querySelector('#status-text-payment');
             const statusTextEdit = detailView.querySelector('#status-text-edit');
+            const toggleLoans = detailView.querySelector('#toggle-block-loans');
+            const statusTextLoans = detailView.querySelector('#status-text-loans');
 
             if (togglePayments) {
                 togglePayments.addEventListener('change', async (e) => {
@@ -2894,6 +2909,25 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                     try {
                         await updateDoc(doc(db, 'collectors', collectorId), { blockClientEdit: isChecked, lastUpdate: serverTimestamp() });
                         showToast(isChecked ? "Edição bloqueada." : "Edição liberada.", isChecked ? 'purple' : 'success');
+                    } catch (err) {
+                        console.error(err); showToast("Erro de conexão.", true); e.target.checked = !isChecked;
+                    }
+                });
+            }
+
+            if (toggleLoans) {
+                toggleLoans.addEventListener('change', async (e) => {
+                    const isChecked = e.target.checked;
+                    if (statusTextLoans) {
+                        statusTextLoans.textContent = isChecked ? 'BLOQUEADO (ON)' : 'LIBERADO (OFF)';
+                        statusTextLoans.style.color = isChecked ? 'var(--danger-color)' : 'var(--accent-green)';
+                    }
+                    try {
+                        await updateDoc(doc(db, 'collectors', collectorId), { blockNewLoans: isChecked, lastUpdate: serverTimestamp() });
+                        const lang = currentLang || 'pt';
+                        const msgOn = lang === 'es' ? "Nuevos préstamos bloqueados." : (lang === 'en' ? "New loans blocked." : "Novos empréstimos bloqueados.");
+                        const msgOff = lang === 'es' ? "Nuevos préstamos liberados." : (lang === 'en' ? "New loans allowed." : "Novos empréstimos liberados.");
+                        showToast(isChecked ? msgOn : msgOff, isChecked ? 'purple' : 'success');
                     } catch (err) {
                         console.error(err); showToast("Erro de conexão.", true); e.target.checked = !isChecked;
                     }
