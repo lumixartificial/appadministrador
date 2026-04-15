@@ -2496,6 +2496,7 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             // Lógica para calcular préstamos de la semana
             let weeklyLoansAmount = 0;
             let weeklyInterestAmount = 0;
+            let weeklyLoansDetails = [];
             const todayForLoans = new Date();
             todayForLoans.setHours(0,0,0,0);
             const weekStartForLoans = new Date(todayForLoans);
@@ -2523,6 +2524,7 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                                 principal = parseFloat(l.totalLoan) / (1 + (rate / 100));
                             }
                             weeklyLoansAmount += (principal || 0);
+                            weeklyLoansDetails.push({ name: c.name, amount: (principal || 0) });
                             // Calcular ganancia de interés
                             let totalVal = parseFloat(l.totalLoan) || 0;
                             let interestVal = totalVal - (principal || 0);
@@ -2780,13 +2782,15 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             </div>
         </div>
     </details>
-                    <div class="kpi-card" style="margin-bottom: 20px; text-align: center; border-left: 4px solid #00f2ff; border-right: 4px solid #00f2ff;">
-                        <h3 class="kpi-title" style="justify-content: center; color: #00f2ff;">
-                            <i data-lucide="briefcase" style="margin-right: 8px;"></i> 
-                            <span data-lang-key="weeklyLoans">Empréstimos na Semana</span>
-                        </h3>
-                        <p class="kpi-value" style="color: #00f2ff; font-size: 1.8em;">${money(weeklyLoansAmount)}</p>
-                    </div>
+                    <!-- TARJETA CLICABLE DE PRÉSTAMOS SEMANALES -->
+                     <div class="kpi-card" id="weekly-loans-card" style="margin-bottom: 20px; text-align: center; border-left: 4px solid #00f2ff; border-right: 4px solid #00f2ff; cursor: pointer; transition: transform 0.2s;">
+                     <h3 class="kpi-title" style="justify-content: center; color: #00f2ff;">
+                     <i data-lucide="briefcase" style="margin-right: 8px;"></i> 
+                     <span data-lang-key="weeklyLoans">Préstamos en la Semana</span>
+                 </h3>
+                     <p class="kpi-value" style="color: #00f2ff; font-size: 1.8em;">${money(weeklyLoansAmount)}</p>
+                 <span style="font-size: 0.7em; color: var(--text-secondary); opacity: 0.7;">(Clic para ver detalle)</span>
+                 </div>
                     <!-- TARJETA: INTERESES GANADOS (SEMANA) -->
                     <div class="kpi-card" style="margin-bottom: 20px; text-align: center; border-left: 4px solid #8b5cf6; border-right: 4px solid #8b5cf6;">
                     <h3 class="kpi-title" style="justify-content: center; color: #8b5cf6;">
@@ -3131,6 +3135,13 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                     } catch (error) { console.error("Erro ao desbloquear:", error); showToast("Erro ao desbloquear app.", true); }
                 });
             }
+            // Activar el clic en la tarjeta de préstamos
+               const weeklyCard = detailView.querySelector('#weekly-loans-card');
+               if (weeklyCard) {
+                   weeklyCard.addEventListener('click', () => {
+                       showWeeklyLoansModal(collector.name, weeklyLoansDetails);
+                    });
+                }
         }
         // <--- FIN DE LA FUNCIÓN showCollectorDetails (Esta llave cierra la función)
             
@@ -9297,6 +9308,40 @@ async function showRefinanceVerificationModal(clientId) {
                 container.innerHTML = `<p style="text-align: center; color: var(--danger-color); margin-top: 20px;">Erro ao carregar dados.</p>`;
             }
         }
+        function showWeeklyLoansModal(collectorName, loansList) {
+    const modal = document.getElementById('reportOptionsModal');
+    modal.classList.add('active');
+    
+    // Ordenamos la lista para mostrar el préstamo más grande arriba
+    const sortedLoans = [...loansList].sort((a, b) => b.amount - a.amount);
+    
+    let listHtml = sortedLoans.map(l => `
+        <div style="display: flex; justify-content: space-between; padding: 12px; border-bottom: 1px solid var(--border-color);">
+            <span style="font-weight: 600; color: var(--text-primary);">${l.name}</span>
+            <span style="color: #00f2ff; font-weight: 700;">${money(l.amount)}</span>
+        </div>
+    `).join('');
+
+    if (sortedLoans.length === 0) listHtml = '<p style="text-align:center; padding:20px; color:var(--text-secondary);">Sin préstamos esta semana.</p>';
+
+    modal.innerHTML = `
+        <div class="modal-content" style="max-width: 400px; max-height: 80vh; display: flex; flex-direction: column;">
+            <header style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">
+                <h3 style="margin: 0; font-size: 1.1em;">Detalle de la Semana</h3>
+                <button class="close-modal-btn" style="background: none; border: none; font-size: 24px; color: var(--text-secondary); cursor: pointer;">&times;</button>
+            </header>
+            <p style="font-size: 0.85em; color: var(--text-secondary); margin-bottom: 10px;">Ruta: <strong>${collectorName}</strong></p>
+            <div style="flex-grow: 1; overflow-y: auto;">
+                ${listHtml}
+            </div>
+            <div style="margin-top: 15px; padding-top: 10px; border-top: 1px solid var(--border-color); text-align: right;">
+                <strong style="color: var(--text-primary);">Total: ${money(sortedLoans.reduce((s,i) => s+i.amount, 0))}</strong>
+            </div>
+        </div>
+    `;
+
+    modal.querySelector('.close-modal-btn').onclick = () => modal.classList.remove('active');
+}
         init();
     </script>
 </body>
