@@ -1465,6 +1465,10 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
         // ... código existente ...
     const translations = {
         pt: {
+            delinquencyReport: 'Relatório de Inadimplência',
+            criticalLateDebt: 'Dívida Crítica (+5 dias)',
+            totalOwed: 'Total Devido',
+            clientDebtDetail: 'Detalhe de Dívida por Cliente',
             expectedToday: 'Meta de Arrecadação Hoje',
             blockNewLoans: 'Bloquear Novos Empréstimos',
             trashBtn: 'Lixeira de Clientes',
@@ -1632,6 +1636,10 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
         },  
 
         es: {
+            delinquencyReport: 'Reporte de Morosidad',
+            criticalLateDebt: 'Deuda Crítica (+5 días)',
+            totalOwed: 'Total Adeudado',
+            clientDebtDetail: 'Detalle de Deuda por Cliente',
             expectedToday: 'Meta de Recaudo para Hoy',
             blockNewLoans: 'Bloquear Nuevos Préstamos',
             trashBtn: 'Papelera de Clientes',
@@ -2890,6 +2898,9 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                 </div>
 
                 <div class="action-buttons">
+                <button id="delinquency-report-btn" data-collector-id="${collectorId}" class="btn-secondary" style="border: 2px solid #ef4444; color: #ef4444; background-color: transparent;">
+                     <i data-lucide="alert-octagon"></i> <span data-lang-key="delinquencyReport">Inadimplência</span>
+                </button>
                     <button id="download-report-btn" data-collector-id="${collectorId}" class="btn-secondary" style="border: 2px solid #3b82f6; color: #3b82f6; background-color: transparent;">
                         <i data-lucide="file-text"></i> <span data-lang-key="downloadReport">Relatório</span>
                     </button>
@@ -3116,6 +3127,12 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             if (editBtn) editBtn.addEventListener('click', (e) => showCollectorFormModal(e.currentTarget.dataset.collectorId));
             const mapBtn = detailView.querySelector('.collector-map-btn');
             if (mapBtn) mapBtn.addEventListener('click', (e) => focusOnCollector(e.currentTarget.dataset.collectorId));
+            const delinqBtn = detailView.querySelector('#delinquency-report-btn');
+            if (delinqBtn) {
+                delinqBtn.addEventListener('click', (e) => {
+                     generateDelinquencyPDF(e.currentTarget.dataset.collectorId);
+                  });
+            }
             const reportBtn = detailView.querySelector('#download-report-btn');
             if (reportBtn) reportBtn.addEventListener('click', (e) => showReportOptionsModal(e.currentTarget.dataset.collectorId));
             const settlementBtn = detailView.querySelector('#register-settlement-btn');
@@ -9341,6 +9358,73 @@ async function showRefinanceVerificationModal(clientId) {
     `;
 
     modal.querySelector('.close-modal-btn').onclick = () => modal.classList.remove('active');
+}
+async function generateDelinquencyPDF(collectorId) {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    const collector = allCollectors.find(c => c.id === collectorId);
+    const clients = allClients.filter(c => c.collectorId === collectorId);
+    const t = translations[currentLang];
+
+    let totalCriticalDebt = 0;
+    let lateClientsData = [];
+
+    clients.forEach(client => {
+        (client.loans || []).forEach(loan => {
+            const details = calculateLoanDetails(loan);
+            if (details.status !== 'finished' && details.lateDays > 0) {
+                // Cálculo de deuda pendiente real
+                const paid = (loan.history || []).filter(h => h.status !== 'rejected').reduce((s, h) => s + (h.amount || 0), 0) + (loan.initialMigratedAmount || 0);
+                const totalWithFees = (loan.totalLoan || 0) + (details.lateFeesAccumulated || 0);
+                const balance = Math.max(0, totalWithFees - paid);
+
+                lateClientsData.push({
+                    name: client.name,
+                    days: details.lateDays,
+                    balance: balance,
+                    installment: loan.originalInstallmentAmount
+                });
+
+                // Suma especial para los de 5 días o más
+                if (details.lateDays >= 5) {
+                    totalCriticalDebt += balance;
+                }
+            }
+        });
+    });
+
+    // --- Diseño del PDF ---
+    doc.setFontSize(18);
+    doc.text(t.delinquencyReport.toUpperCase(), 105, 20, { align: 'center' });
+    doc.setFontSize(12);
+    doc.text(`Cobrador: ${collector.name}`, 105, 28, { align: 'center' });
+
+    // Tarjeta de Resumen Crítico
+    doc.setDrawColor(239, 68, 68); // Rojo
+    doc.setLineWidth(0.5);
+    doc.rect(20, 35, 170, 20);
+    doc.setFont(undefined, 'bold');
+    doc.text(t.criticalLateDebt, 25, 47);
+    doc.text(money(totalCriticalDebt), 185, 47, { align: 'right' });
+
+    // Tabla de Clientes
+    const tableBody = lateClientsData.sort((a,b) => b.days - a.days).map(c => [
+        c.name,
+        `${c.days} d`,
+        money(c.installment),
+        money(c.balance)
+    ]);
+
+    doc.autoTable({
+        startY: 60,
+        head: [['Cliente', 'Atraso', 'Cuota', 'Saldo Total']],
+        body: tableBody,
+        theme: 'striped',
+        headStyles: { fillStyle: '#1e293b' }
+    });
+
+    doc.save(`Morosidad_${collector.name}.pdf`);
+    showToast('Reporte generado!');
 }
         init();
     </script>
