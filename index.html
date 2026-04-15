@@ -1465,6 +1465,7 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
         // ... código existente ...
     const translations = {
         pt: {
+            expectedToday: 'Meta de Arrecadação Hoje',
             blockNewLoans: 'Bloquear Novos Empréstimos',
             trashBtn: 'Lixeira de Clientes',
             trashTitle: 'Lixeira (Excluídos)',
@@ -1631,6 +1632,7 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
         },  
 
         es: {
+            expectedToday: 'Meta de Recaudo para Hoy',
             blockNewLoans: 'Bloquear Nuevos Préstamos',
             trashBtn: 'Papelera de Clientes',
             trashTitle: 'Papelera (Eliminados)',
@@ -1666,7 +1668,7 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             settings: 'Ajustes', profile: 'Perfil', map: 'Mapa',
             totalCapital: 'Capital Total', activeCollectors: 'Cobradores Activos', activeClients: 'Clientes Activos',
             collectionTeam: 'Equipo de Cobranza', addCollector: 'Añadir Cobrador',
-            globalFinances: 'Finanzas Globales', distributedCapital: 'Capital Distribuido', expectedToday: 'Ganancias Previstas Hoy',
+            globalFinances: 'Finanzas Globales', distributedCapital: 'Capital Distribuido', expectedToday: 'Meta de Recaudo para Hoy',
             fieldValue: 'Valor Total en Campo', grossProfit: 'Beneficio Bruto Total',
             clients: 'Clientes', capitalOnHand: 'Capital en Mano', viewProfile: 'Ver Perfil',
             inOrder: 'En Orden', attention: 'Atención',
@@ -1792,6 +1794,7 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             insuranceLabelShort: 'Seguro',
         },
         en: {
+            expectedToday: 'Collection Goal Today',
             blockNewLoans: 'Block New Loans',
             trashBtn: 'Client Trash',
             trashTitle: 'Trash (Deleted)',
@@ -2120,7 +2123,7 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             let totalDistributedCapital_Outstanding = 0; 
             let totalLateFees = 0;
             let dailyCollected = 0, weeklyCollected = 0, monthlyCollected = 0;
-            
+            let expectedToday = 0;
             // Acumulador de Seguro (Bruto generado por sus clientes)
             let collectorTotalInsuranceGenerated = 0; 
 
@@ -2149,6 +2152,22 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
 
                     // Sumamos lo generado (Bruto)
                     collectorTotalInsuranceGenerated += (parseFloat(loan.microInsurance) || 0);
+                    // Calculamos la meta: Solo sumamos la cuota si HOY es día de pago para este cliente
+                    const todayDate = new Date();
+                    const dayW = todayDate.getDay();
+                    const dayM = todayDate.getDate();
+                    const pDays = loan.paymentDays || [];
+                    const freq = loan.paymentFrequency || 'daily';
+                    let isToday = false;
+
+                    if (freq === 'daily') isToday = pDays.includes(dayW);
+                    else if (freq === 'weekly') isToday = pDays[0] === dayW;
+                    else if (freq === 'monthly') isToday = pDays[0] === dayM;
+
+                    if (isToday && loanDetails.status !== 'finished') {
+                        expectedToday += (parseFloat(loan.originalInstallmentAmount) || 0);
+                    }
+
 
                     (loan.history || []).forEach(h => {
                         if (h.date?.seconds && h.status !== 'pending_verification' && h.status !== 'rejected' && h.status !== 'postponed' && h.method !== 'migration') {
@@ -2212,6 +2231,7 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
 
             return {
                 capitalOnHand, 
+                expectedToday,
                 totalDistributedCapital: totalDistributedCapital_Outstanding,
                 totalPatrimonio, 
                 collectorTotalInsurance: collectorNetInsurance, // <--- AHORA RESTA SUS PROPIOS RETIROS
@@ -2463,6 +2483,7 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             const metrics = calculatedCollectorMetrics.get(collectorId) || {};
             const {
                 capitalOnHand = 0, 
+                expectedToday = 0,
                 collectorTotalInsurance = 0, 
                 status = { textKey: 'inOrder', color: 'var(--accent-green)', icon: 'check-circle' },
                 totalClientsCount, activeClientsCount = 0, 
@@ -2597,16 +2618,13 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                                     <span style="font-size: 0.75em; color: var(--text-secondary);">Início: ${startDateStr}</span>
                                 </div>
                             </div>
-                            <div style="display: flex; flex-direction: column; align-items: center; gap: 5px; width: 70px;">
-                                <div class="progress-wheel-container" style="width: 55px; height: 55px;">
-                                    <div class="progress-wheel" style="background: conic-gradient(${progressColor} ${progressPercent}%, var(--bg) 0%);">
-                                        <div class="inner-wheel" style="width: 88%; height: 88%;">
-                                            <span class="wheel-text" style="font-size: 0.85em;">${paidInst}/${totalInst}</span>
-                                        </div>
-                                    </div>
-                                </div>
-                                <span style="font-size: 0.65em; font-weight: 800; text-transform: uppercase; color: ${statusColor}; text-align: center; line-height: 1;">${statusLabel}</span>
-                            </div>
+                            <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 5px; width: 85px;">
+                                <div style="text-align: right;">
+                                     <span style="font-size: 0.75em; color: var(--text-secondary); display: block; margin-bottom: -2px;">PARCELAS</span>
+                                     <span style="font-size: 1.1em; font-weight: 800; color: var(--text-primary);">${paidInst} / ${totalInst}</span>
+                                 </div>
+                                 <span style="font-size: 0.65em; font-weight: 800; text-transform: uppercase; color: ${statusColor}; text-align: right; padding: 2px 6px; background: ${statusColor}15; border-radius: 4px;">${statusLabel}</span>
+                              </div>
                             <div style="position: absolute; top: 10px; right: 10px; display: ${displayLoan.notes || (displayLoan.chatHistory && displayLoan.chatHistory.length > 0) ? 'flex' : 'none'}; align-items: center; justify-content: center; background: var(--bg); border: 1px solid var(--border-color); border-radius: 50%; width: 24px; height: 24px;">
                                 <i data-lucide="message-circle" style="width: 14px; height: 14px; color: var(--accent-blue);"></i>
                             </div>
@@ -2718,6 +2736,13 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                         <h3 class="kpi-title" style="justify-content: center; color: var(--accent-green);" data-lang-key="capitalOnHand"><i data-lucide="banknote"></i></h3>
                         <p class="kpi-value" id="kpi-capital-total" style="color: var(--accent-green); font-size: 2em;">${money(capitalOnHand)}</p>
                     </div>
+                    <!-- META DE RECAUDO (Bordes Dobles Cian) -->
+<div class="kpi-card" style="margin-bottom: 20px; text-align: center; border-left: 4px solid #00d2ff; border-right: 4px solid #00d2ff; background-color: color-mix(in srgb, #00d2ff 5%, var(--card-bg));">
+    <h3 class="kpi-title" style="justify-content: center; color: #00d2ff;">
+        <i data-lucide="target"></i> <span data-lang-key="expectedToday"></span>
+    </h3>
+    <p class="kpi-value" style="color: #00d2ff; font-size: 2em;">${money(expectedToday)}</p>
+</div>
 
                     <!-- KPI GRID (Bordes Dobles Específicos) -->
                     <section class="kpi-grid" style="grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
@@ -6997,7 +7022,10 @@ async function submitCollectorReport(collectorId) {
             });
 
             detailModal.querySelector('#closeClientDetail').addEventListener('click', () => detailModal.classList.remove('active'));
-            detailModal.querySelector('#editClientBtn').addEventListener('click', () => showClientFormModal(clientId));
+            detailModal.querySelector('#editClientBtn').addEventListener('click', (e) => {
+               const lIdx = e.currentTarget.dataset.loanIndex;
+               showClientFormModal(clientId, lIdx);
+        });
             
             const historyList = detailModal.querySelector('#client-payment-history-list');
             if (historyList) {
@@ -8070,8 +8098,8 @@ function updateAdminNotificationsView() {
             }
         }
         
-        
-        function showClientFormModal(clientId) {
+       
+        function showClientFormModal(clientId, forcedLoanIndex = null) {
             const client = allClients.find(c => c.id === clientId);
             if (!client) {
                 showToast('Cliente não encontrado.', true);
@@ -8079,11 +8107,14 @@ function updateAdminNotificationsView() {
             }
 
             // 1. Determinar qué préstamo vamos a editar (Activo o el último)
-            let loanIndex = 0;
-            if (client.loans && client.loans.length > 0) {
-                const activeIdx = client.loans.findIndex(l => l.status !== 'finished');
-                loanIndex = activeIdx !== -1 ? activeIdx : (client.loans.length - 1);
-            }
+            // Si pasamos un índice específico (ej: el segundo préstamo), lo usamos. 
+            // Si no, buscamos el activo por defecto.
+            let loanIndex = (forcedLoanIndex !== null) ? parseInt(forcedLoanIndex) : 0;
+
+            if (forcedLoanIndex === null && client.loans && client.loans.length > 0) {
+               const activeIdx = client.loans.findIndex(l => l.status !== 'finished');
+               loanIndex = activeIdx !== -1 ? activeIdx : (client.loans.length - 1);
+           }
             const loan = (client.loans && client.loans[loanIndex]) ? client.loans[loanIndex] : {};
 
             // === CÁLCULOS DE SEGURIDAD ===
