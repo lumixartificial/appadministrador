@@ -2108,20 +2108,17 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             const collectorClients = allClients.filter(c => c.collectorId === collectorId);
             const collectorExpenses = allExpenses.filter(e => e.collectorId === collectorId);
             
-            // 1. RETIROS DE CAPITAL (Para restar de la Caja en Manos)
             const collectorSettlementsCapital = allSettlements.filter(s => 
                 s.collectorId === collectorId && 
                 s.status === 'approved' && 
                 s.type !== 'insurance' 
             );
 
-            // 2. RETIROS DE SEGURO (Para restar de la Tarjeta de Seguro de este cobrador)
             const collectorSettlementsInsurance = allSettlements.filter(s => 
                 s.collectorId === collectorId && 
                 s.status === 'approved' && 
                 s.type === 'insurance' 
             );
-            // Sumamos cuánto ha retirado este cobrador de seguro
             const totalInsuranceWithdrawn = collectorSettlementsInsurance.reduce((sum, s) => sum + (s.amount || 0), 0);
 
             const collectorInjections = allCapitalInjections.filter(i => i.collectorId === collectorId && i.status === 'approved');
@@ -2132,7 +2129,6 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             let totalLateFees = 0;
             let dailyCollected = 0, weeklyCollected = 0, monthlyCollected = 0;
             let expectedToday = 0;
-            // Acumulador de Seguro (Bruto generado por sus clientes)
             let collectorTotalInsuranceGenerated = 0; 
 
             const now = new Date();
@@ -2158,9 +2154,7 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                         }
                     }
 
-                    // Sumamos lo generado (Bruto)
                     collectorTotalInsuranceGenerated += (parseFloat(loan.microInsurance) || 0);
-                    // Calculamos la meta: Solo sumamos la cuota si HOY es día de pago para este cliente
                     const todayDate = new Date();
                     const dayW = todayDate.getDay();
                     const dayM = todayDate.getDate();
@@ -2175,7 +2169,6 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                     if (isToday && loanDetails.status !== 'finished') {
                         expectedToday += (parseFloat(loan.originalInstallmentAmount) || 0);
                     }
-
 
                     (loan.history || []).forEach(h => {
                         if (h.date?.seconds && h.status !== 'pending_verification' && h.status !== 'rejected' && h.status !== 'postponed' && h.method !== 'migration') {
@@ -2215,13 +2208,14 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                 ? collector.startingCapitalOnHand 
                 : (collector && collector.startingCapital) || 0; 
             
-            const capitalOnHand = currentStartingCapital + totalInjected + totalPaid - totalPrincipal - totalExpenses - totalSettledCapital;
+            // --- BLOQUE MODIFICADO: Sumar Saldo Histórico ---
+            const historicalBalance = collector.historicalBalance || 0;
+            const capitalOnHand = currentStartingCapital + totalInjected + totalPaid - totalPrincipal - totalExpenses - totalSettledCapital + historicalBalance;
             const totalPatrimonio = capitalOnHand + totalDistributedCapital_Outstanding;
 
             const totalClientsCount = collectorClients.length;
             const lateClientsCount = lateClientIds.size;
             
-            // --- CÁLCULO FINAL: Seguro Neto del Cobrador ---
             const collectorNetInsurance = Math.max(0, collectorTotalInsuranceGenerated - totalInsuranceWithdrawn);
 
             let statusKey = 'inOrder';
@@ -2242,7 +2236,7 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                 expectedToday,
                 totalDistributedCapital: totalDistributedCapital_Outstanding,
                 totalPatrimonio, 
-                collectorTotalInsurance: collectorNetInsurance, // <--- AHORA RESTA SUS PROPIOS RETIROS
+                collectorTotalInsurance: collectorNetInsurance,
                 totalClientsCount, 
                 activeClientsCount, 
                 lateClientsCount, 
@@ -8330,74 +8324,46 @@ function updateAdminNotificationsView() {
                 }
             });
 
+            // BLOQUE DE ELIMINACIÓN LIMPIA (SIN ACCIONES CONTABLES)
             formModal.querySelector('#deleteClientBtn').addEventListener('click', async () => {
-                const deleteBtn = formModal.querySelector('#deleteClientBtn');
-                if (deleteBtn.dataset.confirming !== 'true') {
-                    deleteBtn.dataset.confirming = 'true';
-                    deleteBtn.innerHTML = `<i data-lucide="alert-triangle"></i> ${translations[currentLang].delete}`;
-                    lucide.createIcons({nodes: [deleteBtn.querySelector('i')]});
-                    setTimeout(() => {
-                        deleteBtn.dataset.confirming = 'false';
-                        deleteBtn.innerHTML = `<i data-lucide="trash"></i> <span data-lang-key="deleteClient"></span>`;
-                        applyLanguage(currentLang);
-                        lucide.createIcons({nodes: [deleteBtn.querySelector('i')]});
-                    }, 3000);
-                    return;
-                }
+                const confirmed = await showConfirmationModal(
+                    translations[currentLang].deleteClient, 
+                    translations[currentLang].confirmDelete, 
+                    translations[currentLang].delete
+                );
 
-                 try {
-                    // --- NUEVA LÓGICA DE PAPELERA (SOFT DELETE) ---
+                if (!confirmed) return;
+
+                try {
                     const clientData = allClients.find(c => c.id === clientId);
-                    if(clientData) {
-                        // Calcular el impacto contable antes de borrar
-                        // --- INICIO DEL CÓDIGO A PEGAR ---
-                        let clientTotalPrestado = 0;
-                        let clientTotalPagado = 0;
-
+                    
+                    if (clientData) {
+                        // 1. CALCULAR EL IMPACTO NETO DEL CLIENTE EN LA CAJA
+                        let clientImpactoNeto = 0;
                         (clientData.loans || []).forEach(loan => {
-                            // 1. Calcular préstamo exacto (Ignorando migraciones, como hace tu sistema)
-                            if (!loan.migrationDate) {
-                                if (loan.principalAmount) {
-                                    clientTotalPrestado += loan.principalAmount;
-                                } else if (loan.totalLoan && clientData.interestRate) {
-                                    clientTotalPrestado += (loan.totalLoan / (1 + (clientData.interestRate / 100)));
-                                }
-                            }
+                            // Pagos recibidos
+                            const loanPaid = (loan.history || [])
+                                .filter(h => h.status !== 'pending_verification' && h.status !== 'rejected' && h.status !== 'postponed' && h.method !== 'migration')
+                                .reduce((sum, h) => sum + (h.amount || 0), 0) + (loan.initialMigratedAmount || 0);
 
-                            // 2. Calcular pagos exactos (Solo los verificados y con fecha)
-                            (loan.history || []).forEach(h => {
-                                if (h.date?.seconds && h.status !== 'pending_verification' && h.status !== 'rejected' && h.status !== 'postponed' && h.method !== 'migration') {
-                                    clientTotalPagado += (h.amount || 0);
-                                }
-                            });
+                            // Capital prestado
+                            let principal = loan.principalAmount;
+                            if (!principal && loan.totalLoan) {
+                                const rate = clientData.interestRate || 20;
+                                principal = loan.totalLoan / (1 + (rate / 100));
+                            }
+                            
+                            clientImpactoNeto += (loanPaid - (principal || 0));
                         });
 
-                        const impactoNeto = clientTotalPagado - clientTotalPrestado;
-                        const noteText = `Ajuste auto (Lixeira) - Cliente: ${clientData.name}`;
-
-                        // 3. Equilibrar la caja antes de mandar el cliente a la papelera
-                        if (impactoNeto > 0) {
-                            // El cliente dio ganancias. Metemos un Aporte para que la caja no baje.
-                            await addDoc(collection(db, 'companies', currentCompanyId, 'capitalInjections'), {
-                                collectorId: clientData.collectorId,
-                                collectorName: "Sistema (Lixeira)",
-                                amount: impactoNeto,
-                                notes: noteText,
-                                date: serverTimestamp(),
-                                adminId: auth.currentUser ? auth.currentUser.uid : 'admin',
-                                status: 'approved'
-                            });
-                        } else if (impactoNeto < 0) {
-                            // El cliente dio pérdidas. Metemos un Gasto para que la caja no suba sola.
-                            await addDoc(collection(db, 'companies', currentCompanyId, 'expenses'), {
-                                collectorId: clientData.collectorId,
-                                category: 'other',
-                                value: Math.abs(impactoNeto),
-                                description: noteText,
-                                date: serverTimestamp()
+                        // 2. GUARDAR ESE IMPACTO EN EL COBRADOR PARA "CONGELAR" LA CAJA
+                        if (clientData.collectorId) {
+                            await updateDoc(doc(db, 'collectors', clientData.collectorId), {
+                                historicalBalance: increment(clientImpactoNeto)
                             });
                         }
-                        // --- FIN DEL CÓDIGO A PEGAR ---
+
+                        // 3. Mover a la papelera
                         await setDoc(doc(db, 'companies', currentCompanyId, "deletedClients", clientId), {
                             ...clientData,
                             deletedAt: serverTimestamp(),
@@ -8405,13 +8371,12 @@ function updateAdminNotificationsView() {
                         });
                     }
                     
-                    // Eliminamos de la colección activa
                     await deleteDoc(doc(db, 'companies', currentCompanyId, "clients", clientId));
                     
                     showToast(translations[currentLang].clientDeleted);
                     formModal.classList.remove('active');
                     document.getElementById('clientDetailModal').classList.remove('active');
-                    // Mantenemos la vista del cobrador abierta
+                    
                 } catch (error) {
                     console.error("Error deleting client: ", error);
                     showToast("Erro ao excluir cliente.", true);
@@ -9241,7 +9206,7 @@ async function showRefinanceVerificationModal(clientId) {
                 container.innerHTML = html;
                 lucide.createIcons({nodes: container.querySelectorAll('[data-lucide]')});
 
-                // Listeners de Restaurar
+                // LÓGICA DE RESTAURACIÓN LIMPIA
                 container.querySelectorAll('.restore-client-btn').forEach(btn => {
                     btn.addEventListener('click', async (e) => {
                         const id = e.currentTarget.dataset.id;
@@ -9253,41 +9218,27 @@ async function showRefinanceVerificationModal(clientId) {
                             
                             if(snap.exists()) {
                                 const data = snap.data();
-                                const clientName = data.name; 
-                                const clientCollector = data.collectorId; // Usamos el ID del cobrador para no cruzar datos
                                 
-                                // 1. Restaurar al cliente a la lista activa
+                                // REVERTIR EL SALDO HISTÓRICO DEL COBRADOR
+                                if (data.collectorId) {
+                                    let cNeto = 0;
+                                    (data.loans || []).forEach(l => {
+                                        const pPaid = (l.history || []).filter(h => h.status !== 'pending_verification' && h.status !== 'rejected').reduce((s, h) => s + (h.amount || 0), 0) + (l.initialMigratedAmount || 0);
+                                        let pPrincipal = l.principalAmount || (l.totalLoan / (1 + (data.interestRate / 100)));
+                                        cNeto += (pPaid - (pPrincipal || 0));
+                                    });
+                                    await updateDoc(doc(db, 'collectors', data.collectorId), {
+                                        historicalBalance: increment(-cNeto)
+                                    });
+                                }
+
                                 delete data.deletedAt; 
                                 delete data.deletedBy;
                                 await setDoc(doc(db, 'companies', currentCompanyId, 'clients', id), data);
                                 await deleteDoc(deletedRef);
                                 
-                                // --- INICIO: REVERSIÓN AUTOMÁTICA DE CAJA (SUPER BLINDADA) ---
-                                const searchName = clientName.toLowerCase().trim();
-                                
-                                // A) Buscar y borrar Aportes inyectados (Ignora mayúsculas y textos viejos)
-                                const injQuery = query(collection(db, 'companies', currentCompanyId, 'capitalInjections'));
-                                const injSnap = await getDocs(injQuery);
-                                for (const docSnap of injSnap.docs) {
-                                    const notes = (docSnap.data().notes || '').toLowerCase();
-                                    if (notes.includes("ajuste") && notes.includes(searchName)) {
-                                        await deleteDoc(doc(db, 'companies', currentCompanyId, 'capitalInjections', docSnap.id));
-                                    }
-                                }
-
-                                // B) Buscar y borrar Gastos generados (Pérdidas)
-                                const expQuery = query(collection(db, 'companies', currentCompanyId, 'expenses'));
-                                const expSnap = await getDocs(expQuery);
-                                for (const docSnap of expSnap.docs) {
-                                    const desc = (docSnap.data().description || '').toLowerCase();
-                                    if (desc.includes("ajuste") && desc.includes(searchName)) {
-                                        await deleteDoc(doc(db, 'companies', currentCompanyId, 'expenses', docSnap.id));
-                                    }
-                                }
-                                // --- FIN: REVERSIÓN AUTOMÁTICA DE CAJA ---
-
-                                showToast(t.clientRestored || 'Cliente restaurado e caixa balanceada!', 'success');
-                                showTrashModal(collectorId); // Refrescar pantalla
+                                showToast(t.clientRestored || 'Cliente restaurado!', 'success');
+                                showTrashModal(collectorId); 
                             }
                         } catch(err) {
                             console.error(err); 
