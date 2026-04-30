@@ -2132,8 +2132,20 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             let collectorTotalInsuranceGenerated = 0; 
 
             const now = new Date();
-            const todayStart = new Date(new Date().setHours(0, 0, 0, 0));
+            // --- INICIO LÓGICA CIERRE DINÁMICO INDIVIDUAL ---
+            let todayStart;
+            const closureMode = collector?.closureMode || 'auto';
+            // Prioridad: 1. Cierre individual del cobrador | 2. Cierre global de empresa | 3. Medianoche
+            const lastClosure = collector?.lastClosure || currentCompanyData?.lastClosure;
+
+            if (closureMode === 'manual' && lastClosure) {
+                todayStart = lastClosure.toDate(); // Usa su propio cierre manual
+            } else {
+                todayStart = new Date(new Date().setHours(0, 0, 0, 0)); // Medianoche automática
+            }
             const weekStart = new Date(todayStart);
+            // --- FIN LÓGICA CIERRE DINÁMICO ---
+            // --- FIN LÓGICA CIERRE DINÁMICO ---
             weekStart.setDate(weekStart.getDate() - weekStart.getDay());
             const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
@@ -2837,9 +2849,25 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                                 </div>
                                 <label class="switch"><input type="checkbox" id="toggle-block-edit" ${collector.blockClientEdit ? 'checked' : ''}><span class="slider"></span></label>
                             </div>
+                            <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 0;">
+                            <div class="form-group" style="margin-top: 15px;">
+                                <label style="font-weight: 600; display: block; font-size: 0.95em;">Ciclo de Fechamento (Cierre de Caja)</label>
+                                <select id="collector-closure-mode" style="margin-top: 10px; width: 100%; padding: 10px; border-radius: 8px; background: var(--bg); border: 1px solid var(--accent-blue); color: var(--text-primary); font-weight: 600;">
+                                    <option value="auto" ${collector.closureMode === 'auto' ? 'selected' : ''}>Automático (Meia-noite 00:00)</option>
+                                    <option value="manual" ${collector.closureMode === 'manual' ? 'selected' : ''}>Manual (Botão no Painel)</option>
+                                </select>
+                                <p style="font-size: 0.75em; color: var(--text-secondary); margin-top: 5px;">
+                                    <b>Manual:</b> O recaudo de hoje só reseta quando você apertar o botão morado no painel.
+                                </p>
+                                <div id="collector-manual-closure-btn-container" style="display: ${collector.closureMode === 'manual' ? 'block' : 'none'}; margin-top: 15px;">
+    <button id="btn-close-route-now" class="btn-primary" style="background-color: var(--accent-green); border-color: var(--accent-green); width: 100%; padding: 12px; font-weight: 700; color: white; display: flex; align-items: center; justify-content: center; gap: 8px; border-radius: 8px; box-shadow: 0 4px 10px rgba(16, 185, 129, 0.2);">
+        <i data-lucide="check-square"></i> REALIZAR CIERRE DE RUTA
+    </button>
+</div>
+                            </div>
                         </div>
                     </div>
-
+                     
                     <!-- SECCIÓN ALERTAS (Bordes Dobles Rojos) -->
                     <div class="kpi-card" style="margin-bottom: 30px; background-color: var(--surface); border-left: 4px solid #dc3545; border-right: 4px solid #dc3545;">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">
@@ -2949,24 +2977,49 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                 });
             }
 
-            if (toggleLoans) {
-                toggleLoans.addEventListener('change', async (e) => {
-                    const isChecked = e.target.checked;
-                    if (statusTextLoans) {
-                        statusTextLoans.textContent = isChecked ? 'BLOQUEADO (ON)' : 'LIBERADO (OFF)';
-                        statusTextLoans.style.color = isChecked ? 'var(--danger-color)' : 'var(--accent-green)';
-                    }
+                 // --- LÓGICA DE CIERRE DE RUTA (CORREGIDA) ---
+            const closureModeSelect = detailView.querySelector('#collector-closure-mode');
+            const closureBtnContainer = detailView.querySelector('#collector-manual-closure-btn-container');
+            const closeRouteBtn = detailView.querySelector('#btn-close-route-now');
+
+            if (closureModeSelect) {
+                closureModeSelect.addEventListener('change', async (e) => {
+                    const newMode = e.target.value;
+                    if (closureBtnContainer) closureBtnContainer.style.display = newMode === 'manual' ? 'block' : 'none';
+                    
                     try {
-                        await updateDoc(doc(db, 'collectors', collectorId), { blockNewLoans: isChecked, lastUpdate: serverTimestamp() });
-                        const lang = currentLang || 'pt';
-                        const msgOn = lang === 'es' ? "Nuevos préstamos bloqueados." : (lang === 'en' ? "New loans blocked." : "Novos empréstimos bloqueados.");
-                        const msgOff = lang === 'es' ? "Nuevos préstamos liberados." : (lang === 'en' ? "New loans allowed." : "Novos empréstimos liberados.");
-                        showToast(isChecked ? msgOn : msgOff, isChecked ? 'purple' : 'success');
-                    } catch (err) {
-                        console.error(err); showToast("Erro de conexão.", true); e.target.checked = !isChecked;
+                        await updateDoc(doc(db, 'collectors', collectorId), { closureMode: newMode });
+                        showToast(newMode === 'manual' ? "Modo Manual Ativado" : "Modo Automático Ativado", 'purple');
+                    } catch (err) { 
+                        console.error(err); 
+                        showToast("Erro ao atualizar.", true); 
                     }
                 });
             }
+
+            if (closeRouteBtn) {
+                closeRouteBtn.addEventListener('click', async () => {
+                    const confirmed = await showConfirmationModal(
+                        'Confirmar Cierre de Ruta',
+                        `¿Deseas finalizar la jornada de <b>${collector.name}</b>?<br><br>Esto reiniciará su contador de "Hoy".`,
+                        'Sí, Cerrar Ruta', 'btn-primary', 'var(--accent-green)'
+                    );
+
+                    if (confirmed) {
+                        try {
+                            closeRouteBtn.disabled = true;
+                            await updateDoc(doc(db, 'collectors', collectorId), { lastClosure: serverTimestamp() });
+                            showToast("Cierre de ruta completado", "success");
+                        } catch (err) {
+                            console.error(err);
+                            showToast("Error al cerrar ruta", true);
+                        } finally {
+                            closeRouteBtn.disabled = false;
+                        }
+                    }
+                });
+            }
+            // --- FIN LÓGICA CIERRE ---
 
             // Alertas
             const renderAlerts = (filterText = '') => {
@@ -3471,6 +3524,13 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
                 </header>
                 <main>
                     <div id="dashboard-view" class="view active container">
+                    <!-- BOTÓN DE CIERRE MANUAL -->
+                        <div id="manual-closure-container" style="display: none; margin-bottom: 25px;">
+                            <button id="perform-closure-btn" class="btn-primary" style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); width: 100%; padding: 18px; border-radius: 16px; font-weight: 800; border: none; box-shadow: 0 10px 20px rgba(139, 92, 246, 0.3); display: flex; align-items: center; justify-content: center; gap: 12px; color: white;">
+                                <i data-lucide="check-square" style="width: 24px; height: 24px;"></i> 
+                                REALIZAR CIERRE DE CAJA (FINALIZAR JORNADA)
+                            </button>
+                        </div>
                         
                         <section class="kpi-grid">
                             <!-- KPI 1: PATRIMONIO (Bordes Dobles Morados) -->
@@ -3631,6 +3691,17 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
                         </div>
                          <div class="settings-section">
                             <h2 class="section-title" data-lang-key="operationalSettings"></h2>
+                            <div class="form-group" style="border-bottom: 1px solid var(--border-color); padding-bottom: 15px; margin-bottom: 15px;">
+    <label style="font-weight: 700; color: var(--accent-blue);">Modo de Cierre Global (Empresa)</label>
+    <select id="settings-closure-mode" style="margin-top: 10px; background: var(--bg); border: 1px solid var(--accent-blue); width: 100%; padding: 10px; border-radius: 8px; color: var(--text-primary);">
+        <option value="auto">Automático (Medianoche 00:00)</option>
+        <option value="manual">Manual (Botón en Panel)</option>
+    </select>
+    <p style="font-size: 0.8em; color: var(--text-secondary); margin-top: 8px;">
+        Define el comportamiento por defecto para todos tus cobradores.
+    </p>
+</div>
+                            
                             <div class="form-group">
                                 <div class="toggle-switch">
                                     <div>
@@ -6334,6 +6405,7 @@ async function submitCollectorReport(collectorId) {
                     companyLogo: logoUrl,
                     defaultInterest: interestInput ? parseFloat(interestInput.value) : (globalSettings.defaultInterest || 0),
                     requireGps: gpsInput ? gpsInput.checked : (globalSettings.requireGps || false),
+                    'settings.closureMode': document.getElementById('settings-closure-mode').value
                 };
 
                 await updateDoc(doc(db, 'companies', currentCompanyId), newSettings);
@@ -6546,6 +6618,10 @@ async function submitCollectorReport(collectorId) {
             }).join('');
             lucide.createIcons({nodes: listContainer.querySelectorAll('[data-lucide]')});
             applyLanguage(currentLang);
+            const closureContainer = document.getElementById('manual-closure-container');
+    if (closureContainer) {
+        closureContainer.style.display = (currentCompanyData?.settings?.closureMode === 'manual') ? 'block' : 'none';
+    }
         }
 
 
@@ -8668,7 +8744,34 @@ function setupEventListeners() {
                     }
                 }
 
-                if (target.closest('#report-generate-btn')) updateReportsView(); 
+                if (target.closest('#report-generate-btn')) updateReportsView();
+
+                // --- ACCIÓN DEL BOTÓN DE CIERRE MANUAL ---
+                const closureBtn = target.closest('#perform-closure-btn');
+                if (closureBtn) {
+                    const confirmed = await showConfirmationModal(
+                        '¿Finalizar Jornada de Hoy?',
+                        'Esto reiniciará el contador de "Recibido Hoy" para todos los cobradores. Los nuevos pagos entrarán en la nueva caja.',
+                        'Sí, Cerrar Caja',
+                        'btn-primary',
+                        'var(--accent-purple)'
+                    );
+
+                    if (confirmed) {
+                        try {
+                            closureBtn.disabled = true;
+                            await updateDoc(doc(db, 'companies', currentCompanyId), {
+                                lastClosure: serverTimestamp()
+                            });
+                            showToast("Cierre de caja completado", "success");
+                        } catch (err) {
+                            console.error(err);
+                            showToast("Error al cerrar caja", true);
+                        } finally {
+                            closureBtn.disabled = false;
+                        }
+                    }
+                }
             });
 
             document.body.addEventListener('change', e => {
@@ -8720,14 +8823,19 @@ function setupEventListeners() {
             }
         }
 
-        function updateSettingsForm(settings) {
-    // Aborta si la vista de perfil (que ahora contiene los ajustes) no está renderizada
+       function updateSettingsForm(settings) {
+    // Aborta si la vista de perfil no está renderizada
     if (!document.getElementById('settings-company-name')) return; 
 
     document.getElementById('settings-company-name').value = settings.companyName || '';
     document.getElementById('settings-logo-preview').src = settings.companyLogo || DEFAULT_LOGO_URL;
     document.getElementById('settings-default-interest').value = settings.defaultInterest || 20;
     document.getElementById('settings-gps-toggle').checked = settings.requireGps || false;
+
+    // --- NUEVO: CARGAR MODO DE CIERRE ---
+    if (document.getElementById('settings-closure-mode')) {
+        document.getElementById('settings-closure-mode').value = settings.settings?.closureMode || 'auto';
+    }
 
     // Deshabilita el botón de guardar hasta que se haga un cambio
     const saveBtn = document.getElementById('save-settings-btn');
