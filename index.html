@@ -1964,7 +1964,7 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
 
                 allCollectors.forEach(collector => {
                     const metrics = calculateCollectorMetrics(
-                        collector, allClients, allExpenses, allSettlements, allCapitalInjections
+                        collector.id, collector, allClients, allExpenses, allSettlements, allCapitalInjections
                     );
                     calculatedCollectorMetrics.set(collector.id, metrics);
 
@@ -1996,79 +1996,6 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                     updateReportsView();
                 }
             } 
-        }       function calculateCollectorMetrics(collector, clients, expenses, settlements, injections) {
-            if (!collector) return { dailyTotal: 0, capitalOnHand: 0, distributedCapital: 0, totalPatrimonio: 0 };
-
-            // 1. LÓGICA DE CIERRE INDIVIDUAL
-            let todayStart;
-            const closureMode = collector.closureMode || 'auto';
-            const lastClosure = collector.lastClosure;
-            if (closureMode === 'manual' && lastClosure) {
-                todayStart = lastClosure.toDate ? lastClosure.toDate() : new Date(lastClosure);
-            } else {
-                todayStart = new Date(new Date().setHours(0, 0, 0, 0));
-            }
-
-            // 2. CÁLCULO UNIFICADO (BLINDADO)
-            let totalLoansMade = 0;
-            let totalPaymentsReceived = 0;
-            let totalDistributed = 0;
-            let dailyTotal = 0;
-            let collectorTotalInsurance = 0;
-
-            clients.forEach(client => {
-                if (client.collectorId !== collector.id) return;
-
-                (client.loans || []).forEach(loan => {
-                    collectorTotalInsurance += (parseFloat(loan.microInsurance) || 0);
-
-                    // Préstamos realizados (Salida)
-                    if (!loan.migrationDate) {
-                        let principal = parseFloat(loan.principalAmount);
-                        if (!principal && loan.totalLoan) {
-                            const rate = parseFloat(client.interestRate) || 20;
-                            principal = parseFloat(loan.totalLoan) / (1 + (rate / 100));
-                        }
-                        totalLoansMade += (principal || 0);
-                    }
-
-                    // Pagos recibidos (Entrada)
-                    (loan.history || []).forEach(h => {
-                        if (h.status === 'approved' && h.method !== 'migration') {
-                            const amt = parseFloat(h.amount) || 0;
-                            totalPaymentsReceived += amt;
-                            const pDate = h.date?.toDate ? h.date.toDate() : new Date(h.date);
-                            if (pDate >= todayStart) dailyTotal += amt;
-                        }
-                    });
-
-                    // Capital en la calle
-                    const totalPaid = (loan.history || [])
-                        .filter(h => h.status === 'approved')
-                        .reduce((sum, h) => sum + (parseFloat(h.amount) || 0), 0);
-                    const balance = (parseFloat(loan.totalLoan) || 0) - totalPaid;
-                    if (balance > 1) totalDistributed += balance;
-                });
-            });
-
-            const totalExp = expenses.filter(e => e.collectorId === collector.id).reduce((sum, e) => sum + (parseFloat(e.value) || 0), 0);
-            const totalSet = settlements.filter(s => s.collectorId === collector.id && s.status === 'approved' && s.type !== 'insurance').reduce((sum, s) => sum + (parseFloat(s.amount) || 0), 0);
-            const totalInj = injections.filter(i => i.collectorId === collector.id && i.status === 'approved').reduce((sum, i) => sum + (parseFloat(i.amount) || 0), 0);
-
-            // CORRECCIÓN 106 vs 105: Usamos startingCapitalOnHand siempre
-            const startingCap = parseFloat(collector.startingCapitalOnHand !== undefined ? collector.startingCapitalOnHand : collector.startingCapital || 0);
-            const histBalance = parseFloat(collector.historicalBalance || 0);
-
-            const capitalOnHand = startingCap + totalInj + totalPaymentsReceived + histBalance - totalLoansMade - totalExp - totalSet;
-
-            return {
-                dailyTotal,
-                capitalOnHand,
-                distributedCapital: totalDistributed,
-                totalPatrimonio: capitalOnHand + totalDistributed,
-                collectorTotalInsurance,
-                activeClientsCount: clients.filter(c => c.collectorId === collector.id).length
-            };
         }
 
 
@@ -2176,7 +2103,159 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
 
         
 
-              
+              function calculateCollectorMetrics(collectorId, collector, allClients, allExpenses, allSettlements, allCapitalInjections) {
+            
+            const collectorClients = allClients.filter(c => c.collectorId === collectorId);
+            const collectorExpenses = allExpenses.filter(e => e.collectorId === collectorId);
+            
+            const collectorSettlementsCapital = allSettlements.filter(s => 
+                s.collectorId === collectorId && 
+                s.status === 'approved' && 
+                s.type !== 'insurance' 
+            );
+
+            const collectorSettlementsInsurance = allSettlements.filter(s => 
+                s.collectorId === collectorId && 
+                s.status === 'approved' && 
+                s.type === 'insurance' 
+            );
+            const totalInsuranceWithdrawn = collectorSettlementsInsurance.reduce((sum, s) => sum + (s.amount || 0), 0);
+
+            const collectorInjections = allCapitalInjections.filter(i => i.collectorId === collectorId && i.status === 'approved');
+
+            let totalPaid = 0; 
+            let totalPrincipal = 0; 
+            let totalDistributedCapital_Outstanding = 0; 
+            let totalLateFees = 0;
+            let dailyCollected = 0, weeklyCollected = 0, monthlyCollected = 0;
+            let expectedToday = 0;
+            let collectorTotalInsuranceGenerated = 0; 
+
+            const now = new Date();
+            const todayStart = new Date(new Date().setHours(0, 0, 0, 0));
+            const weekStart = new Date(todayStart);
+            weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+            const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+            let activeClientsCount = 0;
+            const lateClientIds = new Set(); 
+
+            collectorClients.forEach(c => { 
+                let isClientActive = false; 
+                (c.loans || []).forEach(loan => {
+                    const loanDetails = calculateLoanDetails(loan);
+                    const currentStatus = loanDetails.status;
+
+                    if (!loan.migrationDate) {
+                        if (loan.principalAmount) {
+                            totalPrincipal += loan.principalAmount;
+                        } else if (loan.totalLoan && c.interestRate) {
+                            totalPrincipal += (loan.totalLoan / (1 + (c.interestRate / 100)));
+                        }
+                    }
+
+                    collectorTotalInsuranceGenerated += (parseFloat(loan.microInsurance) || 0);
+                    const todayDate = new Date();
+                    const dayW = todayDate.getDay();
+                    const dayM = todayDate.getDate();
+                    const pDays = loan.paymentDays || [];
+                    const freq = loan.paymentFrequency || 'daily';
+                    let isToday = false;
+
+                    if (freq === 'daily') isToday = pDays.includes(dayW);
+                    else if (freq === 'weekly') isToday = pDays[0] === dayW;
+                    else if (freq === 'monthly') isToday = pDays[0] === dayM;
+
+                    if (isToday && loanDetails.status !== 'finished') {
+                        expectedToday += (parseFloat(loan.originalInstallmentAmount) || 0);
+                    }
+
+                    (loan.history || []).forEach(h => {
+                        if (h.date?.seconds && h.status !== 'pending_verification' && h.status !== 'rejected' && h.status !== 'postponed' && h.method !== 'migration') {
+                            const paymentAmount = h.amount || 0;
+                            totalPaid += paymentAmount; 
+                            const paymentDate = new Date(h.date.seconds * 1000);
+                            if (paymentDate >= todayStart) dailyCollected += paymentAmount;
+                            if (paymentDate >= weekStart) weeklyCollected += paymentAmount;
+                            if (paymentDate >= monthStart) monthlyCollected += paymentAmount;
+                        }
+                    });
+                    
+                    if (currentStatus !== 'finished') {
+                        const totalPaidForThisLoan = (loan.history || [])
+                            .filter(h => h.status !== 'pending_verification' && h.status !== 'rejected' && h.status !== 'postponed')
+                            .reduce((sum, h) => sum + (h.amount || 0), 0);
+                        const outstandingBalance = (loan.totalLoan || 0) - totalPaidForThisLoan;
+                        totalDistributedCapital_Outstanding += outstandingBalance;
+                        isClientActive = true; 
+                    }
+
+                    totalLateFees += (loanDetails.lateFeesAccumulated || 0);
+                    if (currentStatus === 'late') {
+                        lateClientIds.add(c.id); 
+                    }
+                });
+                if (isClientActive) {
+                    activeClientsCount++;
+                }
+            });
+
+            const totalExpenses = collectorExpenses.reduce((sum, e) => sum + (e.value || 0), 0);
+            const totalSettledCapital = collectorSettlementsCapital.reduce((sum, s) => sum + (s.amount || 0), 0);
+            const totalInjected = collectorInjections.reduce((sum, i) => sum + (i.amount || 0), 0);
+
+            const currentStartingCapital = (collector && collector.startingCapitalOnHand !== undefined) 
+                ? collector.startingCapitalOnHand 
+                : (collector && collector.startingCapital) || 0; 
+            
+            // --- BLOQUE MODIFICADO: Sumar Saldo Histórico ---
+            const historicalBalance = collector.historicalBalance || 0;
+            const capitalOnHand = currentStartingCapital + totalInjected + totalPaid - totalPrincipal - totalExpenses - totalSettledCapital + historicalBalance;
+            const totalPatrimonio = capitalOnHand + totalDistributedCapital_Outstanding;
+
+            const totalClientsCount = collectorClients.length;
+            const lateClientsCount = lateClientIds.size;
+            
+            const collectorNetInsurance = Math.max(0, collectorTotalInsuranceGenerated - totalInsuranceWithdrawn);
+
+            let statusKey = 'inOrder';
+            let statusColor = 'var(--accent-green)';
+            let statusIcon = 'check-circle';
+            const countForReputation = activeClientsCount > 0 ? activeClientsCount : 0;
+            if (countForReputation > 0) {
+                const latePercentage = (lateClientsCount / countForReputation) * 100;
+                if (latePercentage > 20) {
+                    statusKey = 'attention'; statusColor = 'var(--danger-color)'; statusIcon = 'alert-octagon';
+                } else if (latePercentage > 0) {
+                     statusKey = 'attention'; statusColor = 'var(--warning-color)'; statusIcon = 'alert-triangle';
+                }
+            }
+
+            return {
+                capitalOnHand, 
+                expectedToday,
+                totalDistributedCapital: totalDistributedCapital_Outstanding,
+                totalPatrimonio, 
+                collectorTotalInsurance: collectorNetInsurance,
+                totalClientsCount, 
+                activeClientsCount, 
+                lateClientsCount, 
+                dailyCollected,
+                weeklyCollected,
+                monthlyCollected,
+                totalPaid,
+                totalPrincipal,
+                totalLateFees,
+                totalExpenses,
+                totalSettled: totalSettledCapital,
+                totalInjected,
+                status: {
+                    textKey: statusKey,
+                    color: statusColor,
+                    icon: statusIcon
+                }
+            };
+        }
 
 
 
@@ -2758,25 +2837,9 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                                 </div>
                                 <label class="switch"><input type="checkbox" id="toggle-block-edit" ${collector.blockClientEdit ? 'checked' : ''}><span class="slider"></span></label>
                             </div>
-                            <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 0;">
-                            <div class="form-group" style="margin-top: 15px;">
-                                <label style="font-weight: 600; display: block; font-size: 0.95em;">Ciclo de Fechamento (Cierre de Caja)</label>
-                                <select id="collector-closure-mode" style="margin-top: 10px; width: 100%; padding: 10px; border-radius: 8px; background: var(--bg); border: 1px solid var(--accent-blue); color: var(--text-primary); font-weight: 600;">
-                                    <option value="auto" ${collector.closureMode === 'auto' ? 'selected' : ''}>Automático (Meia-noite 00:00)</option>
-                                    <option value="manual" ${collector.closureMode === 'manual' ? 'selected' : ''}>Manual (Botão no Painel)</option>
-                                </select>
-                                <p style="font-size: 0.75em; color: var(--text-secondary); margin-top: 5px;">
-                                    <b>Manual:</b> O recaudo de hoje só reseta quando você apertar o botão morado no painel.
-                                </p>
-                                <div id="collector-manual-closure-btn-container" style="display: ${collector.closureMode === 'manual' ? 'block' : 'none'}; margin-top: 15px;">
-    <button id="btn-close-route-now" class="btn-primary" style="background-color: var(--accent-green); border-color: var(--accent-green); width: 100%; padding: 12px; font-weight: 700; color: white; display: flex; align-items: center; justify-content: center; gap: 8px; border-radius: 8px; box-shadow: 0 4px 10px rgba(16, 185, 129, 0.2);">
-        <i data-lucide="check-square"></i> REALIZAR CIERRE DE RUTA
-    </button>
-</div>
-                            </div>
                         </div>
                     </div>
-                     
+
                     <!-- SECCIÓN ALERTAS (Bordes Dobles Rojos) -->
                     <div class="kpi-card" style="margin-bottom: 30px; background-color: var(--surface); border-left: 4px solid #dc3545; border-right: 4px solid #dc3545;">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">
@@ -2886,49 +2949,24 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                 });
             }
 
-                 // --- LÓGICA DE CIERRE DE RUTA (CORREGIDA) ---
-            const closureModeSelect = detailView.querySelector('#collector-closure-mode');
-            const closureBtnContainer = detailView.querySelector('#collector-manual-closure-btn-container');
-            const closeRouteBtn = detailView.querySelector('#btn-close-route-now');
-
-            if (closureModeSelect) {
-                closureModeSelect.addEventListener('change', async (e) => {
-                    const newMode = e.target.value;
-                    if (closureBtnContainer) closureBtnContainer.style.display = newMode === 'manual' ? 'block' : 'none';
-                    
+            if (toggleLoans) {
+                toggleLoans.addEventListener('change', async (e) => {
+                    const isChecked = e.target.checked;
+                    if (statusTextLoans) {
+                        statusTextLoans.textContent = isChecked ? 'BLOQUEADO (ON)' : 'LIBERADO (OFF)';
+                        statusTextLoans.style.color = isChecked ? 'var(--danger-color)' : 'var(--accent-green)';
+                    }
                     try {
-                        await updateDoc(doc(db, 'collectors', collectorId), { closureMode: newMode });
-                        showToast(newMode === 'manual' ? "Modo Manual Ativado" : "Modo Automático Ativado", 'purple');
-                    } catch (err) { 
-                        console.error(err); 
-                        showToast("Erro ao atualizar.", true); 
+                        await updateDoc(doc(db, 'collectors', collectorId), { blockNewLoans: isChecked, lastUpdate: serverTimestamp() });
+                        const lang = currentLang || 'pt';
+                        const msgOn = lang === 'es' ? "Nuevos préstamos bloqueados." : (lang === 'en' ? "New loans blocked." : "Novos empréstimos bloqueados.");
+                        const msgOff = lang === 'es' ? "Nuevos préstamos liberados." : (lang === 'en' ? "New loans allowed." : "Novos empréstimos liberados.");
+                        showToast(isChecked ? msgOn : msgOff, isChecked ? 'purple' : 'success');
+                    } catch (err) {
+                        console.error(err); showToast("Erro de conexão.", true); e.target.checked = !isChecked;
                     }
                 });
             }
-
-            if (closeRouteBtn) {
-                closeRouteBtn.addEventListener('click', async () => {
-                    const confirmed = await showConfirmationModal(
-                        'Confirmar Cierre de Ruta',
-                        `¿Deseas finalizar la jornada de <b>${collector.name}</b>?<br><br>Esto reiniciará su contador de "Hoy".`,
-                        'Sí, Cerrar Ruta', 'btn-primary', 'var(--accent-green)'
-                    );
-
-                    if (confirmed) {
-                        try {
-                            closeRouteBtn.disabled = true;
-                            await updateDoc(doc(db, 'collectors', collectorId), { lastClosure: serverTimestamp() });
-                            showToast("Cierre de ruta completado", "success");
-                        } catch (err) {
-                            console.error(err);
-                            showToast("Error al cerrar ruta", true);
-                        } finally {
-                            closeRouteBtn.disabled = false;
-                        }
-                    }
-                });
-            }
-            // --- FIN LÓGICA CIERRE ---
 
             // Alertas
             const renderAlerts = (filterText = '') => {
@@ -3433,13 +3471,6 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
                 </header>
                 <main>
                     <div id="dashboard-view" class="view active container">
-                    <!-- BOTÓN DE CIERRE MANUAL -->
-                        <div id="manual-closure-container" style="display: none; margin-bottom: 25px;">
-                            <button id="perform-closure-btn" class="btn-primary" style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); width: 100%; padding: 18px; border-radius: 16px; font-weight: 800; border: none; box-shadow: 0 10px 20px rgba(139, 92, 246, 0.3); display: flex; align-items: center; justify-content: center; gap: 12px; color: white;">
-                                <i data-lucide="check-square" style="width: 24px; height: 24px;"></i> 
-                                REALIZAR CIERRE DE CAJA (FINALIZAR JORNADA)
-                            </button>
-                        </div>
                         
                         <section class="kpi-grid">
                             <!-- KPI 1: PATRIMONIO (Bordes Dobles Morados) -->
@@ -3600,17 +3631,6 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
                         </div>
                          <div class="settings-section">
                             <h2 class="section-title" data-lang-key="operationalSettings"></h2>
-                            <div class="form-group" style="border-bottom: 1px solid var(--border-color); padding-bottom: 15px; margin-bottom: 15px;">
-    <label style="font-weight: 700; color: var(--accent-blue);">Modo de Cierre Global (Empresa)</label>
-    <select id="settings-closure-mode" style="margin-top: 10px; background: var(--bg); border: 1px solid var(--accent-blue); width: 100%; padding: 10px; border-radius: 8px; color: var(--text-primary);">
-        <option value="auto">Automático (Medianoche 00:00)</option>
-        <option value="manual">Manual (Botón en Panel)</option>
-    </select>
-    <p style="font-size: 0.8em; color: var(--text-secondary); margin-top: 8px;">
-        Define el comportamiento por defecto para todos tus cobradores.
-    </p>
-</div>
-                            
                             <div class="form-group">
                                 <div class="toggle-switch">
                                     <div>
@@ -6314,7 +6334,6 @@ async function submitCollectorReport(collectorId) {
                     companyLogo: logoUrl,
                     defaultInterest: interestInput ? parseFloat(interestInput.value) : (globalSettings.defaultInterest || 0),
                     requireGps: gpsInput ? gpsInput.checked : (globalSettings.requireGps || false),
-                    'settings.closureMode': document.getElementById('settings-closure-mode').value
                 };
 
                 await updateDoc(doc(db, 'companies', currentCompanyId), newSettings);
@@ -6527,10 +6546,6 @@ async function submitCollectorReport(collectorId) {
             }).join('');
             lucide.createIcons({nodes: listContainer.querySelectorAll('[data-lucide]')});
             applyLanguage(currentLang);
-            const closureContainer = document.getElementById('manual-closure-container');
-    if (closureContainer) {
-        closureContainer.style.display = (currentCompanyData?.settings?.closureMode === 'manual') ? 'block' : 'none';
-    }
         }
 
 
@@ -8310,7 +8325,7 @@ function updateAdminNotificationsView() {
             });
 
             // BLOQUE DE ELIMINACIÓN LIMPIA (SIN ACCIONES CONTABLES)
-              formModal.querySelector('#deleteClientBtn').addEventListener('click', async () => {
+            formModal.querySelector('#deleteClientBtn').addEventListener('click', async () => {
                 const confirmed = await showConfirmationModal(
                     translations[currentLang].deleteClient, 
                     translations[currentLang].confirmDelete, 
@@ -8321,37 +8336,52 @@ function updateAdminNotificationsView() {
 
                 try {
                     const clientData = allClients.find(c => c.id === clientId);
+                    
                     if (clientData) {
-                        let deltaTotal = 0;
+                        // 1. CALCULAR EL IMPACTO NETO DEL CLIENTE EN LA CAJA
+                        let clientImpactoNeto = 0;
                         (clientData.loans || []).forEach(loan => {
+                            // Pagos recibidos
                             const loanPaid = (loan.history || [])
-                                .filter(h => h.status === 'approved' && h.method !== 'migration')
-                                .reduce((sum, h) => sum + (parseFloat(h.amount) || 0), 0);
+                                .filter(h => h.status !== 'pending_verification' && h.status !== 'rejected' && h.status !== 'postponed' && h.method !== 'migration')
+                                .reduce((sum, h) => sum + (h.amount || 0), 0) + (loan.initialMigratedAmount || 0);
 
-                            let principal = parseFloat(loan.principalAmount);
+                            // Capital prestado
+                            let principal = loan.principalAmount;
                             if (!principal && loan.totalLoan) {
                                 const rate = clientData.interestRate || 20;
                                 principal = loan.totalLoan / (1 + (rate / 100));
                             }
-                            deltaTotal += (loanPaid - (principal || 0));
+                            
+                            clientImpactoNeto += (loanPaid - (principal || 0));
                         });
 
+                        // 2. GUARDAR ESE IMPACTO EN EL COBRADOR PARA "CONGELAR" LA CAJA
                         if (clientData.collectorId) {
                             await updateDoc(doc(db, 'collectors', clientData.collectorId), {
-                                historicalBalance: increment(deltaTotal),
-                                lastUpdate: serverTimestamp()
+                                historicalBalance: increment(clientImpactoNeto)
                             });
                         }
 
-                        await setDoc(doc(db, 'companies', currentCompanyId, "deletedClients", clientId), { ...clientData, deletedAt: serverTimestamp() });
-                        await deleteDoc(doc(db, 'companies', currentCompanyId, "clients", clientId));
-                        
-                        showToast(translations[currentLang].clientDeleted);
-                        formModal.classList.remove('active');
-                        document.getElementById('clientDetailModal').classList.remove('active');
+                        // 3. Mover a la papelera
+                        await setDoc(doc(db, 'companies', currentCompanyId, "deletedClients", clientId), {
+                            ...clientData,
+                            deletedAt: serverTimestamp(),
+                            deletedBy: auth.currentUser ? auth.currentUser.uid : 'admin'
+                        });
                     }
-                } catch (error) { console.error(error); showToast("Erro ao excluir.", true); }
-            });                      
+                    
+                    await deleteDoc(doc(db, 'companies', currentCompanyId, "clients", clientId));
+                    
+                    showToast(translations[currentLang].clientDeleted);
+                    formModal.classList.remove('active');
+                    document.getElementById('clientDetailModal').classList.remove('active');
+                    
+                } catch (error) {
+                    console.error("Error deleting client: ", error);
+                    showToast("Erro ao excluir cliente.", true);
+                }
+            });
         }
 
 
@@ -8638,34 +8668,7 @@ function setupEventListeners() {
                     }
                 }
 
-                if (target.closest('#report-generate-btn')) updateReportsView();
-
-                // --- ACCIÓN DEL BOTÓN DE CIERRE MANUAL ---
-                const closureBtn = target.closest('#perform-closure-btn');
-                if (closureBtn) {
-                    const confirmed = await showConfirmationModal(
-                        '¿Finalizar Jornada de Hoy?',
-                        'Esto reiniciará el contador de "Recibido Hoy" para todos los cobradores. Los nuevos pagos entrarán en la nueva caja.',
-                        'Sí, Cerrar Caja',
-                        'btn-primary',
-                        'var(--accent-purple)'
-                    );
-
-                    if (confirmed) {
-                        try {
-                            closureBtn.disabled = true;
-                            await updateDoc(doc(db, 'companies', currentCompanyId), {
-                                lastClosure: serverTimestamp()
-                            });
-                            showToast("Cierre de caja completado", "success");
-                        } catch (err) {
-                            console.error(err);
-                            showToast("Error al cerrar caja", true);
-                        } finally {
-                            closureBtn.disabled = false;
-                        }
-                    }
-                }
+                if (target.closest('#report-generate-btn')) updateReportsView(); 
             });
 
             document.body.addEventListener('change', e => {
@@ -8717,19 +8720,14 @@ function setupEventListeners() {
             }
         }
 
-       function updateSettingsForm(settings) {
-    // Aborta si la vista de perfil no está renderizada
+        function updateSettingsForm(settings) {
+    // Aborta si la vista de perfil (que ahora contiene los ajustes) no está renderizada
     if (!document.getElementById('settings-company-name')) return; 
 
     document.getElementById('settings-company-name').value = settings.companyName || '';
     document.getElementById('settings-logo-preview').src = settings.companyLogo || DEFAULT_LOGO_URL;
     document.getElementById('settings-default-interest').value = settings.defaultInterest || 20;
     document.getElementById('settings-gps-toggle').checked = settings.requireGps || false;
-
-    // --- NUEVO: CARGAR MODO DE CIERRE ---
-    if (document.getElementById('settings-closure-mode')) {
-        document.getElementById('settings-closure-mode').value = settings.settings?.closureMode || 'auto';
-    }
 
     // Deshabilita el botón de guardar hasta que se haga un cambio
     const saveBtn = document.getElementById('save-settings-btn');
