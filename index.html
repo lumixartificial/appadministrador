@@ -2007,7 +2007,9 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             let totalLateFeesGlobal = 0;
             let totalMicroInsuranceGlobal = 0; 
             let expectedToday = 0;
-            const today = new Date();
+            let today = new Date();
+            if (today.getHours() < 5) today.setDate(today.getDate() - 1);
+            today.setHours(0,0,0,0);
             const dayOfWeek = today.getDay();
             const dayOfMonth = today.getDate();
 
@@ -2139,6 +2141,7 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             // Así los pagos de la madrugada cuentan para la jornada anterior
             if (todayStart.getHours() < 5) {
             todayStart.setDate(todayStart.getDate() - 1);
+            todayStart.setHours(0, 0, 0, 0);
         }
 
             // Establecemos el inicio a las 00:00 del día correspondiente
@@ -3765,8 +3768,9 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
            }
 
            // 3. Configurar Fechas (Normalización estricta a medianoche)
-           const today = new Date();
-           today.setHours(0, 0, 0, 0); 
+            let today = new Date();
+            if (today.getHours() < 5) today.setDate(today.getDate() - 1);
+            today.setHours(0, 0, 0, 0);
            
            let startDateObj = null;
            if (loan.startDate) {
@@ -4744,8 +4748,9 @@ async function submitCollectorReport(collectorId) {
             }
 
             // Fechas por defecto
-            const today = new Date();
-            const beginningOfTime = '2023-01-01'; 
+             let today = new Date();
+            if (today.getHours() < 5) today.setDate(today.getDate() - 1);
+            const beginningOfTime = '2023-01-01';
 
             if (!dateStartInput.value) dateStartInput.value = beginningOfTime;
             if (!dateEndInput.value) dateEndInput.value = today.toISOString().split('T')[0];
@@ -5336,7 +5341,9 @@ async function submitCollectorReport(collectorId) {
             try {
                 const { jsPDF } = window.jspdf;
                 const doc = new jsPDF();
-                const now = new Date();
+                let now = new Date();
+                if (now.getHours() < 5) now.setDate(now.getDate() - 1);
+            
                 
                 // Helper seguro para formatear fechas
                 const safeDate = (timestamp) => {
@@ -5908,6 +5915,8 @@ async function submitCollectorReport(collectorId) {
         async function exportFinancialAnalysisPDF(reportData) {
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF();
+            let printDate = new Date();
+            if (printDate.getHours() < 5) printDate.setDate(printDate.getDate() - 1);
             const { period, collector, financials, breakdown } = reportData;
             const t = translations[currentLang];
             const primaryColor = '#0f172a'; 
@@ -6588,7 +6597,10 @@ async function submitCollectorReport(collectorId) {
             let totalActiveFines = 0;
 
             // Usamos la fecha de hoy para filtrar lo recaudado hoy
-            const today = new Date();
+            // Fechas por defecto
+            let today = new Date();
+            if (today.getHours() < 5) today.setDate(today.getDate() - 1);
+            today.setHours(0, 0, 0, 0);
             const isSameDate = (d1, d2) => 
                 d1.getDate() === d2.getDate() &&
                 d1.getMonth() === d2.getMonth() &&
