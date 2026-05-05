@@ -411,7 +411,7 @@
     .toggle-switch .switch input { display: none; }
     .toggle-switch .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 28px; }
     .toggle-switch .slider:before { position: absolute; content: ""; height: 20px; width: 20px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
-    .toggle-switch input:checked + .slider { background-color: var(--accent-blue); }
+    .toggle-switch input:checked + .slider { background-color: #f59e0b; }
     .toggle-switch input:checked + .slider:before { transform: translateX(22px); }
     
     #install-banner { display: none; position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); width: calc(100% - 40px); max-width: 400px; background-color: var(--surface); color: var(--text-primary); padding: 25px; border-radius: 16px; z-index: 5000; box-shadow: 0 10px 40px rgba(0,0,0,0.2); border: 1px solid var(--border-color); text-align: center; }
@@ -1465,6 +1465,8 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
         // ... código existente ...
     const translations = {
         pt: {
+            manualLockTitle: 'BLOQUEIO MANUAL TOTAL',
+            manualLockDesc: 'Ativar ou desativar o acesso à App do cobrador?',
             delinquencyReport: 'Relatório de Inadimplência',
             criticalLateDebt: 'Dívida Crítica (+5 dias)',
             totalOwed: 'Total Devido',
@@ -1636,6 +1638,8 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
         },  
 
         es: {
+            manualLockTitle: 'BLOQUEO MANUAL TOTAL',
+            manualLockDesc: '¿Activar o desactivar el acceso a la App del cobrador?',
             delinquencyReport: 'Reporte de Morosidad',
             criticalLateDebt: 'Deuda Crítica (+5 días)',
             totalOwed: 'Total Adeudado',
@@ -1802,6 +1806,8 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             insuranceLabelShort: 'Seguro',
         },
         en: {
+            manualLockTitle: 'TOTAL MANUAL BLOCK',
+            manualLockDesc: 'Activate or deactivate access to the collector App?',
             expectedToday: 'Collection Goal Today',
             blockNewLoans: 'Block New Loans',
             trashBtn: 'Client Trash',
@@ -2853,6 +2859,21 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                                 <label class="switch"><input type="checkbox" id="toggle-block-edit" ${collector.blockClientEdit ? 'checked' : ''}><span class="slider"></span></label>
                             </div>
                         </div>
+                        <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 15px 0;">
+                        
+                        <!-- BLOQUEO MANUAL ESTILO AMARILLO -->
+                        <div class="kpi-card" style="background-color: rgba(245, 158, 11, 0.1); border: 1px solid #f59e0b; padding: 15px; border-radius: 12px; border-left: 4px solid #f59e0b; border-right: 4px solid #f59e0b;">
+                            <div class="toggle-switch" style="justify-content: space-between; width: 100%;">
+                                <div style="padding-right: 10px;">
+                                    <label style="font-weight: 800; display: block; font-size: 0.95em; color: #b45309;" data-lang-key="manualLockTitle"></label>
+                                    <p style="font-size: 0.85em; color: #b45309; margin: 4px 0 0; font-weight: 500;" data-lang-key="manualLockDesc"></p>
+                                </div>
+                                <label class="switch">
+                                    <input type="checkbox" id="toggle-manual-block" ${collector.isManualBlocked ? 'checked' : ''}>
+                                    <span class="slider" style="background-color: #ccc;"></span>
+                                </label>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- SECCIÓN ALERTAS (Bordes Dobles Rojos) -->
@@ -2919,9 +2940,7 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                     <button id="add-capital-injection-btn" data-collector-id="${collectorId}" class="btn-primary" style="background-color: #10b981; border-color: #10b981; color: white;">
                         <i data-lucide="arrow-up-circle"></i> <span data-lang-key="aportarCapital">Aporte</span>
                     </button>
-                    <button id="unlock-app-btn" data-collector-id="${collectorId}" class="btn-primary" style="background-color: #f59e0b; border-color: #f59e0b; color: #000000;">
-                        <i data-lucide="lock-open"></i> <span data-lang-key="unlockAppButton">Desbloquear</span>
-                    </button>
+                    
                 </div>
             `;
             
@@ -2979,6 +2998,24 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                         showToast(isChecked ? msgOn : msgOff, isChecked ? 'purple' : 'success');
                     } catch (err) {
                         console.error(err); showToast("Erro de conexão.", true); e.target.checked = !isChecked;
+                    }
+                });
+            }
+            // Listener para o Bloqueio Manual Total
+            const toggleManualBlock = detailView.querySelector('#toggle-manual-block');
+            if (toggleManualBlock) {
+                toggleManualBlock.addEventListener('change', async (e) => {
+                    const isChecked = e.target.checked;
+                    try {
+                        await updateDoc(doc(db, 'collectors', collectorId), { 
+                            isManualBlocked: isChecked 
+                        });
+                        const msg = isChecked ? "Acesso do cobrador DESATIVADO." : "Acesso do cobrador LIBERADO.";
+                        showToast(msg, isChecked ? 'error' : 'success');
+                    } catch (err) {
+                        console.error(err); 
+                        showToast("Erro ao atualizar bloqueio.", true); 
+                        e.target.checked = !isChecked;
                     }
                 });
             }
