@@ -223,8 +223,32 @@
     .notification-badge { position: absolute; top: 2px; right: 8px; background-color: var(--danger-color); color: white; border-radius: 50%; width: 18px; height: 18px; font-size: 0.7em; font-weight: bold; display: flex; align-items: center; justify-content: center; border: 2px solid var(--surface); transform: scale(0); transition: transform 0.2s; }
     .notification-badge.visible { transform: scale(1); }
 
-    .bottom-nav { flex-shrink: 0; background-color: var(--surface); border-top: 1px solid var(--border-color); display: flex; justify-content: space-around; padding: 10px 0; }
-    .nav-item { display: flex; flex-direction: column; align-items: center; gap: 5px; color: var(--text-secondary); text-decoration: none; font-size: 0.8em; padding: 5px 15px; cursor: pointer; }
+    .bottom-nav { 
+        flex-shrink: 0; 
+        background-color: var(--surface); 
+        border-top: 1px solid var(--border-color); 
+        display: flex; 
+        justify-content: flex-start; /* Alinea al inicio para permitir scroll */
+        padding: 10px 5px; 
+        overflow-x: auto; /* Permite deslizar horizontalmente */
+        scrollbar-width: none; /* Oculta la barra en Firefox */
+        -webkit-overflow-scrolling: touch; /* Suavidad en iPhone */
+    }
+    .bottom-nav::-webkit-scrollbar { display: none; } /* Oculta la barra en Chrome/Safari */
+
+    .nav-item { 
+        display: flex; 
+        flex-direction: column; 
+        align-items: center; 
+        gap: 5px; 
+        color: var(--text-secondary); 
+        text-decoration: none; 
+        font-size: 0.8em; 
+        padding: 5px 12px; 
+        cursor: pointer; 
+        flex-shrink: 0; /* IMPIDE que los botones se aplasten */
+        min-width: 75px; /* Tamaño mínimo para que el dedo no se equivoque */
+    }
     .nav-item.active { color: var(--accent-blue); }
     
      /* --- CORRECCIÓN DE CAPAS (Z-INDEX) --- */
@@ -1377,6 +1401,8 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
         let allSettlements = [];
         let allCapitalInjections = [];
         let allInsuranceWithdrawals = []; // Memoria para los retiros de seguro
+        let allAdminExpenses = []; // Memoria para Gastos Administrativos
+        let adminExpensesReady = false; 
 
         let collectorsReady = false;
         let clientsReady = false;
@@ -1465,6 +1491,16 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
         // ... código existente ...
     const translations = {
         pt: {
+            adminExpenses: 'Gastos Admin',
+            adminExpensesTitle: 'Gastos Administrativos',
+            saveAdminExp: 'Salvar Gasto',
+            expAssignedTo: 'Atribuir à Rota / Cobrador',
+            globalExp: 'Gasto Global',
+            catPolice: 'Polícia / Pago',
+            catMoto: 'Compra de Moto',
+            catChains: 'Pagamento de Consórcios',
+            catBonus: 'Ajuda a Funcionário',
+            catUnforeseen: 'Retiros Sociedade',
             reportStatement: 'EXTRATO',
             reportInitBal: 'SALDO INICIAL CAIXA',
             reportInflows: '(+) ENTRADAS',
@@ -1662,6 +1698,16 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
         },  
 
         es: {
+            adminExpenses: 'Gastos Admin',
+            adminExpensesTitle: 'Gastos Administrativos',
+            saveAdminExp: 'Guardar Gasto',
+            expAssignedTo: 'Asignar a Ruta / Cobrador',
+            globalExp: 'Gasto Global',
+            catPolice: 'Policía / pago',
+            catMoto: 'Compra de Moto',
+            catChains: 'Pago de Cadenas',
+            catBonus: 'Ayuda a Funcionario',
+            catUnforeseen: 'Retiros Sociedad',
             reportStatement: 'EXTRACTO',
             reportInitBal: 'SALDO INICIAL CAJA',
             reportInflows: '(+) ENTRADAS',
@@ -1854,6 +1900,16 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             insuranceLabelShort: 'Seguro',
         },
         en: {
+            adminExpenses: 'Admin Expenses',
+            adminExpensesTitle: 'Administrative Expenses',
+            saveAdminExp: 'Save Expense',
+            expAssignedTo: 'Assign to Route / Collector',
+            globalExp: 'Global Expense',
+            catPolice: 'Police / Security',
+            catMoto: 'Motorcycle Purchase',
+            catChains: 'Chain Payments',
+            catBonus: 'Employee Bonus',
+            catUnforeseen: 'Unforeseen',
             reportStatement: 'STATEMENT',
             reportInitBal: 'INITIAL CASH BALANCE',
             reportInflows: '(+) INFLOWS',
@@ -2030,8 +2086,9 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
     };
 
             
-            function checkAndRunGlobalUpdate() {
-            if (collectorsReady && clientsReady && expensesReady && settlementsReady && capitalInjectionsReady) {
+            
+function checkAndRunGlobalUpdate() {
+            if (collectorsReady && clientsReady && expensesReady && settlementsReady && capitalInjectionsReady && adminExpensesReady) {
                 console.log("[ADMIN-APP] Datos listos. Actualizando todo...");
                 
                 calculatedCollectorMetrics.clear(); 
@@ -2042,7 +2099,7 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
 
                 allCollectors.forEach(collector => {
                     const metrics = calculateCollectorMetrics(
-                        collector.id, collector, allClients, allExpenses, allSettlements, allCapitalInjections
+                        collector.id, collector, allClients, allExpenses, allSettlements, allCapitalInjections, allAdminExpenses
                     );
                     calculatedCollectorMetrics.set(collector.id, metrics);
 
@@ -2051,8 +2108,15 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                     sumGlobalCapitalOnHand += (metrics.capitalOnHand || 0); 
                 });
 
+                // DESCUENTO GLOBAL: Si el gasto admin es global, se resta directamente del patrimonio y caja de la empresa
+                const globalAdminExpenses = allAdminExpenses.filter(e => e.collectorId === 'global');
+                const totalGlobalAdminExpenses = globalAdminExpenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+                
+                sumGlobalPatrimonio -= totalGlobalAdminExpenses;
+                sumGlobalCapitalOnHand -= totalGlobalAdminExpenses;
+
                 calculatedGlobalMetrics = calculateGlobalMetrics(
-                    allCollectors, allClients, allExpenses, allSettlements, allCapitalInjections
+                    allCollectors, allClients, allExpenses, allSettlements, allCapitalInjections, allAdminExpenses
                 );
                 
                 calculatedGlobalMetrics.sumGlobalDistributed = sumGlobalDistributed;
@@ -2063,51 +2127,30 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                 updateProfileView();
                 updateAdminNotificationsView();
                 
-                // --- NUEVO: ACTUALIZAR EL MAPA TAMBIÉN ---
-                // Esto asegura que en cuanto carguen los clientes, aparezcan en el mapa
-                if (mapInstance) {
-                    updateCollectorMarkers();
-                }
-                // -----------------------------------------
-                
-                if (document.getElementById('reports-view') && document.getElementById('reports-view').classList.contains('active')) {
-                    updateReportsView();
-                }
+                if (mapInstance) updateCollectorMarkers();
+                if (document.getElementById('reports-view') && document.getElementById('reports-view').classList.contains('active')) updateReportsView();
+                if (document.getElementById('admin-expenses-view') && document.getElementById('admin-expenses-view').classList.contains('active')) showView('admin-expenses');
             } 
         }
 
-
-
-               function calculateGlobalMetrics(collectors, clients, expenses, settlements, capitalInjections) {
-            let totalStartingCapital = 0;
-            let totalPaidFromHistory = 0;
-            let totalPrincipalFromLoans = 0;
-            let totalLateFeesGlobal = 0;
-            let totalMicroInsuranceGlobal = 0; 
-            let expectedToday = 0;
+        function calculateGlobalMetrics(collectors, clients, expenses, settlements, capitalInjections, adminExpenses) {
+            let totalStartingCapital = 0, totalPaidFromHistory = 0, totalPrincipalFromLoans = 0;
+            let totalLateFeesGlobal = 0, totalMicroInsuranceGlobal = 0, expectedToday = 0;
             let today = new Date();
             if (today.getHours() < 5) today.setDate(today.getDate() - 1);
             today.setHours(0,0,0,0);
-            const dayOfWeek = today.getDay();
-            const dayOfMonth = today.getDate();
+            const dayOfWeek = today.getDay(), dayOfMonth = today.getDate();
 
-            collectors.forEach(c => {
-                totalStartingCapital += (c.startingCapital || 0);
-            });
+            collectors.forEach(c => totalStartingCapital += (c.startingCapital || 0));
 
             clients.forEach(client => {
                 (client.loans || []).forEach(loan => {
                     const insuranceVal = parseFloat(loan.microInsurance);
-                    if (!isNaN(insuranceVal)) {
-                        totalMicroInsuranceGlobal += insuranceVal;
-                    }
+                    if (!isNaN(insuranceVal)) totalMicroInsuranceGlobal += insuranceVal;
 
                     let principal = 0;
-                    if (loan.principalAmount) {
-                        principal = loan.principalAmount;
-                    } else if (loan.totalLoan && client.interestRate) { 
-                        principal = (loan.totalLoan / (1 + (client.interestRate / 100)));
-                    }
+                    if (loan.principalAmount) principal = loan.principalAmount;
+                    else if (loan.totalLoan && client.interestRate) principal = (loan.totalLoan / (1 + (client.interestRate / 100)));
                     totalPrincipalFromLoans += principal;
 
                     (loan.history || []).forEach(h => {
@@ -2124,109 +2167,62 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                         if (frequency === 'daily') isPaymentDay = (loan.paymentDays || []).includes(dayOfWeek);
                         else if (frequency === 'weekly') isPaymentDay = (loan.paymentDays || [])[0] === dayOfWeek;
                         else if (frequency === 'monthly') isPaymentDay = (loan.paymentDays || [])[0] === dayOfMonth;
-
-                        if (isPaymentDay) {
-                            expectedToday += (loan.originalInstallmentAmount || 0);
-                        }
+                        if (isPaymentDay) expectedToday += (loan.originalInstallmentAmount || 0);
                     }
                 });
             });
 
-            const totalExpensesGlobal = expenses.reduce((sum, expense) => sum + (expense.value || 0), 0);
+            const totalExpensesGlobal = expenses.reduce((sum, e) => sum + (e.value || 0), 0);
+            // Sumamos los gastos admin globales
+            const totalAdminExpensesGlobal = adminExpenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
             
-            // Filtramos retiros de capital (para el balance general)
-            const totalSettlementsGlobal = settlements
-                .filter(s => s.status === 'approved' && s.type !== 'insurance')
-                .reduce((sum, s) => sum + (s.amount || 0), 0);
-            
+            const totalSettlementsGlobal = settlements.filter(s => s.status === 'approved' && s.type !== 'insurance').reduce((sum, s) => sum + (s.amount || 0), 0);
             const totalInjectionsGlobal = capitalInjections.filter(i => i.status === 'approved').reduce((sum, i) => sum + (i.amount || 0), 0);
+            const totalInsuranceWithdrawn = settlements.filter(s => s.status === 'approved' && s.type === 'insurance').reduce((sum, s) => sum + (s.amount || 0), 0);
             
-            // --- CORRECCIÓN MAESTRA: SINCRONIZACIÓN DE SEGURO ---
-            // Ahora calculamos los retiros de seguro usando 'settlements' (lo visible), 
-            // igual que hacen los perfiles individuales. Así garantizamos que sumen igual.
-            const totalInsuranceWithdrawn = settlements
-                .filter(s => s.status === 'approved' && s.type === 'insurance')
-                .reduce((sum, s) => sum + (s.amount || 0), 0);
-            
-            // Disponible Global
             const availableInsuranceFund = Math.max(0, totalMicroInsuranceGlobal - totalInsuranceWithdrawn);
 
-            // Fórmulas Contables
-            const totalCapital = totalStartingCapital + totalInjectionsGlobal + totalPaidFromHistory - totalPrincipalFromLoans - totalExpensesGlobal - totalSettlementsGlobal + totalLateFeesGlobal;
+            // DESCONTAMOS LOS GASTOS ADMIN AQUÍ (- totalAdminExpensesGlobal)
+            const totalCapital = totalStartingCapital + totalInjectionsGlobal + totalPaidFromHistory - totalPrincipalFromLoans - totalExpensesGlobal - totalSettlementsGlobal + totalLateFeesGlobal - totalAdminExpensesGlobal;
             
             const fieldValue = (totalPrincipalFromLoans + totalLateFeesGlobal) - totalPaidFromHistory;
             const grossProfitBeforeExpenses = (totalPaidFromHistory + totalLateFeesGlobal) - totalPrincipalFromLoans;
-            const grossProfit = grossProfitBeforeExpenses - totalExpensesGlobal; 
+            
+            // DESCONTAMOS LOS GASTOS ADMIN DE LA GANANCIA AQUÍ
+            const grossProfit = grossProfitBeforeExpenses - totalExpensesGlobal - totalAdminExpensesGlobal; 
             
             const activeClientsCount = clients.filter(c => (c.loans || []).some(l => l.status !== 'finished')).length;
             
             return {
-                totalCapital,
-                activeCollectorsCount: collectors.length,
-                activeClientsCount,
-                totalStartingCapital, 
-                expectedToday,
-                fieldValue,
-                grossProfit,
-                totalExpensesGlobal,
-                totalSettlementsGlobal,
-                totalInjectionsGlobal,
-                totalMicroInsuranceGlobal, 
-                totalInsuranceWithdrawn,   
-                availableInsuranceFund     
+                totalCapital, activeCollectorsCount: collectors.length, activeClientsCount,
+                totalStartingCapital, expectedToday, fieldValue, grossProfit, totalExpensesGlobal,
+                totalAdminExpensesGlobal, totalSettlementsGlobal, totalInjectionsGlobal,
+                totalMicroInsuranceGlobal, totalInsuranceWithdrawn, availableInsuranceFund     
             };
         }
-        
 
-        // --- FUNCIÓN MAESTRA 2: MÉTRICAS DE COBRADOR (CAPITAL EN MANOS) ---
-        
-
-        
-
-              function calculateCollectorMetrics(collectorId, collector, allClients, allExpenses, allSettlements, allCapitalInjections) {
-            
+        function calculateCollectorMetrics(collectorId, collector, allClients, allExpenses, allSettlements, allCapitalInjections, allAdminExpenses) {
             const collectorClients = allClients.filter(c => c.collectorId === collectorId);
             const collectorExpenses = allExpenses.filter(e => e.collectorId === collectorId);
             
-            const collectorSettlementsCapital = allSettlements.filter(s => 
-                s.collectorId === collectorId && 
-                s.status === 'approved' && 
-                s.type !== 'insurance' 
-            );
-
-            const collectorSettlementsInsurance = allSettlements.filter(s => 
-                s.collectorId === collectorId && 
-                s.status === 'approved' && 
-                s.type === 'insurance' 
-            );
+            // Calculamos los gastos admin asignados a este cobrador
+            const collectorAdminExpenses = allAdminExpenses.filter(e => e.collectorId === collectorId);
+            const totalAdminExpenses = collectorAdminExpenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+            
+            const collectorSettlementsCapital = allSettlements.filter(s => s.collectorId === collectorId && s.status === 'approved' && s.type !== 'insurance');
+            const collectorSettlementsInsurance = allSettlements.filter(s => s.collectorId === collectorId && s.status === 'approved' && s.type === 'insurance');
             const totalInsuranceWithdrawn = collectorSettlementsInsurance.reduce((sum, s) => sum + (s.amount || 0), 0);
-
             const collectorInjections = allCapitalInjections.filter(i => i.collectorId === collectorId && i.status === 'approved');
 
-            let totalPaid = 0; 
-            let totalPrincipal = 0; 
-            let totalDistributedCapital_Outstanding = 0; 
-            let totalLateFees = 0;
-            let dailyCollected = 0, weeklyCollected = 0, monthlyCollected = 0;
-            let expectedToday = 0;
-            let collectorTotalInsuranceGenerated = 0; 
+            let totalPaid = 0, totalPrincipal = 0, totalDistributedCapital_Outstanding = 0, totalLateFees = 0;
+            let dailyCollected = 0, weeklyCollected = 0, monthlyCollected = 0, expectedToday = 0, collectorTotalInsuranceGenerated = 0; 
 
             const now = new Date();
-            // --- NUEVA LÓGICA: EL DÍA TERMINA A LAS 5:00 AM ---
             let todayStart = new Date();
-
-            // Si la hora es antes de las 5:00 AM (0, 1, 2, 3 o 4), restamos un día
-            // Así los pagos de la madrugada cuentan para la jornada anterior
-            if (todayStart.getHours() < 5) {
-            todayStart.setDate(todayStart.getDate() - 1);
-            todayStart.setHours(0, 0, 0, 0);
-        }
-
-            // Establecemos el inicio a las 00:00 del día correspondiente
+            if (todayStart.getHours() < 5) todayStart.setDate(todayStart.getDate() - 1);
             todayStart.setHours(0, 0, 0, 0);
 
             const weekStart = new Date(todayStart);
-            // --- FIN NUEVA LÓGICA ---
             weekStart.setDate(weekStart.getDate() - weekStart.getDay());
             const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
@@ -2240,17 +2236,13 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                     const currentStatus = loanDetails.status;
 
                     if (!loan.migrationDate) {
-                        if (loan.principalAmount) {
-                            totalPrincipal += loan.principalAmount;
-                        } else if (loan.totalLoan && c.interestRate) {
-                            totalPrincipal += (loan.totalLoan / (1 + (c.interestRate / 100)));
-                        }
+                        if (loan.principalAmount) totalPrincipal += loan.principalAmount;
+                        else if (loan.totalLoan && c.interestRate) totalPrincipal += (loan.totalLoan / (1 + (c.interestRate / 100)));
                     }
 
                     collectorTotalInsuranceGenerated += (parseFloat(loan.microInsurance) || 0);
                     const todayDate = new Date(todayStart);
-                    const dayW = todayDate.getDay();
-                    const dayM = todayDate.getDate();
+                    const dayW = todayDate.getDay(), dayM = todayDate.getDate();
                     const pDays = loan.paymentDays || [];
                     const freq = loan.paymentFrequency || 'daily';
                     let isToday = false;
@@ -2259,9 +2251,7 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                     else if (freq === 'weekly') isToday = pDays[0] === dayW;
                     else if (freq === 'monthly') isToday = pDays[0] === dayM;
 
-                    if (isToday && loanDetails.status !== 'finished') {
-                        expectedToday += (parseFloat(loan.originalInstallmentAmount) || 0);
-                    }
+                    if (isToday && loanDetails.status !== 'finished') expectedToday += (parseFloat(loan.originalInstallmentAmount) || 0);
 
                     (loan.history || []).forEach(h => {
                         if (h.date?.seconds && h.status !== 'pending_verification' && h.status !== 'rejected' && h.status !== 'postponed' && h.method !== 'migration') {
@@ -2275,81 +2265,45 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                     });
                     
                     if (currentStatus !== 'finished') {
-                        const totalPaidForThisLoan = (loan.history || [])
-                            .filter(h => h.status !== 'pending_verification' && h.status !== 'rejected' && h.status !== 'postponed')
-                            .reduce((sum, h) => sum + (h.amount || 0), 0);
-                        const outstandingBalance = (loan.totalLoan || 0) - totalPaidForThisLoan;
-                        totalDistributedCapital_Outstanding += outstandingBalance;
+                        const totalPaidForThisLoan = (loan.history || []).filter(h => h.status !== 'pending_verification' && h.status !== 'rejected' && h.status !== 'postponed').reduce((sum, h) => sum + (h.amount || 0), 0);
+                        totalDistributedCapital_Outstanding += ((loan.totalLoan || 0) - totalPaidForThisLoan);
                         isClientActive = true; 
                     }
 
                     totalLateFees += (loanDetails.lateFeesAccumulated || 0);
-                    if (currentStatus === 'late') {
-                        lateClientIds.add(c.id); 
-                    }
+                    if (currentStatus === 'late') lateClientIds.add(c.id); 
                 });
-                if (isClientActive) {
-                    activeClientsCount++;
-                }
+                if (isClientActive) activeClientsCount++;
             });
 
             const totalExpenses = collectorExpenses.reduce((sum, e) => sum + (e.value || 0), 0);
             const totalSettledCapital = collectorSettlementsCapital.reduce((sum, s) => sum + (s.amount || 0), 0);
             const totalInjected = collectorInjections.reduce((sum, i) => sum + (i.amount || 0), 0);
-
-            const currentStartingCapital = (collector && collector.startingCapitalOnHand !== undefined) 
-                ? collector.startingCapitalOnHand 
-                : (collector && collector.startingCapital) || 0; 
-            
-            // --- BLOQUE MODIFICADO: Sumar Saldo Histórico ---
+            const currentStartingCapital = (collector && collector.startingCapitalOnHand !== undefined) ? collector.startingCapitalOnHand : (collector && collector.startingCapital) || 0; 
             const historicalBalance = collector.historicalBalance || 0;
-            const capitalOnHand = currentStartingCapital + totalInjected + totalPaid - totalPrincipal - totalExpenses - totalSettledCapital + historicalBalance;
+            
+            // EL DESCUENTO DE GASTOS ADMIN A LA CAJA DEL COBRADOR SE HACE AQUÍ (- totalAdminExpenses)
+            const capitalOnHand = currentStartingCapital + totalInjected + totalPaid - totalPrincipal - totalExpenses - totalSettledCapital + historicalBalance - totalAdminExpenses;
             const totalPatrimonio = capitalOnHand + totalDistributedCapital_Outstanding;
 
-            const totalClientsCount = collectorClients.length;
-            const lateClientsCount = lateClientIds.size;
-            
             const collectorNetInsurance = Math.max(0, collectorTotalInsuranceGenerated - totalInsuranceWithdrawn);
 
-            let statusKey = 'inOrder';
-            let statusColor = 'var(--accent-green)';
-            let statusIcon = 'check-circle';
+            let statusKey = 'inOrder', statusColor = 'var(--accent-green)', statusIcon = 'check-circle';
             const countForReputation = activeClientsCount > 0 ? activeClientsCount : 0;
             if (countForReputation > 0) {
-                const latePercentage = (lateClientsCount / countForReputation) * 100;
-                if (latePercentage > 20) {
-                    statusKey = 'attention'; statusColor = 'var(--danger-color)'; statusIcon = 'alert-octagon';
-                } else if (latePercentage > 0) {
-                     statusKey = 'attention'; statusColor = 'var(--warning-color)'; statusIcon = 'alert-triangle';
-                }
+                const latePercentage = (lateClientIds.size / countForReputation) * 100;
+                if (latePercentage > 20) { statusKey = 'attention'; statusColor = 'var(--danger-color)'; statusIcon = 'alert-octagon'; } 
+                else if (latePercentage > 0) { statusKey = 'attention'; statusColor = 'var(--warning-color)'; statusIcon = 'alert-triangle'; }
             }
 
             return {
-                capitalOnHand, 
-                expectedToday,
-                totalDistributedCapital: totalDistributedCapital_Outstanding,
-                totalPatrimonio, 
-                collectorTotalInsurance: collectorNetInsurance,
-                totalClientsCount, 
-                activeClientsCount, 
-                lateClientsCount, 
-                dailyCollected,
-                weeklyCollected,
-                monthlyCollected,
-                totalPaid,
-                totalPrincipal,
-                totalLateFees,
-                totalExpenses,
-                totalSettled: totalSettledCapital,
-                totalInjected,
-                status: {
-                    textKey: statusKey,
-                    color: statusColor,
-                    icon: statusIcon
-                }
+                capitalOnHand, expectedToday, totalDistributedCapital: totalDistributedCapital_Outstanding, totalPatrimonio, 
+                collectorTotalInsurance: collectorNetInsurance, totalClientsCount: collectorClients.length, activeClientsCount, 
+                lateClientsCount: lateClientIds.size, dailyCollected, weeklyCollected, monthlyCollected, totalPaid,
+                totalPrincipal, totalLateFees, totalExpenses, totalSettled: totalSettledCapital, totalInjected,
+                status: { textKey: statusKey, color: statusColor, icon: statusIcon }
             };
         }
-
 
 
 
@@ -2478,6 +2432,12 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                 }
             });
             
+            onSnapshot(collection(db, 'companies', currentCompanyId, 'adminExpenses'), snapshot => {
+                allAdminExpenses = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                adminExpensesReady = true; 
+                if (collectorsReady && clientsReady) checkAndRunGlobalUpdate(); 
+            });
+
             onSnapshot(collection(db, 'companies', currentCompanyId, 'expenses'), snapshot => {
                 allExpenses = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 expensesReady = true; 
@@ -3563,6 +3523,40 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
             if (viewName === 'community') {
                 renderCommunityView(); 
             }
+            // === LÓGICA DE GASTOS ADMIN ===
+            if (viewName === 'admin-expenses') {
+                const select = document.getElementById('admin-exp-collector');
+                if (select) {
+                    select.innerHTML = `<option value="global" data-lang-key="globalExp">Gasto Global</option>` + 
+                                       allCollectors.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+                }
+                const list = document.getElementById('admin-expenses-list');
+                if (list) {
+                    if (allAdminExpenses.length === 0) {
+                        list.innerHTML = `<p style="text-align:center; color:var(--text-secondary);">Sem registros administrativos.</p>`;
+                    } else {
+                        const t = translations[currentLang];
+                        list.innerHTML = [...allAdminExpenses].sort((a,b) => (b.date?.seconds||0) - (a.date?.seconds||0)).map(e => {
+                            const d = e.date?.seconds ? new Date(e.date.seconds*1000).toLocaleDateString() : '--/--';
+                            const cat = t[e.category] || e.category;
+                            return `
+                            <div class="payment-history-item" style="border-left: 4px solid var(--danger-color); cursor:default; align-items: flex-start;">
+                                <div style="flex-grow: 1;">
+                                    <strong style="display:block; color:var(--text-primary); font-size: 1.05em;">${cat}</strong>
+                                    <span style="font-size:0.85em; color:var(--text-secondary); display:block; margin-top: 2px;">${d} | Rota: <strong>${e.collectorName}</strong></span>
+                                    ${e.notes ? `<p style="margin:4px 0 0; font-size:0.85em; font-style:italic; color: var(--text-secondary);">Obs: ${e.notes}</p>` : ''}
+                                </div>
+                                <div style="text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 5px;">
+                                    <strong style="color:var(--danger-color); font-size: 1.2em;">${money(e.amount)}</strong>
+                                    <!-- AQUI ESTÁ EL BOTÓN EDITAR -->
+                                    <button onclick="window.editAdminExpense('${e.id}', '${e.amount}', '${(e.notes || '').replace(/'/g, "\\'")}')" style="background:none; border:none; color:var(--accent-blue); cursor:pointer; text-decoration:underline; font-size:0.8em; padding: 0;">(Editar)</button>
+                                </div>
+                            </div>`;
+                        }).join('');
+                    }
+                }
+                applyLanguage(currentLang);
+            }
         }
 
 
@@ -3812,20 +3806,80 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
                                 <p style="text-align: center; color: var(--text-secondary); padding: 20px;">Carregando publicações...</p>
                             </div>
                     </div>
+                 <!-- PANEL DE GASTOS ADMINISTRATIVOS -->
+                    <div id="admin-expenses-view" class="view container">
+                        <h1 class="section-title" data-lang-key="adminExpensesTitle">Gastos Administrativos</h1>
+                        
+                        <div class="kpi-card" style="margin-bottom: 20px; border-left: 4px solid var(--danger-color); border-right: 4px solid var(--danger-color);">
+                            <h3 class="kpi-title" style="color: var(--danger-color);"><i data-lucide="building"></i> <span data-lang-key="saveAdminExp">Registrar Gasto</span></h3>
+                            
+                            <div class="form-group grid-2">
+                                <div>
+                                    <label>Valor</label>
+                                    <input type="number" id="admin-exp-amount" step="0.01" placeholder="0.00" style="font-weight: 700; color: var(--danger-color);">
+                                </div>
+                                <div>
+                                    <label>Categoria</label>
+                                    <select id="admin-exp-category">
+                                        <option value="catPolice" data-lang-key="catPolice">Polícia / Segurança</option>
+                                        <option value="catMoto" data-lang-key="catMoto">Compra de Moto</option>
+                                        <option value="catChains" data-lang-key="catChains">Pagamento de Consórcios</option>
+                                        <option value="catBonus" data-lang-key="catBonus">Ajuda a Funcionário</option>
+                                        <option value="catUnforeseen" data-lang-key="catUnforeseen">Imprevistos</option>
+                                        <option value="other" data-lang-key="other">Outros</option>
+                                    </select>
+                                </div>
+                            </div>
 
+                            <div class="form-group">
+                                <label data-lang-key="expAssignedTo">Atribuir à Rota / Cobrador</label>
+                                <select id="admin-exp-collector"></select>
+                                <p style="font-size: 0.8em; color: var(--text-secondary); margin-top: 5px;">Se selecionado, o dinheiro sairá do caixa deste cobrador. Ele nunca verá esse gasto.</p>
+                            </div>
+
+                            <div class="form-group">
+                                <label data-lang-key="obsOptional">Observação</label>
+                                <textarea id="admin-exp-notes" rows="2" placeholder="Ex: Acordo mensal..."></textarea>
+                            </div>
+
+                            <button id="save-admin-exp-btn" class="btn-primary" style="width: 100%; background-color: var(--danger-color); border: none;">
+                                <i data-lucide="save"></i> <span data-lang-key="saveAdminExp">Salvar Gasto</span>
+                            </button>
+                        </div>
+
+                        <h2 class="section-title">Histórico de Gastos Admin</h2>
+                        <div id="admin-expenses-list" class="item-list"></div>
+                    </div>
                 </main>
                 <nav class="bottom-nav">
-                    <a class="nav-item active" data-view="dashboard"><i data-lucide="layout-dashboard"></i><span data-lang-key="dashboard"></span></a>
-                    <a class="nav-item" data-view="map"><i data-lucide="map"></i><span data-lang-key="map"></span></a>
-                    <a class="nav-item" data-view="reports"><i data-lucide="file-text"></i><span data-lang-key="reports"></span></a>
-                    <a class="nav-item" data-view="community"><i data-lucide="users"></i><span data-lang-key="community"></span></a>
+                    <a class="nav-item active" data-view="dashboard">
+                        <i data-lucide="layout-dashboard"></i>
+                        <span data-lang-key="dashboard">Painel</span>
+                    </a>
+                    <a class="nav-item" data-view="map">
+                        <i data-lucide="map"></i>
+                        <span data-lang-key="map">Mapa</span>
+                    </a>
+                    <a class="nav-item" data-view="reports">
+                        <i data-lucide="file-text"></i>
+                        <span data-lang-key="reports">Relatório</span>
+                    </a>
+                    <a class="nav-item" data-view="community">
+                        <i data-lucide="users"></i>
+                        <span data-lang-key="community">Comunidade</span>
+                    </a>
+                    <a class="nav-item" data-view="admin-expenses">
+                        <i data-lucide="building"></i>
+                        <span data-lang-key="adminExpenses">Gastos Admin</span>
+                    </a>
                     <a class="nav-item" data-view="notifications">
                         <i data-lucide="bell"></i>
-                        <span data-lang-key="notifications"></span>
+                        <span data-lang-key="notifications">Notificações</span>
                         <span class="notification-badge" id="admin-notification-badge" style="display:none;">0</span>
                     </a>
                 </nav>
                 <button class="fab" id="addCollectorBtn" title="Adicionar Cobrador"><i data-lucide="plus"></i></button>
+                
             `;
         }
         
@@ -4863,7 +4917,7 @@ async function submitCollectorReport(collectorId) {
             if (!dateStartInput.value) dateStartInput.value = beginningOfTime;
             if (!dateEndInput.value) dateEndInput.value = today.toISOString().split('T')[0];
 
-            resultsContainer.innerHTML = `<div class="loading" style="padding: 80px; text-align: center;"><i data-lucide="aperture" style="animation: spin 3s linear infinite; width: 60px; height: 60px; color: #00f2ff;"></i><p style="margin-top:20px; color: #00f2ff; font-family: monospace; letter-spacing: 3px; font-size: 1.2em;">${t.calculatingFlow || 'GERANDO DADOS...'}</p></div>`;
+            resultsContainer.innerHTML = `<div class="loading" style="padding: 80px; text-align: center;"><i data-lucide="aperture" style="animation: spin 3s linear infinite; width: 60px; height: 60px; color: #00f2ff;"></i><p style="margin-top:20px; color: #00f2ff; font-family: monospace; letter-spacing: 3px; font-size: 1.2em;">GERANDO DADOS...</p></div>`;
             lucide.createIcons({nodes: resultsContainer.querySelectorAll('[data-lucide]')});
             generateBtn.disabled = true;
 
@@ -4875,7 +4929,6 @@ async function submitCollectorReport(collectorId) {
             const startDate = new Date(startParts[0], startParts[1] - 1, startParts[2], 0, 0, 0, 0);
             const endDate = new Date(endParts[0], endParts[1] - 1, endParts[2], 23, 59, 59, 999);
 
-            // === A. MATEMÁTICA DEL EXTRATO (MÁQUINA DEL TIEMPO) ===
             let baseInitialCapital = 0;
             allCollectors.forEach(c => {
                 if (selectedCollectorId === 'all' || c.id === selectedCollectorId) {
@@ -4898,9 +4951,10 @@ async function submitCollectorReport(collectorId) {
             const filteredInjections = [];
             const filteredSettlementsCapital = [];
             const filteredSettlementsInsurance = [];
+            
             const expensesByCategory = {};
+            const adminExpensesByCategory = {}; // <-- NUEVO: Para detallar los gastos admin
 
-            // Procesar Clientes
             allClients.forEach(client => {
                 if (selectedCollectorId === 'all' || client.collectorId === selectedCollectorId) {
                     (client.loans || []).forEach(loan => {
@@ -4940,7 +4994,6 @@ async function submitCollectorReport(collectorId) {
                 }
             });
 
-            // Procesar Gastos Cobrador
             allExpenses.forEach(e => {
                 if (selectedCollectorId === 'all' || e.collectorId === selectedCollectorId) {
                     let d = e.date?.seconds ? new Date(e.date.seconds * 1000) : new Date();
@@ -4955,7 +5008,6 @@ async function submitCollectorReport(collectorId) {
                 }
             });
 
-            // Procesar Gastos Administrativos
             if (typeof allAdminExpenses !== 'undefined') {
                 allAdminExpenses.forEach(e => {
                     if (selectedCollectorId === 'all' || e.collectorId === selectedCollectorId || (e.collectorId === 'global' && selectedCollectorId === 'all')) {
@@ -4965,12 +5017,14 @@ async function submitCollectorReport(collectorId) {
                         else if (d >= startDate && d <= endDate) {
                             periodAdminExp += val;
                             filteredAdminExpenses.push(e);
+                            // <-- NUEVO: Recopilando categorías de Admin
+                            const cat = e.category || 'other';
+                            adminExpensesByCategory[cat] = (adminExpensesByCategory[cat] || 0) + val; 
                         }
                     }
                 });
             }
 
-            // Procesar Aportes
             allCapitalInjections.forEach(i => {
                 if ((selectedCollectorId === 'all' || i.collectorId === selectedCollectorId) && i.status === 'approved') {
                     let d = i.date?.seconds ? new Date(i.date.seconds * 1000) : new Date();
@@ -4983,7 +5037,6 @@ async function submitCollectorReport(collectorId) {
                 }
             });
 
-            // Procesar Retiros
             allSettlements.forEach(s => {
                 if ((selectedCollectorId === 'all' || s.collectorId === selectedCollectorId) && s.status === 'approved') {
                     let d = s.date?.seconds ? new Date(s.date.seconds * 1000) : new Date();
@@ -5003,7 +5056,6 @@ async function submitCollectorReport(collectorId) {
                 }
             });
 
-            // Saldos
             const saldoCaixaInicial = baseInitialCapital + beforeCollected + beforeInjections - beforeLoans - beforeExpenses - beforeSettlements - beforeAdminExp;
             const totalEntradasPeriodo = periodCollected + periodInjections;
             const totalSaidasPeriodo = periodLoans + periodExpenses + periodSettlementsCapital + periodAdminExp; 
@@ -5012,7 +5064,6 @@ async function submitCollectorReport(collectorId) {
             const strStart = startDate.toLocaleDateString('pt-BR');
             const strEnd = endDate.toLocaleDateString('pt-BR');
 
-            // === B. DATOS PARA LA RUEDA FUTURISTA ===
             const chartLabels = [];
             const chartData = [];
             const chartColors = [];
@@ -5024,10 +5075,10 @@ async function submitCollectorReport(collectorId) {
                 'microInsurance': '#0ea5e9', 'injections': '#facc15'
             };
 
-            if (periodCollected > 0) { chartLabels.push(t.reportTotCol || "TOTAL COBRADO"); chartData.push(periodCollected); chartColors.push(neonColors['inflows']); }
-            if (periodLoans > 0) { chartLabels.push(t.reportTotDep || "TOTAL PRESTADO"); chartData.push(periodLoans); chartColors.push(neonColors['loans']); }
-            if (periodMicroInsurance > 0) { chartLabels.push(t.microInsurance || "MICRO SEGURO"); chartData.push(periodMicroInsurance); chartColors.push(neonColors['microInsurance']); }
-            if (periodInjections > 0) { chartLabels.push(t.injectionsShort || "APORTES"); chartData.push(periodInjections); chartColors.push(neonColors['injections']); }
+            if (periodCollected > 0) { chartLabels.push("TOTAL COBRADO"); chartData.push(periodCollected); chartColors.push(neonColors['inflows']); }
+            if (periodLoans > 0) { chartLabels.push("TOTAL PRESTADO"); chartData.push(periodLoans); chartColors.push(neonColors['loans']); }
+            if (periodMicroInsurance > 0) { chartLabels.push("MICRO SEGURO"); chartData.push(periodMicroInsurance); chartColors.push(neonColors['microInsurance']); }
+            if (periodInjections > 0) { chartLabels.push("APORTES"); chartData.push(periodInjections); chartColors.push(neonColors['injections']); }
 
             Object.keys(expensesByCategory).forEach(cat => {
                 if (expensesByCategory[cat] > 0) {
@@ -5037,62 +5088,59 @@ async function submitCollectorReport(collectorId) {
                 }
             });
             
-            if (periodAdminExp > 0) { chartLabels.push(t.reportOutAdminDetails || "GASTOS ADMINISTRATIVOS"); chartData.push(periodAdminExp); chartColors.push('#dc2626'); }
-            if (periodSettlementsCapital > 0) { chartLabels.push(t.settlementsCap || "RETIRADAS (CAPITAL)"); chartData.push(periodSettlementsCapital); chartColors.push(neonColors['settlements']); }
-            if (periodSettlementsInsurance > 0) { chartLabels.push(t.settlementsIns || "RETIRADAS (SEGURO)"); chartData.push(periodSettlementsInsurance); chartColors.push(neonColors['settlements_insurance']); }
+            if (periodAdminExp > 0) { chartLabels.push("GASTOS ADMINISTRATIVOS"); chartData.push(periodAdminExp); chartColors.push('#dc2626'); }
+            if (periodSettlementsCapital > 0) { chartLabels.push("RETIRADAS (CAPITAL)"); chartData.push(periodSettlementsCapital); chartColors.push(neonColors['settlements']); }
+            if (periodSettlementsInsurance > 0) { chartLabels.push("RETIRADAS (SEGURO)"); chartData.push(periodSettlementsInsurance); chartColors.push(neonColors['settlements_insurance']); }
 
-            if (chartData.length === 0) { chartLabels.push(t.noData || "SEM DADOS"); chartData.push(1); chartColors.push('#1e293b'); }
+            if (chartData.length === 0) { chartLabels.push("SEM DADOS"); chartData.push(1); chartColors.push('#1e293b'); }
 
             let diagColor = periodCollected >= periodLoans ? "#00ff9d" : "#00f2ff";
-            let diagTitle = t.reportPerSum || "RESUMO DO PERÍODO";
-            let diagMsg = `${t.reportFlowDesc || 'Análise de fluxo gerado entre'} ${strStart} - ${strEnd}.`;
+            let diagTitle = "RESUMO DO PERÍODO";
+            let diagMsg = `Análise de fluxo gerado entre ${strStart} e ${strEnd}.`;
 
-            // === C. RENDERIZAR HTML (CUADROS + RUEDA) TRADUCIDO ===
             resultsContainer.innerHTML = `
                 <div style="display: flex; justify-content: flex-end; margin-bottom: 15px;">
                     <button id="download-graphic-pdf-btn" class="btn-secondary" style="background-color: var(--surface); color: var(--accent-blue); border-color: var(--accent-blue); padding: 8px 16px; font-size: 0.9em; display: flex; align-items: center; gap: 8px;">
-                        <i data-lucide="file-down"></i> ${t.downloadGraphicPDF || 'Baixar Relatório'}
+                        <i data-lucide="file-down"></i> Baixar Relatório (PDF)
                     </button>
                 </div>
 
-                <!-- 1. LOS 5 CUADROS BANCARIOS (EL EXTRATO) -->
                 <div style="background: linear-gradient(135deg, #020617 0%, #0f172a 100%); border: 1px solid #1e293b; border-radius: 24px; padding: 25px; box-shadow: 0 10px 40px rgba(0,0,0,0.4); margin-bottom: 30px;">
-                    <h3 style="text-align: center; color: #94a3b8; font-size: 0.9em; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 25px;">${t.reportStatement || 'EXTRATO'} (${strStart} - ${strEnd})</h3>
+                    <h3 style="text-align: center; color: #94a3b8; font-size: 0.9em; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 25px;">EXTRATO (${strStart} - ${strEnd})</h3>
 
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
                         <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-left: 4px solid #64748b; padding: 15px; border-radius: 12px;">
-                            <span style="display: block; font-size: 0.75em; color: #94a3b8; text-transform: uppercase; margin-bottom: 5px;">${t.reportInitBal || 'SALDO INICIAL CAIXA'}</span>
+                            <span style="display: block; font-size: 0.75em; color: #94a3b8; text-transform: uppercase; margin-bottom: 5px;">SALDO INICIAL CAIXA</span>
                             <span style="font-size: 1.5em; font-weight: 800; color: #fff;">${money(saldoCaixaInicial)}</span>
                         </div>
 
                         <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-left: 4px solid #00ff9d; padding: 15px; border-radius: 12px;">
-                            <span style="display: block; font-size: 0.75em; color: #94a3b8; text-transform: uppercase; margin-bottom: 5px;">${t.reportInflows || '(+) ENTRADAS'}</span>
+                            <span style="display: block; font-size: 0.75em; color: #94a3b8; text-transform: uppercase; margin-bottom: 5px;">(+) ENTRADAS</span>
                             <span style="font-size: 1.5em; font-weight: 800; color: #00ff9d;">${money(totalEntradasPeriodo)}</span>
-                            <div style="font-size: 0.75em; color: #64748b; margin-top: 5px;">${t.reportCol || 'Cobrado:'} ${money(periodCollected)} | ${t.reportInj || 'Aportes:'} ${money(periodInjections)}</div>
+                            <div style="font-size: 0.75em; color: #64748b; margin-top: 5px;">Cobrado: ${money(periodCollected)} | Aportes: ${money(periodInjections)}</div>
                         </div>
 
                         <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-left: 4px solid #ef4444; padding: 15px; border-radius: 12px;">
-                            <span style="display: block; font-size: 0.75em; color: #94a3b8; text-transform: uppercase; margin-bottom: 5px;">${t.reportOutflows || '(-) SAÍDAS'}</span>
+                            <span style="display: block; font-size: 0.75em; color: #94a3b8; text-transform: uppercase; margin-bottom: 5px;">(-) SAÍDAS</span>
                             <span style="font-size: 1.5em; font-weight: 800; color: #ef4444;">${money(totalSaidasPeriodo)}</span>
-                            <div style="font-size: 0.75em; color: #64748b; margin-top: 5px;">${t.reportLns || 'Emp:'} ${money(periodLoans)} | ${t.reportExp || 'Gast:'} ${money(periodExpenses + periodAdminExp)} | ${t.reportRet || 'Ret:'} ${money(periodSettlementsCapital)}</div>
+                            <div style="font-size: 0.75em; color: #64748b; margin-top: 5px;">Emp: ${money(periodLoans)} | Gast: ${money(periodExpenses + periodAdminExp)} | Ret: ${money(periodSettlementsCapital)}</div>
                         </div>
 
                         <div style="background: rgba(255,255,255,0.05); border: 1px solid rgba(59, 130, 246, 0.4); border-left: 4px solid #3b82f6; padding: 15px; border-radius: 12px; box-shadow: 0 0 20px rgba(59, 130, 246, 0.1);">
-                            <span style="display: block; font-size: 0.75em; color: #94a3b8; text-transform: uppercase; margin-bottom: 5px;">${t.reportFinBal || 'SALDO FINAL CAIXA'}</span>
+                            <span style="display: block; font-size: 0.75em; color: #94a3b8; text-transform: uppercase; margin-bottom: 5px;">SALDO FINAL CAIXA</span>
                             <span style="font-size: 1.8em; font-weight: 800; color: #3b82f6;">${money(saldoCaixaFinal)}</span>
                         </div>
                     </div>
 
                     <div style="margin-top: 20px; background: rgba(139,92,246,0.15); border: 1px solid rgba(139,92,246,0.4); border-radius: 12px; padding: 15px; display: flex; justify-content: space-between; align-items: center;">
                         <div>
-                            <span style="display: block; font-size: 0.8em; color: #c4b5fd; font-weight: 700;">${t.reportIntGen || 'JUROS GERADOS NO PERÍODO'}</span>
-                            <span style="font-size: 0.85em; color: #a78bfa;">${t.reportIntDesc || 'Lucro projetado dos empréstimos nestas datas.'}</span>
+                            <span style="display: block; font-size: 0.8em; color: #c4b5fd; font-weight: 700;">JUROS GERADOS NO PERÍODO</span>
+                            <span style="font-size: 0.85em; color: #a78bfa;">Lucro projetado dos empréstimos nestas datas.</span>
                         </div>
                         <span style="font-size: 1.6em; font-weight: 800; color: #8b5cf6;">+${money(periodInterestGenerated)}</span>
                     </div>
                 </div>
 
-                <!-- 2. LA RUEDA FUTURISTA (EL GRÁFICO ORIGINAL) -->
                 <div style="
                     background: linear-gradient(135deg, #020617 0%, #0f172a 100%); 
                     border: 1px solid #1e293b; 
@@ -5110,7 +5158,7 @@ async function submitCollectorReport(collectorId) {
 
                     <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%;">
                         <div style="margin-bottom: 20px; color: #64748b; font-size: 0.8em; letter-spacing: 2px; font-weight: 700; text-align: center; width: 100%;">
-                            ${t.reportVisFlow || 'ANÁLISE DE FLUXO VISUAL'}
+                            ANÁLISE DE FLUXO VISUAL
                         </div>
 
                         <div style="position: relative; height: 320px; width: 320px;">
@@ -5123,12 +5171,12 @@ async function submitCollectorReport(collectorId) {
                                 border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 0 30px rgba(0,0,0,0.5);
                                 pointer-events: none; z-index: 5;
                             ">
-                                <p style="font-size: 0.65em; color: #94a3b8; margin: 0; letter-spacing: 1px;">${t.reportTotCol || 'TOTAL COBRADO'}</p>
+                                <p style="font-size: 0.65em; color: #94a3b8; margin: 0; letter-spacing: 1px;">TOTAL COBRADO</p>
                                 <p style="font-size: 1.05em; color: #00ff9d; font-weight: 700; margin: 2px 0;">${money(periodCollected)}</p>
                                 
                                 <div style="width: 80%; height: 1px; background: #334155; margin: 6px auto;"></div>
                                 
-                                <p style="font-size: 0.65em; color: #94a3b8; margin: 0; letter-spacing: 1px;">${t.reportTotDep || 'TOTAL PRESTADO'}</p>
+                                <p style="font-size: 0.65em; color: #94a3b8; margin: 0; letter-spacing: 1px;">TOTAL PRESTADO</p>
                                 <p style="font-size: 1.05em; color: #00f2ff; font-weight: 700; margin: 2px 0;">${money(periodLoans)}</p>
                             </div>
                         </div>
@@ -5142,7 +5190,7 @@ async function submitCollectorReport(collectorId) {
                         <div style="display: flex; flex-direction: column; gap: 12px; max-height: 350px; overflow-y: auto; padding-right: 10px;">
                             
                             ${chartLabels.map((label, i) => {
-                                if (label === t.noData || label === "SEM DADOS") return '';
+                                if (label === "SEM DADOS") return '';
                                 const val = chartData[i];
                                 return `
                                 <div style="padding: 0 5px;">
@@ -5165,26 +5213,24 @@ async function submitCollectorReport(collectorId) {
                     </div>
                 </div>
 
-                <!-- 3. LISTAS DESPLEGABLES -->
                 <div>
                     <details class="kpi-card" style="background: var(--surface); border: 1px solid var(--border-color);">
                         <summary style="cursor: pointer; font-weight: 600; color: var(--text-secondary); padding: 15px; display: flex; align-items: center; gap: 10px;">
-                            <i data-lucide="list"></i> ${t.viewFullList || 'Ver Lista Completa de Registros'}
+                            <i data-lucide="list"></i> Ver Lista Completa de Registros
                         </summary>
                         <div id="report-details-lists" style="margin-top: 0; padding: 0 15px 15px; display: flex; flex-direction: column; gap: 10px;">
-                            ${generateDetailListHTML(t.reportInDetails || "Entradas (Cobrado + Aportes)", 'arrow-up-circle', '#00ff9d', [...filteredPayments, ...filteredInjections], (item) => `<span>${item.clientName || 'Aporte'}</span><span style="color:var(--accent-green); font-weight:700;">${money(item.amount)}</span>`)}
-                            ${generateDetailListHTML(t.reportIntDetails || "Juros Gerados", 'trending-up', '#8b5cf6', filteredNewLoans.filter(l => (Number(l.totalLoan) - Number(l.principalAmount)) > 0), (l) => `<span>${l.clientName}</span><span style="color:#8b5cf6; font-weight:700;">${money(Number(l.totalLoan) - Number(l.principalAmount))}</span>`)}
-                            ${generateDetailListHTML(t.reportInsDetails || "Micro Seguro Arrecadado", 'shield-check', '#0ea5e9', filteredNewLoans.filter(l => l.microInsurance > 0), (l) => `<span>${l.clientName} (${t.insuranceLabelShort || 'Seguro'})</span><span style="color:#0ea5e9; font-weight:700;">${money(l.microInsurance)}</span>`)}
-                            ${generateDetailListHTML(t.reportOutLnsDetails || "Saídas (Novos Empréstimos)", 'briefcase', '#00f2ff', filteredNewLoans, (l) => `<span>${l.clientName}</span><span style="color:#3b82f6; font-weight:700;">${money(l.principalAmount)}</span>`)}
-                            ${generateDetailListHTML(t.reportOutExpDetails || "Saídas (Gastos do Cobrador)", 'shopping-cart', '#ff0055', filteredExpenses, (e) => `<span>${t[e.category]||e.category}</span><span style="color:var(--danger-color); font-weight:700;">${money(e.value)}</span>`)}
-                            ${generateDetailListHTML(t.reportOutAdminDetails || "Saídas (Gastos Administrativos)", 'building', '#dc2626', filteredAdminExpenses, (e) => `<span>${t[e.category]||e.category} (${e.collectorName || 'Global'})</span><span style="color:#dc2626; font-weight:700;">${money(e.amount)}</span>`)}
-                            ${generateDetailListHTML(t.reportOutSetDetails || "Saídas (Retiradas de Caixa)", 'archive', '#a855f7', filteredSettlementsCapital, (s) => `<span>${s.collectorName || 'Cobrador'}</span><span style="color:#a855f7; font-weight:700;">${money(s.amount)}</span>`)}
+                            ${generateDetailListHTML("Entradas (Cobrado + Aportes)", 'arrow-up-circle', '#00ff9d', [...filteredPayments, ...filteredInjections], (item) => `<span>${item.clientName || 'Aporte'}</span><span style="color:var(--accent-green); font-weight:700;">${money(item.amount)}</span>`)}
+                            ${generateDetailListHTML("Juros Gerados", 'trending-up', '#8b5cf6', filteredNewLoans.filter(l => (Number(l.totalLoan) - Number(l.principalAmount)) > 0), (l) => `<span>${l.clientName}</span><span style="color:#8b5cf6; font-weight:700;">${money(Number(l.totalLoan) - Number(l.principalAmount))}</span>`)}
+                            ${generateDetailListHTML("Micro Seguro Arrecadado", 'shield-check', '#0ea5e9', filteredNewLoans.filter(l => l.microInsurance > 0), (l) => `<span>${l.clientName} (Seguro)</span><span style="color:#0ea5e9; font-weight:700;">${money(l.microInsurance)}</span>`)}
+                            ${generateDetailListHTML("Saídas (Novos Empréstimos)", 'briefcase', '#00f2ff', filteredNewLoans, (l) => `<span>${l.clientName}</span><span style="color:#3b82f6; font-weight:700;">${money(l.principalAmount)}</span>`)}
+                            ${generateDetailListHTML("Saídas (Gastos do Cobrador)", 'shopping-cart', '#ff0055', filteredExpenses, (e) => `<span>${t[e.category]||e.category}</span><span style="color:var(--danger-color); font-weight:700;">${money(e.value)}</span>`)}
+                            ${generateDetailListHTML("Saídas (Gastos Administrativos)", 'building', '#dc2626', filteredAdminExpenses, (e) => `<span>${t[e.category]||e.category} (${e.collectorName || 'Global'})</span><span style="color:#dc2626; font-weight:700;">${money(e.amount)}</span>`)}
+                            ${generateDetailListHTML("Saídas (Retiradas de Caixa)", 'archive', '#a855f7', filteredSettlementsCapital, (s) => `<span>${s.collectorName || 'Cobrador'}</span><span style="color:#a855f7; font-weight:700;">${money(s.amount)}</span>`)}
                         </div>
                     </details>
                 </div>
             `;
 
-            // INICIALIZAR EL GRÁFICO (CHART.JS)
             const ctx = document.getElementById('ultra-chart').getContext('2d');
             if (reportChartInstance) { reportChartInstance.destroy(); reportChartInstance = null; }
             
@@ -5244,7 +5290,6 @@ async function submitCollectorReport(collectorId) {
                 options: { responsive: true, maintainAspectRatio: false, cutout: '70%', plugins: { legend: { display: false }, tooltip: { enabled: false, external: externalTooltipHandler, callbacks: { label: function(context) { return `${context.label}: ${money(context.raw)}`; } } } }, animation: { animateScale: true, animateRotate: true, duration: 1500, easing: 'easeOutQuart' } }
             });
 
-            // CONFIGURAR BOTÓN PDF
             const downloadBtn = document.getElementById('download-graphic-pdf-btn');
             const newDownloadBtn = downloadBtn.cloneNode(true);
             downloadBtn.parentNode.replaceChild(newDownloadBtn, downloadBtn);
@@ -5271,7 +5316,8 @@ async function submitCollectorReport(collectorId) {
                             microInsurance: periodMicroInsurance,
                             settlementsInsurance: periodSettlementsInsurance
                         },
-                        breakdown: expensesByCategory
+                        breakdown: expensesByCategory,
+                        adminBreakdown: adminExpensesByCategory // <-- ENVIAMOS EL DETALLE AL PDF
                     };
                     exportFinancialAnalysisPDF(reportPayload);
                 });
@@ -5932,7 +5978,8 @@ async function submitCollectorReport(collectorId) {
         async function exportFinancialAnalysisPDF(reportData) {
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF();
-            const { period, collector, financials } = reportData;
+            const { period, collector, financials, breakdown, adminBreakdown } = reportData;
+            const t = translations[currentLang];
             const primaryColor = '#0f172a'; 
 
             let y = 20;
@@ -6020,6 +6067,57 @@ async function submitCollectorReport(collectorId) {
             doc.setTextColor('#8b5cf6');
             doc.text('JUROS GERADOS NO PERIODO', 25, y + 13);
             doc.text(`+${money(financials.interestGenerated)}`, 185, y + 13, { align: 'right' });
+
+            y += 25;
+
+            // Función para cambiar de página si la lista es muy larga
+            const checkPageBreak = () => { if (y > 275) { doc.addPage(); y = 20; } };
+
+            // === DESGLOSE GASTOS DEL COBRADOR ===
+            const expenseKeys = Object.keys(breakdown).filter(k => breakdown[k] > 0);
+            if (expenseKeys.length > 0) {
+                checkPageBreak();
+                doc.setFontSize(12);
+                doc.setTextColor(primaryColor);
+                doc.text("Detalhe Gastos Cobrador", 20, y); 
+                y += 8;
+
+                expenseKeys.forEach(cat => {
+                    checkPageBreak();
+                    const label = (translations[currentLang][cat] || cat).toUpperCase();
+                    doc.setFontSize(10);
+                    doc.setFont(undefined, 'normal');
+                    doc.setTextColor(100);
+                    doc.text(`• ${label}`, 25, y);
+                    doc.setTextColor('#ef4444');
+                    doc.text(`-${money(breakdown[cat])}`, 190, y, { align: 'right' });
+                    y += 6;
+                });
+            }
+
+            // === DESGLOSE GASTOS ADMINISTRATIVOS (NUEVO) ===
+            const adminKeys = Object.keys(adminBreakdown || {}).filter(k => adminBreakdown[k] > 0);
+            if (adminKeys.length > 0) {
+                y += 4;
+                checkPageBreak();
+                doc.setFontSize(12);
+                doc.setTextColor(primaryColor);
+                doc.text("Detalhe Gastos Administrativos", 20, y); 
+                y += 8;
+
+                adminKeys.forEach(cat => {
+                    checkPageBreak();
+                    // Aquí la magia de los idiomas (Si le pusiste "Retiros Sociedade", aparecerá aquí)
+                    const label = (translations[currentLang][cat] || cat).toUpperCase();
+                    doc.setFontSize(10);
+                    doc.setFont(undefined, 'normal');
+                    doc.setTextColor(100);
+                    doc.text(`• ${label}`, 25, y);
+                    doc.setTextColor('#dc2626'); // Rojo oscuro para diferenciar de los gastos del cobrador
+                    doc.text(`-${money(adminBreakdown[cat])}`, 190, y, { align: 'right' });
+                    y += 6;
+                });
+            }
 
             const pageHeight = doc.internal.pageSize.getHeight();
             doc.setFontSize(9);
@@ -8576,6 +8674,32 @@ function setupEventListeners() {
                 
                 if (target.closest('#submit-post-btn')) submitNewPost();
 
+                if (target.closest('#save-admin-exp-btn')) {
+                    const amount = parseFloat(document.getElementById('admin-exp-amount').value);
+                    const category = document.getElementById('admin-exp-category').value;
+                    const collectorId = document.getElementById('admin-exp-collector').value;
+                    const collectorSelect = document.getElementById('admin-exp-collector');
+                    const collectorName = collectorSelect.options[collectorSelect.selectedIndex].text;
+                    const notes = document.getElementById('admin-exp-notes').value;
+
+                    if (isNaN(amount) || amount <= 0) { showToast("Digite um valor válido", true); return; }
+                    
+                    const btn = target.closest('#save-admin-exp-btn');
+                    btn.disabled = true; btn.innerHTML = `<i data-lucide="loader-circle" style="animation: spin 1s linear infinite;"></i>...`;
+                    lucide.createIcons({ nodes: [btn.querySelector('i')] });
+                    
+                    addDoc(collection(db, 'companies', currentCompanyId, 'adminExpenses'), {
+                        amount: amount, category: category, collectorId: collectorId,
+                        collectorName: collectorId === 'global' ? 'Global' : collectorName,
+                        notes: notes, date: serverTimestamp(), adminId: auth.currentUser.uid
+                    }).then(() => {
+                        showToast("Gasto salvo. O caixa foi ajustado!", "success");
+                        document.getElementById('admin-exp-amount').value = '';
+                        document.getElementById('admin-exp-notes').value = '';
+                    }).catch(err => { console.error(err); showToast("Erro ao salvar", true); })
+                    .finally(() => { btn.disabled = false; btn.innerHTML = `<i data-lucide="save"></i> Salvar Gasto`; lucide.createIcons({ nodes: [btn.querySelector('i')] }); });
+                }
+
                 const likeBtn = target.closest('.action-btn[data-action="like"]');
                 if (likeBtn) { e.preventDefault(); handlePostLike(likeBtn.dataset.postId); }
 
@@ -9382,6 +9506,43 @@ async function generateDelinquencyPDF(collectorId) {
     doc.save(`Morosidad_${collector.name}.pdf`);
     showToast('Reporte generado!');
 }
+    // === FUNCIÓN PARA EDITAR GASTOS ADMINISTRATIVOS ===
+        window.editAdminExpense = async function(expenseId, currentValue, currentNotes) {
+            const modal = document.getElementById('reportOptionsModal');
+            const t = translations[currentLang];
+            modal.classList.add('active');
+
+            modal.innerHTML = `
+                <div class="modal-content" style="max-width: 400px;">
+                    <button class="close-modal-btn" style="position: absolute; top: 10px; right: 10px; background: none; border: none; font-size: 24px; color: var(--text-secondary);">&times;</button>
+                    <h3 style="margin-bottom: 15px; text-align: center;">Editar Gasto Admin</h3>
+                    <div class="form-group"><label>Valor Correto</label><input type="number" id="edit-admin-exp-val" step="0.01" value="${currentValue}" style="font-size: 1.2em; text-align: center; font-weight: bold; color: var(--danger-color);"></div>
+                    <div class="form-group"><label>Observação (Opcional)</label><textarea id="edit-admin-exp-notes" rows="2">${currentNotes}</textarea></div>
+                    <div style="display: flex; gap: 10px; margin-top: 20px;">
+                        <button class="btn-secondary" id="cancel-edit-admin-exp" style="flex: 1;">Cancelar</button>
+                        <button class="btn-primary" id="save-edit-admin-exp" style="flex: 1;">${t.saveChanges || 'Salvar'}</button>
+                    </div>
+                </div>
+            `;
+            modal.querySelector('.close-modal-btn').onclick = () => modal.classList.remove('active');
+            modal.querySelector('#cancel-edit-admin-exp').onclick = () => modal.classList.remove('active');
+
+            modal.querySelector('#save-edit-admin-exp').onclick = async (e) => {
+                const newVal = parseFloat(document.getElementById('edit-admin-exp-val').value);
+                const newNotes = document.getElementById('edit-admin-exp-notes').value;
+                if (isNaN(newVal) || newVal <= 0) { showToast('Valor inválido.', true); return; }
+                e.currentTarget.disabled = true; e.currentTarget.innerHTML = '...';
+
+                try {
+                    await updateDoc(doc(db, 'companies', currentCompanyId, 'adminExpenses', expenseId), {
+                        amount: newVal, notes: newNotes, lastEditedBy: auth.currentUser.uid, lastEditedAt: serverTimestamp()
+                    });
+                    showToast('Gasto atualizado! O dinheiro voltou ao caixa.', 'success');
+                    modal.classList.remove('active');
+                } catch (error) { showToast('Erro ao atualizar.', true); e.currentTarget.disabled = false; e.currentTarget.innerHTML = t.saveChanges || 'Salvar'; }
+            };
+        };
+
         init();
     </script>
 </body>
