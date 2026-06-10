@@ -1465,6 +1465,30 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
         // ... código existente ...
     const translations = {
         pt: {
+            reportStatement: 'EXTRATO',
+            reportInitBal: 'SALDO INICIAL CAIXA',
+            reportInflows: '(+) ENTRADAS',
+            reportOutflows: '(-) SAÍDAS',
+            reportFinBal: 'SALDO FINAL CAIXA',
+            reportCol: 'Cobrado:',
+            reportInj: 'Aportes:',
+            reportLns: 'Emp:',
+            reportExp: 'Gast:',
+            reportRet: 'Ret:',
+            reportIntGen: 'JUROS GERADOS NO PERÍODO',
+            reportIntDesc: 'Lucro projetado dos empréstimos nestas datas.',
+            reportVisFlow: 'ANÁLISE DE FLUXO VISUAL',
+            reportTotCol: 'TOTAL COBRADO',
+            reportTotDep: 'TOTAL PRESTADO',
+            reportPerSum: 'RESUMO DO PERÍODO',
+            reportFlowDesc: 'Análise de fluxo gerado entre',
+            reportDetOp: 'Detalhamento das Operações',
+            reportInDetails: 'Entradas (Cobrado + Aportes)',
+            reportOutLnsDetails: 'Saídas (Novos Empréstimos)',
+            reportOutExpDetails: 'Saídas (Gastos do Cobrador)',
+            reportOutAdminDetails: 'Saídas (Gastos Administrativos)',
+            reportOutSetDetails: 'Saídas (Retiradas de Caixa)',
+            reportInsDetails: 'Micro Seguro Arrecadado',
             manualLockTitle: 'BLOQUEIO MANUAL TOTAL',
             manualLockDesc: 'Ativar ou desativar o acesso à App do cobrador?',
             delinquencyReport: 'Relatório de Inadimplência',
@@ -1638,6 +1662,30 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
         },  
 
         es: {
+            reportStatement: 'EXTRACTO',
+            reportInitBal: 'SALDO INICIAL CAJA',
+            reportInflows: '(+) ENTRADAS',
+            reportOutflows: '(-) SALIDAS',
+            reportFinBal: 'SALDO FINAL CAJA',
+            reportCol: 'Cobrado:',
+            reportInj: 'Aportes:',
+            reportLns: 'Pré:',
+            reportExp: 'Gast:',
+            reportRet: 'Ret:',
+            reportIntGen: 'INTERESES GENERADOS EN EL PERÍODO',
+            reportIntDesc: 'Ganancia proyectada de los préstamos en estas fechas.',
+            reportVisFlow: 'ANÁLISIS DE FLUJO VISUAL',
+            reportTotCol: 'TOTAL COBRADO',
+            reportTotDep: 'TOTAL PRESTADO',
+            reportPerSum: 'RESUMEN DEL PERÍODO',
+            reportFlowDesc: 'Análisis de flujo generado entre',
+            reportDetOp: 'Detalle de las Operaciones',
+            reportInDetails: 'Entradas (Cobrado + Aportes)',
+            reportOutLnsDetails: 'Salidas (Nuevos Préstamos)',
+            reportOutExpDetails: 'Salidas (Gastos del Cobrador)',
+            reportOutAdminDetails: 'Salidas (Gastos Administrativos)',
+            reportOutSetDetails: 'Salidas (Retiros de Caja)',
+            reportInsDetails: 'Micro Seguro Recaudado',
             manualLockTitle: 'BLOQUEO MANUAL TOTAL',
             manualLockDesc: '¿Activar o desactivar el acceso a la App del cobrador?',
             delinquencyReport: 'Reporte de Morosidad',
@@ -1806,6 +1854,30 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             insuranceLabelShort: 'Seguro',
         },
         en: {
+            reportStatement: 'STATEMENT',
+            reportInitBal: 'INITIAL CASH BALANCE',
+            reportInflows: '(+) INFLOWS',
+            reportOutflows: '(-) OUTFLOWS',
+            reportFinBal: 'FINAL CASH BALANCE',
+            reportCol: 'Collected:',
+            reportInj: 'Injected:',
+            reportLns: 'Lns:',
+            reportExp: 'Exp:',
+            reportRet: 'Wthd:',
+            reportIntGen: 'INTEREST GENERATED IN PERIOD',
+            reportIntDesc: 'Projected profit from loans in these dates.',
+            reportVisFlow: 'VISUAL FLOW ANALYSIS',
+            reportTotCol: 'TOTAL COLLECTED',
+            reportTotDep: 'TOTAL DEPLOYED',
+            reportPerSum: 'PERIOD SUMMARY',
+            reportFlowDesc: 'Flow analysis generated between',
+            reportDetOp: 'Detailed Operations',
+            reportInDetails: 'Inflows (Collected + Injections)',
+            reportOutLnsDetails: 'Outflows (New Loans)',
+            reportOutExpDetails: 'Outflows (Collector Expenses)',
+            reportOutAdminDetails: 'Outflows (Admin Expenses)',
+            reportOutSetDetails: 'Outflows (Cash Withdrawals)',
+            reportInsDetails: 'Micro Insurance Collected',
             manualLockTitle: 'TOTAL MANUAL BLOCK',
             manualLockDesc: 'Activate or deactivate access to the collector App?',
             expectedToday: 'Collection Goal Today',
@@ -4784,15 +4856,14 @@ async function submitCollectorReport(collectorId) {
                 collectorFilter.value = currentSelectedCollector || 'all';
             }
 
-            // Fechas por defecto
-             let today = new Date();
+            let today = new Date();
             if (today.getHours() < 5) today.setDate(today.getDate() - 1);
             const beginningOfTime = '2023-01-01';
 
             if (!dateStartInput.value) dateStartInput.value = beginningOfTime;
             if (!dateEndInput.value) dateEndInput.value = today.toISOString().split('T')[0];
 
-            resultsContainer.innerHTML = `<div class="loading" style="padding: 80px; text-align: center;"><i data-lucide="aperture" style="animation: spin 3s linear infinite; width: 60px; height: 60px; color: #00f2ff;"></i><p style="margin-top:20px; color: #00f2ff; font-family: monospace; letter-spacing: 3px; font-size: 1.2em;">${t.calculatingFlow}</p></div>`;
+            resultsContainer.innerHTML = `<div class="loading" style="padding: 80px; text-align: center;"><i data-lucide="aperture" style="animation: spin 3s linear infinite; width: 60px; height: 60px; color: #00f2ff;"></i><p style="margin-top:20px; color: #00f2ff; font-family: monospace; letter-spacing: 3px; font-size: 1.2em;">${t.calculatingFlow || 'GERANDO DADOS...'}</p></div>`;
             lucide.createIcons({nodes: resultsContainer.querySelectorAll('[data-lucide]')});
             generateBtn.disabled = true;
 
@@ -4804,148 +4875,159 @@ async function submitCollectorReport(collectorId) {
             const startDate = new Date(startParts[0], startParts[1] - 1, startParts[2], 0, 0, 0, 0);
             const endDate = new Date(endParts[0], endParts[1] - 1, endParts[2], 23, 59, 59, 999);
 
-            // 2. Filtrado de Datos
-            const filteredPayments = [];
-            const filteredNewLoans = [];
-            let valInitial = 0;
-
-            // A. Capital Inicial
+            // === A. MATEMÁTICA DEL EXTRATO (MÁQUINA DEL TIEMPO) ===
+            let baseInitialCapital = 0;
             allCollectors.forEach(c => {
                 if (selectedCollectorId === 'all' || c.id === selectedCollectorId) {
-                    const initCap = (c.startingCapitalOnHand !== undefined) ? Number(c.startingCapitalOnHand) : (Number(c.startingCapital) || 0);
-                    valInitial += initCap;
+                    baseInitialCapital += (c.startingCapitalOnHand !== undefined ? Number(c.startingCapitalOnHand) : Number(c.startingCapital || 0));
+                    baseInitialCapital += Number(c.historicalBalance || 0); 
                 }
             });
 
-            // B. Clientes (Pagos y Préstamos)
+            let beforeCollected = 0, beforeLoans = 0, beforeExpenses = 0;
+            let beforeAdminExp = 0, beforeInjections = 0, beforeSettlements = 0;
+
+            let periodCollected = 0, periodLoans = 0, periodExpenses = 0;
+            let periodAdminExp = 0, periodInjections = 0, periodSettlementsCapital = 0, periodSettlementsInsurance = 0;
+            let periodInterestGenerated = 0, periodMicroInsurance = 0;
+
+            const filteredPayments = [];
+            const filteredNewLoans = [];
+            const filteredExpenses = [];
+            const filteredAdminExpenses = [];
+            const filteredInjections = [];
+            const filteredSettlementsCapital = [];
+            const filteredSettlementsInsurance = [];
+            const expensesByCategory = {};
+
+            // Procesar Clientes
             allClients.forEach(client => {
                 if (selectedCollectorId === 'all' || client.collectorId === selectedCollectorId) {
-                    (client.loans || []).forEach((loan) => {
-                        // Pagos
+                    (client.loans || []).forEach(loan => {
                         (loan.history || []).forEach(h => {
                             if (h.status !== 'pending_verification' && h.status !== 'rejected' && h.status !== 'postponed' && h.method !== 'migration') {
-                                let pd = new Date(); 
-                                if (h.date && h.date.seconds) {
-                                    pd = new Date(h.date.seconds * 1000);
-                                }
-                                if (pd >= startDate && pd <= endDate) {
+                                let pd = h.date?.seconds ? new Date(h.date.seconds * 1000) : new Date();
+                                const amount = Number(h.amount) || 0;
+                                if (pd < startDate) beforeCollected += amount;
+                                else if (pd >= startDate && pd <= endDate) {
+                                    periodCollected += amount;
                                     filteredPayments.push({ ...h, clientName: client.name });
                                 }
                             }
                         });
-                        
-                        // Préstamos Nuevos
-                        let ld = new Date();
-                        const hasValidDate = loan.startDate && loan.startDate.seconds;
-                        if (hasValidDate) {
-                            ld = new Date(loan.startDate.seconds * 1000);
-                        }
-                        
-                        if ((hasValidDate || !loan.migrationDate) && ld >= startDate && ld <= endDate && !loan.migrationDate) {
-                        filteredNewLoans.push({ ...loan, clientName: client.name, clientInterest: client.interestRate });
+
+                        if (!loan.migrationDate) {
+                            let ld = loan.startDate?.seconds ? new Date(loan.startDate.seconds * 1000) : new Date();
+                            let principal = Number(loan.principalAmount);
+                            if (!principal && loan.totalLoan) {
+                                const rate = Number(client.interestRate) || 20;
+                                principal = Number(loan.totalLoan) / (1 + (rate / 100));
+                            }
+                            principal = principal || 0;
+
+                            if (ld < startDate) beforeLoans += principal;
+                            else if (ld >= startDate && ld <= endDate) {
+                                periodLoans += principal;
+                                filteredNewLoans.push({ ...loan, clientName: client.name, principalAmount: principal });
+                                
+                                const total = Number(loan.totalLoan) || 0;
+                                const interest = total - principal;
+                                if (interest > 0) periodInterestGenerated += interest;
+                                periodMicroInsurance += (Number(loan.microInsurance) || 0);
+                            }
                         }
                     });
                 }
             });
 
-            // C. Gastos
-            const filteredExpenses = allExpenses.filter(e => {
-                if (selectedCollectorId !== 'all' && e.collectorId !== selectedCollectorId) return false;
-                let d = e.date && e.date.seconds ? new Date(e.date.seconds * 1000) : new Date();
-                return d >= startDate && d <= endDate;
-            });
-
-            // D. Aportes
-            const filteredInjections = allCapitalInjections.filter(i => {
-                if (selectedCollectorId !== 'all' && i.collectorId !== selectedCollectorId) return false;
-                if (i.status !== 'approved') return false;
-                let d = i.date && i.date.seconds ? new Date(i.date.seconds * 1000) : new Date();
-                return d >= startDate && d <= endDate;
-            });
-
-            // E. Retiros (TODOS)
-            const filteredSettlements = allSettlements.filter(s => {
-                if (selectedCollectorId !== 'all' && s.collectorId !== selectedCollectorId) return false;
-                if (s.status === 'rejected') return false;
-                let d = s.date && s.date.seconds ? new Date(s.date.seconds * 1000) : new Date();
-                return d >= startDate && d <= endDate;
-            });
-
-            // --- SEPARACIÓN DE RETIROS (Capital vs Seguro) ---
-            const settlementsInsurance = filteredSettlements.filter(s => s.type === 'insurance');
-            const settlementsCapital = filteredSettlements.filter(s => s.type !== 'insurance');
-
-            // 3. Cálculos
-            const valCollected = filteredPayments.reduce((s, i) => s + (Number(i.amount)||0), 0);
-            const valInjected = filteredInjections.reduce((s, i) => s + (Number(i.amount)||0), 0);
-            
-            const valDeployed = filteredNewLoans.reduce((s, l) => {
-                let principal = Number(l.principalAmount);
-                if (!principal && l.totalLoan) {
-                     const rate = Number(l.clientInterest) || 20;
-                     principal = Number(l.totalLoan) / (1 + (rate / 100)); 
+            // Procesar Gastos Cobrador
+            allExpenses.forEach(e => {
+                if (selectedCollectorId === 'all' || e.collectorId === selectedCollectorId) {
+                    let d = e.date?.seconds ? new Date(e.date.seconds * 1000) : new Date();
+                    const val = Number(e.value) || 0;
+                    if (d < startDate) beforeExpenses += val;
+                    else if (d >= startDate && d <= endDate) {
+                        periodExpenses += val;
+                        filteredExpenses.push(e);
+                        const cat = e.category || 'other';
+                        expensesByCategory[cat] = (expensesByCategory[cat] || 0) + val;
+                    }
                 }
-                return s + (principal || 0);
-            }, 0);
-
-            // Seguro Recaudado
-            const valMicroInsurance = filteredNewLoans.reduce((s, l) => s + (Number(l.microInsurance) || 0), 0);
-            // Intereses Generados (NUEVO)
-            const valInterestGenerated = filteredNewLoans.reduce((s, l) => {
-                let principal = Number(l.principalAmount);
-                if (!principal && l.totalLoan) {
-                     const rate = Number(l.clientInterest) || 20;
-                     principal = Number(l.totalLoan) / (1 + (rate / 100)); 
-                }
-                const total = Number(l.totalLoan) || 0;
-                const interest = total - principal;
-                return s + (interest > 0 ? interest : 0);
-            }, 0);
-
-            // Retiros separados
-            const valSettledCapital = settlementsCapital.reduce((s, i) => s + (Number(i.amount)||0), 0);
-            const valSettledInsurance = settlementsInsurance.reduce((s, i) => s + (Number(i.amount)||0), 0);
-            
-            // CORRECCIÓN: Definimos 'valSettledTotal'
-            const valSettledTotal = valSettledCapital + valSettledInsurance;
-
-            const expensesByCategory = {};
-            let valExpensesTotal = 0;
-            filteredExpenses.forEach(e => {
-                const cat = e.category || 'other';
-                const val = Number(e.value) || 0;
-                expensesByCategory[cat] = (expensesByCategory[cat] || 0) + val;
-                valExpensesTotal += val;
             });
 
-            const valInflows = valCollected + valInjected;
-            const totalInflow = valInitial + valInflows;
-            
-            // Balance Final EXACTO a la Caja (Aísla el seguro y usa solo retiros de capital)
-            const totalOutflow = valExpensesTotal + valDeployed + valSettledCapital;
-            const netBalance = totalInflow - totalOutflow;
+            // Procesar Gastos Administrativos
+            if (typeof allAdminExpenses !== 'undefined') {
+                allAdminExpenses.forEach(e => {
+                    if (selectedCollectorId === 'all' || e.collectorId === selectedCollectorId || (e.collectorId === 'global' && selectedCollectorId === 'all')) {
+                        let d = e.date?.seconds ? new Date(e.date.seconds * 1000) : new Date();
+                        const val = Number(e.amount) || 0;
+                        if (d < startDate) beforeAdminExp += val;
+                        else if (d >= startDate && d <= endDate) {
+                            periodAdminExp += val;
+                            filteredAdminExpenses.push(e);
+                        }
+                    }
+                });
+            }
 
-            // 4. Preparar Datos Gráfico
+            // Procesar Aportes
+            allCapitalInjections.forEach(i => {
+                if ((selectedCollectorId === 'all' || i.collectorId === selectedCollectorId) && i.status === 'approved') {
+                    let d = i.date?.seconds ? new Date(i.date.seconds * 1000) : new Date();
+                    const val = Number(i.amount) || 0;
+                    if (d < startDate) beforeInjections += val;
+                    else if (d >= startDate && d <= endDate) {
+                        periodInjections += val;
+                        filteredInjections.push(i);
+                    }
+                }
+            });
+
+            // Procesar Retiros
+            allSettlements.forEach(s => {
+                if ((selectedCollectorId === 'all' || s.collectorId === selectedCollectorId) && s.status === 'approved') {
+                    let d = s.date?.seconds ? new Date(s.date.seconds * 1000) : new Date();
+                    const val = Number(s.amount) || 0;
+                    
+                    if (d < startDate) {
+                        if (s.type !== 'insurance') beforeSettlements += val;
+                    } else if (d >= startDate && d <= endDate) {
+                        if (s.type === 'insurance') {
+                            periodSettlementsInsurance += val;
+                            filteredSettlementsInsurance.push(s);
+                        } else {
+                            periodSettlementsCapital += val;
+                            filteredSettlementsCapital.push(s);
+                        }
+                    }
+                }
+            });
+
+            // Saldos
+            const saldoCaixaInicial = baseInitialCapital + beforeCollected + beforeInjections - beforeLoans - beforeExpenses - beforeSettlements - beforeAdminExp;
+            const totalEntradasPeriodo = periodCollected + periodInjections;
+            const totalSaidasPeriodo = periodLoans + periodExpenses + periodSettlementsCapital + periodAdminExp; 
+            const saldoCaixaFinal = saldoCaixaInicial + totalEntradasPeriodo - totalSaidasPeriodo;
+
+            const strStart = startDate.toLocaleDateString('pt-BR');
+            const strEnd = endDate.toLocaleDateString('pt-BR');
+
+            // === B. DATOS PARA LA RUEDA FUTURISTA ===
             const chartLabels = [];
             const chartData = [];
             const chartColors = [];
             
             const neonColors = {
-                'initial': '#94a3b8', 'inflows': '#00ff9d', 'salary': '#facc15', 'fuel': '#f97316', 'rent': '#ec4899',
+                'inflows': '#00ff9d', 'salary': '#facc15', 'fuel': '#f97316', 'rent': '#ec4899',
                 'mechanics': '#ef4444', 'food': '#8b5cf6', 'other': '#64748b', 'loans': '#00f2ff',
-                'settlements': '#a855f7', 'settlements_insurance': '#0ea5e9', 'balance': '#3b82f6', 
-                'microInsurance': '#0ea5e9'
+                'settlements': '#a855f7', 'settlements_insurance': '#0ea5e9', 
+                'microInsurance': '#0ea5e9', 'injections': '#facc15'
             };
 
-            if (valInitial > 0) { chartLabels.push(t.initialCapitalLabel.toUpperCase()); chartData.push(valInitial); chartColors.push(neonColors['initial']); }
-            if (valInflows > 0) { chartLabels.push(t.inflowLabel.toUpperCase()); chartData.push(valInflows); chartColors.push(neonColors['inflows']); }
-            
-            // Entrada Seguro
-            if (valMicroInsurance > 0) { 
-                chartLabels.push(t.microInsurance.toUpperCase()); 
-                chartData.push(valMicroInsurance); 
-                chartColors.push(neonColors['microInsurance']); 
-            }
+            if (periodCollected > 0) { chartLabels.push(t.reportTotCol || "TOTAL COBRADO"); chartData.push(periodCollected); chartColors.push(neonColors['inflows']); }
+            if (periodLoans > 0) { chartLabels.push(t.reportTotDep || "TOTAL PRESTADO"); chartData.push(periodLoans); chartColors.push(neonColors['loans']); }
+            if (periodMicroInsurance > 0) { chartLabels.push(t.microInsurance || "MICRO SEGURO"); chartData.push(periodMicroInsurance); chartColors.push(neonColors['microInsurance']); }
+            if (periodInjections > 0) { chartLabels.push(t.injectionsShort || "APORTES"); chartData.push(periodInjections); chartColors.push(neonColors['injections']); }
 
             Object.keys(expensesByCategory).forEach(cat => {
                 if (expensesByCategory[cat] > 0) {
@@ -4954,61 +5036,63 @@ async function submitCollectorReport(collectorId) {
                     chartColors.push(neonColors[cat] || '#ffffff');
                 }
             });
-            if (valDeployed > 0) { chartLabels.push(t.newLoans.toUpperCase()); chartData.push(valDeployed); chartColors.push(neonColors['loans']); }
             
-            // Salida Retiros (Capital)
-            if (valSettledCapital > 0) { 
-                chartLabels.push("RETIRADAS (CAPITAL)"); 
-                chartData.push(valSettledCapital); 
-                chartColors.push(neonColors['settlements']); 
-            }
-            // Salida Retiros (Seguro)
-            if (valSettledInsurance > 0) { 
-                chartLabels.push("RETIRADAS (SEGURO)"); 
-                chartData.push(valSettledInsurance); 
-                chartColors.push(neonColors['settlements_insurance']); 
-            }
+            if (periodAdminExp > 0) { chartLabels.push(t.reportOutAdminDetails || "GASTOS ADMINISTRATIVOS"); chartData.push(periodAdminExp); chartColors.push('#dc2626'); }
+            if (periodSettlementsCapital > 0) { chartLabels.push(t.settlementsCap || "RETIRADAS (CAPITAL)"); chartData.push(periodSettlementsCapital); chartColors.push(neonColors['settlements']); }
+            if (periodSettlementsInsurance > 0) { chartLabels.push(t.settlementsIns || "RETIRADAS (SEGURO)"); chartData.push(periodSettlementsInsurance); chartColors.push(neonColors['settlements_insurance']); }
 
-            if (netBalance > 0) { chartLabels.push(t.cashBalance.toUpperCase()); chartData.push(netBalance); chartColors.push(neonColors['balance']); }
+            if (chartData.length === 0) { chartLabels.push(t.noData || "SEM DADOS"); chartData.push(1); chartColors.push('#1e293b'); }
 
-            if (chartData.length === 0) { chartLabels.push(t.noData); chartData.push(1); chartColors.push('#1e293b'); }
+            let diagColor = periodCollected >= periodLoans ? "#00ff9d" : "#00f2ff";
+            let diagTitle = t.reportPerSum || "RESUMO DO PERÍODO";
+            let diagMsg = `${t.reportFlowDesc || 'Análise de fluxo gerado entre'} ${strStart} - ${strEnd}.`;
 
-            let diagColor = netBalance >= 0 ? "#00ff9d" : "#ff0055";
-            let diagTitle = netBalance >= 0 ? t.diagProfitTitle : t.diagDeficitTitle;
-            let balanceText = netBalance >= 0 ? t.netBalancePos : t.netBalanceNeg;
-            let balanceValueColor = netBalance >= 0 ? "#00ff9d" : "#ff0055"; 
-
-            let diagMsg = "";
-            if (netBalance >= 0) {
-                diagMsg = t.diagProfitMsg;
-            } else {
-                 if (valDeployed > valCollected) {
-                    diagTitle = t.diagExpansionTitle;
-                    diagMsg = t.diagExpansionMsg;
-                    diagColor = "#bd00ff";
-                 } else if (valExpensesTotal > (valCollected * 0.4)) {
-                    diagTitle = t.diagAlertTitle;
-                    diagMsg = t.diagAlertMsg;
-                    diagColor = "#ff0055";
-                 } else {
-                    diagTitle = t.diagDeficitTitle;
-                    diagMsg = t.diagDeficitMsg;
-                    diagColor = "#ffae00";
-                 }
-            }
-
-            let maxExpenseEntry = Object.entries(expensesByCategory).sort((a,b) => b[1]-a[1])[0];
-            let maxExpenseMsg = maxExpenseEntry && maxExpenseEntry[1] > 0 
-                ? `${t.maxExpenseLabel} ${(t[maxExpenseEntry[0]] || maxExpenseEntry[0]).toUpperCase()} (${money(maxExpenseEntry[1])})` 
-                : t.noSignificantExpense;
-
+            // === C. RENDERIZAR HTML (CUADROS + RUEDA) TRADUCIDO ===
             resultsContainer.innerHTML = `
                 <div style="display: flex; justify-content: flex-end; margin-bottom: 15px;">
                     <button id="download-graphic-pdf-btn" class="btn-secondary" style="background-color: var(--surface); color: var(--accent-blue); border-color: var(--accent-blue); padding: 8px 16px; font-size: 0.9em; display: flex; align-items: center; gap: 8px;">
-                        <i data-lucide="file-down"></i> ${t.downloadGraphicPDF}
+                        <i data-lucide="file-down"></i> ${t.downloadGraphicPDF || 'Baixar Relatório'}
                     </button>
                 </div>
 
+                <!-- 1. LOS 5 CUADROS BANCARIOS (EL EXTRATO) -->
+                <div style="background: linear-gradient(135deg, #020617 0%, #0f172a 100%); border: 1px solid #1e293b; border-radius: 24px; padding: 25px; box-shadow: 0 10px 40px rgba(0,0,0,0.4); margin-bottom: 30px;">
+                    <h3 style="text-align: center; color: #94a3b8; font-size: 0.9em; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 25px;">${t.reportStatement || 'EXTRATO'} (${strStart} - ${strEnd})</h3>
+
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                        <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-left: 4px solid #64748b; padding: 15px; border-radius: 12px;">
+                            <span style="display: block; font-size: 0.75em; color: #94a3b8; text-transform: uppercase; margin-bottom: 5px;">${t.reportInitBal || 'SALDO INICIAL CAIXA'}</span>
+                            <span style="font-size: 1.5em; font-weight: 800; color: #fff;">${money(saldoCaixaInicial)}</span>
+                        </div>
+
+                        <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-left: 4px solid #00ff9d; padding: 15px; border-radius: 12px;">
+                            <span style="display: block; font-size: 0.75em; color: #94a3b8; text-transform: uppercase; margin-bottom: 5px;">${t.reportInflows || '(+) ENTRADAS'}</span>
+                            <span style="font-size: 1.5em; font-weight: 800; color: #00ff9d;">${money(totalEntradasPeriodo)}</span>
+                            <div style="font-size: 0.75em; color: #64748b; margin-top: 5px;">${t.reportCol || 'Cobrado:'} ${money(periodCollected)} | ${t.reportInj || 'Aportes:'} ${money(periodInjections)}</div>
+                        </div>
+
+                        <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-left: 4px solid #ef4444; padding: 15px; border-radius: 12px;">
+                            <span style="display: block; font-size: 0.75em; color: #94a3b8; text-transform: uppercase; margin-bottom: 5px;">${t.reportOutflows || '(-) SAÍDAS'}</span>
+                            <span style="font-size: 1.5em; font-weight: 800; color: #ef4444;">${money(totalSaidasPeriodo)}</span>
+                            <div style="font-size: 0.75em; color: #64748b; margin-top: 5px;">${t.reportLns || 'Emp:'} ${money(periodLoans)} | ${t.reportExp || 'Gast:'} ${money(periodExpenses + periodAdminExp)} | ${t.reportRet || 'Ret:'} ${money(periodSettlementsCapital)}</div>
+                        </div>
+
+                        <div style="background: rgba(255,255,255,0.05); border: 1px solid rgba(59, 130, 246, 0.4); border-left: 4px solid #3b82f6; padding: 15px; border-radius: 12px; box-shadow: 0 0 20px rgba(59, 130, 246, 0.1);">
+                            <span style="display: block; font-size: 0.75em; color: #94a3b8; text-transform: uppercase; margin-bottom: 5px;">${t.reportFinBal || 'SALDO FINAL CAIXA'}</span>
+                            <span style="font-size: 1.8em; font-weight: 800; color: #3b82f6;">${money(saldoCaixaFinal)}</span>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 20px; background: rgba(139,92,246,0.15); border: 1px solid rgba(139,92,246,0.4); border-radius: 12px; padding: 15px; display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <span style="display: block; font-size: 0.8em; color: #c4b5fd; font-weight: 700;">${t.reportIntGen || 'JUROS GERADOS NO PERÍODO'}</span>
+                            <span style="font-size: 0.85em; color: #a78bfa;">${t.reportIntDesc || 'Lucro projetado dos empréstimos nestas datas.'}</span>
+                        </div>
+                        <span style="font-size: 1.6em; font-weight: 800; color: #8b5cf6;">+${money(periodInterestGenerated)}</span>
+                    </div>
+                </div>
+
+                <!-- 2. LA RUEDA FUTURISTA (EL GRÁFICO ORIGINAL) -->
                 <div style="
                     background: linear-gradient(135deg, #020617 0%, #0f172a 100%); 
                     border: 1px solid #1e293b; 
@@ -5020,12 +5104,13 @@ async function submitCollectorReport(collectorId) {
                     gap: 40px;
                     position: relative;
                     overflow: hidden;
+                    margin-bottom: 30px;
                 ">
                     <div style="position: absolute; top: -50px; right: -50px; width: 200px; height: 200px; background: ${diagColor}; filter: blur(150px); opacity: 0.15; pointer-events: none;"></div>
 
                     <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%;">
                         <div style="margin-bottom: 20px; color: #64748b; font-size: 0.8em; letter-spacing: 2px; font-weight: 700; text-align: center; width: 100%;">
-                            ${t.distributionTitle}
+                            ${t.reportVisFlow || 'ANÁLISE DE FLUXO VISUAL'}
                         </div>
 
                         <div style="position: relative; height: 320px; width: 320px;">
@@ -5038,15 +5123,13 @@ async function submitCollectorReport(collectorId) {
                                 border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 0 30px rgba(0,0,0,0.5);
                                 pointer-events: none; z-index: 5;
                             ">
-                                <p style="font-size: 0.65em; color: #94a3b8; margin: 0; letter-spacing: 1px;">${t.capitalGiro}</p>
-                                <p style="font-size: 1.05em; color: #fff; font-weight: 700; margin: 2px 0;">${money(totalInflow + valMicroInsurance)}</p>
+                                <p style="font-size: 0.65em; color: #94a3b8; margin: 0; letter-spacing: 1px;">${t.reportTotCol || 'TOTAL COBRADO'}</p>
+                                <p style="font-size: 1.05em; color: #00ff9d; font-weight: 700; margin: 2px 0;">${money(periodCollected)}</p>
+                                
                                 <div style="width: 80%; height: 1px; background: #334155; margin: 6px auto;"></div>
-                                <p style="font-size: 0.65em; color: #94a3b8; margin: 0; letter-spacing: 1px;">${t.totalOutflow}</p>
-                                <p style="font-size: 1.05em; color: #ef4444; font-weight: 700; margin: 2px 0;">-${money(totalOutflow)}</p>
-                                 <div style="margin-top: 8px; padding: 4px 10px; background: ${diagColor}20; border-radius: 12px; display: flex; flex-direction: column; align-items: center; border: 1px solid ${diagColor}40;">
-                                    <span style="font-size: 0.55em; font-weight: 700; color: ${diagColor}; margin-bottom: 1px; letter-spacing: 0.5px;">${t.chartCenterBalance}</span>
-                                    <span style="color: ${diagColor}; font-size: 0.95em; font-weight: 800;">${netBalance >= 0 ? '+' : ''}${money(netBalance)}</span>
-                                </div>
+                                
+                                <p style="font-size: 0.65em; color: #94a3b8; margin: 0; letter-spacing: 1px;">${t.reportTotDep || 'TOTAL PRESTADO'}</p>
+                                <p style="font-size: 1.05em; color: #00f2ff; font-weight: 700; margin: 2px 0;">${money(periodLoans)}</p>
                             </div>
                         </div>
                     </div>
@@ -5055,22 +5138,12 @@ async function submitCollectorReport(collectorId) {
                         <div style="background: rgba(255,255,255,0.03); border-left: 4px solid ${diagColor}; padding: 20px; border-radius: 0 12px 12px 0;">
                             <h3 style="margin: 0 0 5px; color: ${diagColor}; font-size: 1.2em; text-shadow: 0 0 10px ${diagColor}40;">${diagTitle}</h3>
                             <p style="margin: 0; color: #cbd5e1; font-size: 0.95em;">${diagMsg}</p>
-                            <p style="margin: 10px 0 0; color: #94a3b8; font-size: 0.85em; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 8px;">${maxExpenseMsg}</p>
                         </div>
                         <div style="display: flex; flex-direction: column; gap: 12px; max-height: 350px; overflow-y: auto; padding-right: 10px;">
                             
-                            <div style="display: flex; align-items: center; justify-content: space-between; font-size: 0.9em; padding: 8px 12px; background: ${balanceValueColor}10; border-radius: 8px; border: 1px solid ${balanceValueColor}30;">
-                                <div style="display: flex; align-items: center; gap: 12px;">
-                                    <div style="width: 12px; height: 12px; background: ${balanceValueColor}; border-radius: 3px; box-shadow: 0 0 8px ${balanceValueColor};"></div>
-                                    <span style="color: #fff; font-weight: 700;">${balanceText}</span>
-                                </div>
-                                <span style="color: ${balanceValueColor}; font-weight: 700; font-family: monospace;">${money(netBalance)}</span>
-                            </div>
-
                             ${chartLabels.map((label, i) => {
-                                if (label === t.noData || label === t.cashBalance.toUpperCase()) return '';
+                                if (label === t.noData || label === "SEM DADOS") return '';
                                 const val = chartData[i];
-                                const percent = (totalInflow + valMicroInsurance) > 0 ? Math.round((val / (totalInflow + valMicroInsurance)) * 100) : 0;
                                 return `
                                 <div style="padding: 0 5px;">
                                     <div style="display: flex; align-items: center; justify-content: space-between; font-size: 0.9em; margin-bottom: 4px;">
@@ -5080,67 +5153,44 @@ async function submitCollectorReport(collectorId) {
                                         </div>
                                         <div style="text-align: right;">
                                             <span style="color: #fff; font-weight: 700; font-family: monospace;">${money(val)}</span>
-                                            <span style="color: #64748b; font-size: 0.85em; margin-left: 5px;">(${percent}%)</span>
                                         </div>
                                     </div>
                                     <div style="width: 100%; height: 4px; background: #1e293b; border-radius: 2px;">
-                                        <div style="width: ${percent}%; height: 100%; background: ${chartColors[i]}; border-radius: 2px;"></div>
+                                        <div style="width: 100%; height: 100%; background: ${chartColors[i]}; border-radius: 2px;"></div>
                                    </div>
-                            </div>`;
-                        }).join('')}
+                                </div>`;
+                            }).join('')}
 
-                        ${valInterestGenerated > 0 ? `
-                        <div style="padding: 0 5px; margin-top: 10px; border-top: 1px dashed rgba(255,255,255,0.1); padding-top: 10px;">
-                            <div style="display: flex; align-items: center; justify-content: space-between; font-size: 0.9em;">
-                                <div style="display: flex; align-items: center; gap: 12px;">
-                                    <div style="width: 12px; height: 12px; background: transparent; border: 2px solid #8b5cf6; border-radius: 3px; box-shadow: 0 0 8px #8b5cf6;"></div>
-                                    <span style="color: #c4b5fd; font-weight: 700;">${t.monthlyInterestPDF || 'LUCRO (JUROS GERADOS)'}</span>
-                                </div>
-                                <div style="text-align: right;">
-                                    <span style="color: #8b5cf6; font-weight: 700; font-family: monospace;">+${money(valInterestGenerated)}</span>
-                                </div>
-                            </div>
-                        </div>` : ''}
-
+                        </div>
                     </div>
                 </div>
-            </div>
 
-            <div style="margin-top: 30px;">
+                <!-- 3. LISTAS DESPLEGABLES -->
+                <div>
                     <details class="kpi-card" style="background: var(--surface); border: 1px solid var(--border-color);">
                         <summary style="cursor: pointer; font-weight: 600; color: var(--text-secondary); padding: 15px; display: flex; align-items: center; gap: 10px;">
-                            <i data-lucide="list"></i> ${t.viewFullList}
+                            <i data-lucide="list"></i> ${t.viewFullList || 'Ver Lista Completa de Registros'}
                         </summary>
                         <div id="report-details-lists" style="margin-top: 0; padding: 0 15px 15px; display: flex; flex-direction: column; gap: 10px;">
-                             ${valInitial > 0 ? `<div class="payment-history-item" style="padding: 10px; background-color: var(--bg); border: 1px dashed var(--text-secondary);"><span style="font-weight: 600;">${t.initialCapitalLabel}</span><span style="font-weight: 700; color: var(--text-primary);">${money(valInitial)}</span></div>` : ''}
-                             ${generateDetailListHTML(t.inflowLabel, 'arrow-up-circle', '#00ff9d', [...filteredPayments, ...filteredInjections], (item) => `<span>${item.clientName || 'Aporte'}</span><span style="color:var(--accent-green); font-weight:700;">${money(item.amount)}</span>`)}
-                             ${generateDetailListHTML(t.monthlyInterestPDF || 'Lucro (Juros)', 'trending-up', '#8b5cf6', filteredNewLoans.filter(l => (Number(l.totalLoan) - (Number(l.principalAmount) || Number(l.totalLoan)/1.2)) > 0), (l) => `<span>${l.clientName}</span><span style="color:#8b5cf6; font-weight:700;">${money(Number(l.totalLoan) - (Number(l.principalAmount) || Number(l.totalLoan)/1.2))}</span>`)}
-                             ${generateDetailListHTML(t.microInsurance, 'shield-check', '#0ea5e9', filteredNewLoans.filter(l => l.microInsurance > 0), (l) => `<span>${l.clientName} (Seguro Retido)</span><span style="color:#0ea5e9; font-weight:700;">${money(l.microInsurance)}</span>`)}
-                             
-                             ${generateDetailListHTML(t.outflowLoansLabel, 'briefcase', '#00f2ff', filteredNewLoans, (l) => `<span>${l.clientName}</span><span style="color:#3b82f6; font-weight:700;">${money(l.principalAmount || l.totalLoan/1.2)}</span>`)}
-                             ${generateDetailListHTML(t.outflowExpensesLabel, 'shopping-cart', '#ff0055', filteredExpenses, (e) => `<span>${t[e.category]||e.category} ${(!e.date || !e.date.seconds) ? '(Pendente)' : ''}</span><span style="color:var(--danger-color); font-weight:700;">${money(e.value)}</span>`)}
-                             
-                             <!-- LISTA DE RETIROS DE CAPITAL -->
-                             ${generateDetailListHTML("Saídas (Retiradas de Capital)", 'archive', '#a855f7', settlementsCapital, (s) => `<span>${s.collectorName || 'Cobrador'}</span><span style="color:#a855f7; font-weight:700;">${money(s.amount)}</span>`)}
-                             
-                             <!-- LISTA DE RETIROS DE SEGURO -->
-                             ${generateDetailListHTML("Saídas (Retiradas de Micro Seguro)", 'shield-off', '#0ea5e9', settlementsInsurance, (s) => `<span>${s.collectorName || 'Cobrador'}</span><span style="color:#0ea5e9; font-weight:700;">${money(s.amount)}</span>`)}
+                            ${generateDetailListHTML(t.reportInDetails || "Entradas (Cobrado + Aportes)", 'arrow-up-circle', '#00ff9d', [...filteredPayments, ...filteredInjections], (item) => `<span>${item.clientName || 'Aporte'}</span><span style="color:var(--accent-green); font-weight:700;">${money(item.amount)}</span>`)}
+                            ${generateDetailListHTML(t.reportIntDetails || "Juros Gerados", 'trending-up', '#8b5cf6', filteredNewLoans.filter(l => (Number(l.totalLoan) - Number(l.principalAmount)) > 0), (l) => `<span>${l.clientName}</span><span style="color:#8b5cf6; font-weight:700;">${money(Number(l.totalLoan) - Number(l.principalAmount))}</span>`)}
+                            ${generateDetailListHTML(t.reportInsDetails || "Micro Seguro Arrecadado", 'shield-check', '#0ea5e9', filteredNewLoans.filter(l => l.microInsurance > 0), (l) => `<span>${l.clientName} (${t.insuranceLabelShort || 'Seguro'})</span><span style="color:#0ea5e9; font-weight:700;">${money(l.microInsurance)}</span>`)}
+                            ${generateDetailListHTML(t.reportOutLnsDetails || "Saídas (Novos Empréstimos)", 'briefcase', '#00f2ff', filteredNewLoans, (l) => `<span>${l.clientName}</span><span style="color:#3b82f6; font-weight:700;">${money(l.principalAmount)}</span>`)}
+                            ${generateDetailListHTML(t.reportOutExpDetails || "Saídas (Gastos do Cobrador)", 'shopping-cart', '#ff0055', filteredExpenses, (e) => `<span>${t[e.category]||e.category}</span><span style="color:var(--danger-color); font-weight:700;">${money(e.value)}</span>`)}
+                            ${generateDetailListHTML(t.reportOutAdminDetails || "Saídas (Gastos Administrativos)", 'building', '#dc2626', filteredAdminExpenses, (e) => `<span>${t[e.category]||e.category} (${e.collectorName || 'Global'})</span><span style="color:#dc2626; font-weight:700;">${money(e.amount)}</span>`)}
+                            ${generateDetailListHTML(t.reportOutSetDetails || "Saídas (Retiradas de Caixa)", 'archive', '#a855f7', filteredSettlementsCapital, (s) => `<span>${s.collectorName || 'Cobrador'}</span><span style="color:#a855f7; font-weight:700;">${money(s.amount)}</span>`)}
                         </div>
                     </details>
                 </div>
             `;
 
+            // INICIALIZAR EL GRÁFICO (CHART.JS)
             const ctx = document.getElementById('ultra-chart').getContext('2d');
+            if (reportChartInstance) { reportChartInstance.destroy(); reportChartInstance = null; }
             
-            if (reportChartInstance) {
-                reportChartInstance.destroy();
-                reportChartInstance = null;
-            }
-
             const externalTooltipHandler = (context) => {
                 const {chart, tooltip} = context;
                 let tooltipEl = document.getElementById('chartjs-tooltip');
-
                 if (!tooltipEl) {
                     tooltipEl = document.createElement('div');
                     tooltipEl.id = 'chartjs-tooltip';
@@ -5161,12 +5211,7 @@ async function submitCollectorReport(collectorId) {
                     tooltipEl.appendChild(table);
                     document.body.appendChild(tooltipEl);
                 }
-
-                if (tooltip.opacity === 0) {
-                    tooltipEl.style.opacity = 0;
-                    return;
-                }
-
+                if (tooltip.opacity === 0) { tooltipEl.style.opacity = 0; return; }
                 if (tooltip.body) {
                     const bodyLines = tooltip.body.map(b => b.lines);
                     const tableBody = document.createElement('tbody');
@@ -5175,124 +5220,59 @@ async function submitCollectorReport(collectorId) {
                         const span = document.createElement('span');
                         span.style.background = colors.backgroundColor;
                         span.style.borderColor = colors.borderColor;
-                        span.style.borderWidth = '2px';
-                        span.style.marginRight = '10px';
-                        span.style.height = '10px';
-                        span.style.width = '10px';
-                        span.style.display = 'inline-block';
-                        span.style.borderRadius = '2px';
-
-                        const tr = document.createElement('tr');
-                        const td = document.createElement('td');
-                        const text = body[0]; 
-                        const parts = text.split(':');
-                        const label = parts[0];
-                        const val = parts.slice(1).join(':');
-
-                        td.innerHTML = '';
-                        td.appendChild(span);
-                        td.appendChild(document.createTextNode(label));
-                        const valSpan = document.createElement('span');
-                        valSpan.innerText = val;
-                        valSpan.style.fontWeight = 'bold';
-                        valSpan.style.marginLeft = '8px';
-                        valSpan.style.color = colors.backgroundColor;
-                        td.appendChild(valSpan);
-                        tr.appendChild(td);
-                        tableBody.appendChild(tr);
+                        span.style.borderWidth = '2px'; span.style.marginRight = '10px'; span.style.height = '10px'; span.style.width = '10px'; span.style.display = 'inline-block'; span.style.borderRadius = '2px';
+                        const tr = document.createElement('tr'); const td = document.createElement('td');
+                        const text = body[0]; const parts = text.split(':'); const label = parts[0]; const val = parts.slice(1).join(':');
+                        td.innerHTML = ''; td.appendChild(span); td.appendChild(document.createTextNode(label));
+                        const valSpan = document.createElement('span'); valSpan.innerText = val; valSpan.style.fontWeight = 'bold'; valSpan.style.marginLeft = '8px'; valSpan.style.color = colors.backgroundColor;
+                        td.appendChild(valSpan); tr.appendChild(td); tableBody.appendChild(tr);
                     });
                     const tableRoot = tooltipEl.querySelector('table');
                     while (tableRoot.firstChild) { tableRoot.firstChild.remove(); }
                     tableRoot.appendChild(tableBody);
                 }
-
-                const canvasRect = chart.canvas.getBoundingClientRect();
-                const tooltipRect = tooltipEl.getBoundingClientRect();
-                const windowWidth = window.innerWidth;
-                
-                let left = canvasRect.left + window.scrollX + tooltip.caretX;
-                let top = canvasRect.top + window.scrollY + tooltip.caretY;
-
-                left -= (tooltipRect.width / 2);
-                if (left + tooltipRect.width > windowWidth - 10) left = windowWidth - tooltipRect.width - 10;
-                if (left < 10) left = 10;
-
-                top -= (tooltipRect.height + 15);
-                if (top < window.scrollY + 60) top = canvasRect.top + window.scrollY + tooltip.caretY + 30;
-
-                tooltipEl.style.opacity = 1;
-                tooltipEl.style.left = left + 'px';
-                tooltipEl.style.top = top + 'px';
+                const canvasRect = chart.canvas.getBoundingClientRect(); const tooltipRect = tooltipEl.getBoundingClientRect(); const windowWidth = window.innerWidth;
+                let left = canvasRect.left + window.scrollX + tooltip.caretX; let top = canvasRect.top + window.scrollY + tooltip.caretY;
+                left -= (tooltipRect.width / 2); if (left + tooltipRect.width > windowWidth - 10) left = windowWidth - tooltipRect.width - 10; if (left < 10) left = 10;
+                top -= (tooltipRect.height + 15); if (top < window.scrollY + 60) top = canvasRect.top + window.scrollY + tooltip.caretY + 30;
+                tooltipEl.style.opacity = 1; tooltipEl.style.left = left + 'px'; tooltipEl.style.top = top + 'px';
             };
 
             reportChartInstance = new Chart(ctx, {
                 type: 'doughnut',
-                data: {
-                    labels: chartLabels,
-                    datasets: [{
-                        data: chartData,
-                        backgroundColor: chartColors,
-                        borderWidth: 0,
-                        hoverOffset: 15,
-                        borderRadius: 3,
-                        spacing: 2
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    cutout: '70%', 
-                    plugins: {
-                        legend: { display: false },
-                        tooltip: {
-                            enabled: false, 
-                            external: externalTooltipHandler, 
-                            callbacks: {
-                                label: function(context) {
-                                    return `${context.label}: ${money(context.raw)}`;
-                                }
-                            }
-                        }
-                    },
-                    animation: {
-                        animateScale: true,
-                        animateRotate: true,
-                        duration: 1500,
-                        easing: 'easeOutQuart'
-                    }
-                }
+                data: { labels: chartLabels, datasets: [{ data: chartData, backgroundColor: chartColors, borderWidth: 0, hoverOffset: 15, borderRadius: 3, spacing: 2 }] },
+                options: { responsive: true, maintainAspectRatio: false, cutout: '70%', plugins: { legend: { display: false }, tooltip: { enabled: false, external: externalTooltipHandler, callbacks: { label: function(context) { return `${context.label}: ${money(context.raw)}`; } } } }, animation: { animateScale: true, animateRotate: true, duration: 1500, easing: 'easeOutQuart' } }
             });
 
+            // CONFIGURAR BOTÓN PDF
             const downloadBtn = document.getElementById('download-graphic-pdf-btn');
             const newDownloadBtn = downloadBtn.cloneNode(true);
             downloadBtn.parentNode.replaceChild(newDownloadBtn, downloadBtn);
             
             if (newDownloadBtn) {
                 newDownloadBtn.addEventListener('click', () => {
-                    const collectorName = selectedCollectorId === 'all' 
-                        ? t.all 
-                        : allCollectors.find(c => c.id === selectedCollectorId)?.name || 'N/A';
+                    const collectorName = selectedCollectorId === 'all' ? t.all : allCollectors.find(c => c.id === selectedCollectorId)?.name || 'N/A';
                     
                     const reportPayload = {
-                        period: { start: startDate, end: endDate },
+                        period: { start: startDate, end: endDate, strStart, strEnd },
                         collector: collectorName,
                         financials: {
-                            initial: valInitial,
-                            inflow: valInflows,
-                            microInsurance: valMicroInsurance,
-                            totalIn: totalInflow,
-                            interestGenerated: valInterestGenerated,
-                            expenses: valExpensesTotal,
-                            loans: valDeployed,
-                            settlements: valSettledTotal, // <--- CORRECCIÓN APLICADA: valSettledTotal
-                            settlementsCapital: valSettledCapital,
-                            settlementsInsurance: valSettledInsurance,
-                            totalOut: totalOutflow,
-                            balance: netBalance
+                            saldoInicial: saldoCaixaInicial,
+                            entradas: totalEntradasPeriodo,
+                            collected: periodCollected,
+                            injections: periodInjections,
+                            saidas: totalSaidasPeriodo,
+                            loans: periodLoans,
+                            expenses: periodExpenses,
+                            adminExpenses: periodAdminExp,
+                            settlementsCapital: periodSettlementsCapital,
+                            saldoFinal: saldoCaixaFinal,
+                            interestGenerated: periodInterestGenerated,
+                            microInsurance: periodMicroInsurance,
+                            settlementsInsurance: periodSettlementsInsurance
                         },
                         breakdown: expensesByCategory
                     };
-                    
                     exportFinancialAnalysisPDF(reportPayload);
                 });
             }
@@ -5952,68 +5932,26 @@ async function submitCollectorReport(collectorId) {
         async function exportFinancialAnalysisPDF(reportData) {
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF();
-            let printDate = new Date();
-            if (printDate.getHours() < 5) printDate.setDate(printDate.getDate() - 1);
-            const { period, collector, financials, breakdown } = reportData;
-            const t = translations[currentLang];
+            const { period, collector, financials } = reportData;
             const primaryColor = '#0f172a'; 
 
-            // 1. TÍTULO Y FECHA
             let y = 20;
             doc.setFontSize(18);
             doc.setFont(undefined, 'bold');
             doc.setTextColor(primaryColor);
-            doc.text((currentCompanyData?.name || 'Relatório Financeiro').toUpperCase(), 105, y, { align: 'center' });
+            doc.text((currentCompanyData?.name || 'Extrato Financeiro').toUpperCase(), 105, y, { align: 'center' });
             
             y += 8;
             doc.setFontSize(12);
             doc.setFont(undefined, 'normal');
             doc.setTextColor(100);
-            const dateRange = `${period.start.toLocaleDateString()} - ${period.end.toLocaleDateString()}`;
-            doc.text(`${t.reports} (${dateRange})`, 105, y, { align: 'center' });
+            doc.text(`Extrato de Movimentacao (${period.strStart} - ${period.strEnd})`, 105, y, { align: 'center' });
             
             y += 8;
             doc.setFontSize(10);
-            doc.text(`Cobrador: ${collector}`, 105, y, { align: 'center' });
+            doc.text(`Cobrador/Rota: ${collector}`, 105, y, { align: 'center' });
 
-            // 2. CAPTURA DEL GRÁFICO (IMAGEN)
-            if (reportChartInstance) {
-                const canvas = document.getElementById('ultra-chart');
-                if (canvas) {
-                    y += 10;
-                    const chartImgData = canvas.toDataURL('image/png', 1.0);
-                    
-                    doc.addImage(chartImgData, 'PNG', 65, y, 80, 80);
-                    
-                    // Círculo central simulado
-                    doc.setFillColor(255, 255, 255);
-                    doc.circle(105, y + 40, 15, 'F'); 
-                    
-                    doc.setFontSize(8);
-                    doc.setTextColor(100);
-                    doc.text(t.capitalGiro, 105, y + 35, { align: 'center' });
-                    
-                    // Sumamos el Seguro a la entrada visual en el PDF también para consistencia
-                    doc.setFontSize(11);
-                    doc.setTextColor(0);
-                    doc.setFont(undefined, 'bold');
-                    doc.text(money(financials.totalIn + (financials.microInsurance||0)), 105, y + 40, { align: 'center' });
-                    
-                    doc.setFontSize(8);
-                    doc.setTextColor(100);
-                    doc.setFont(undefined, 'normal');
-                    doc.text(t.totalOutflow, 105, y + 46, { align: 'center' });
-                    
-                    doc.setFontSize(10);
-                    doc.setTextColor('#ef4444');
-                    doc.setFont(undefined, 'bold');
-                    doc.text(`-${money(financials.totalOut)}`, 105, y + 51, { align: 'center' });
-
-                    y += 85; 
-                }
-            }
-
-            // 3. TABLA DE RESUMEN
+            y += 15;
             doc.setDrawColor(200);
             doc.setLineWidth(0.1);
             doc.line(20, y, 190, y);
@@ -6024,84 +5962,72 @@ async function submitCollectorReport(collectorId) {
                 doc.setFont(undefined, isBold ? 'bold' : 'normal');
                 doc.setTextColor(100); 
                 doc.text(label, 20, y);
-                
                 doc.setTextColor(color);
                 doc.text(money(value), 190, y, { align: 'right' });
                 y += 8;
             };
 
-            // Capital Inicial
-            if (financials.initial > 0) {
-                addRow(t.initialCapitalLabel, financials.initial, '#64748b');
-            }
-
-            // Entradas
-            addRow(t.inflowLabel, financials.inflow, '#22c55e', true);
-            
-            // --- MICRO SEGURO (ENTRADA) ---
-            if (financials.microInsurance > 0) {
-                addRow(t.microInsurance, financials.microInsurance, '#0ea5e9', true); // Azul Celeste
-            }
-            // --- INTERESES GENERADOS (LUCRO) ---
-            if (financials.interestGenerated > 0) {
-                addRow(t.monthlyInterestPDF || 'LUCRO (JUROS GERADOS)', financials.interestGenerated, '#8b5cf6', true);
-            }
-            // Salidas
-            addRow(t.outflowLoansLabel, financials.loans, '#3b82f6');
-            addRow(t.outflowExpensesLabel, financials.expenses, '#ef4444');
-            
-            // --- RETIROS DESGLOSADOS ---
-            if (financials.settlementsCapital > 0) {
-                 addRow("Saídas (Retiradas Capital)", financials.settlementsCapital, '#a855f7');
-            }
-            if (financials.settlementsInsurance > 0) {
-                 addRow("Saídas (Retiradas Seguro)", financials.settlementsInsurance, '#0ea5e9');
-            }
-            
-            y += 2;
-            doc.line(20, y, 190, y);
-            y += 10;
-            
-            // Saldo Final
-            const balanceLabel = t.cashBalance;
-            const balanceColor = financials.balance >= 0 ? '#22c55e' : '#ef4444';
-            
             doc.setFontSize(14);
             doc.setFont(undefined, 'bold');
-            doc.setTextColor(balanceColor);
-            doc.text(balanceLabel, 20, y);
-            doc.text(money(financials.balance), 190, y, { align: 'right' });
+            doc.setTextColor('#64748b');
+            doc.text(`SALDO INICIAL CAIXA (${period.strStart})`, 20, y);
+            doc.text(money(financials.saldoInicial), 190, y, { align: 'right' });
             
+            y += 12;
+            doc.line(20, y, 190, y);
+            y += 10;
+
+            doc.setFontSize(12);
+            doc.setTextColor('#000000');
+            doc.text('(+) ENTRADAS', 20, y);
+            doc.setTextColor('#22c55e');
+            doc.text(money(financials.entradas), 190, y, { align: 'right' });
+            y += 8;
+            
+            addRow("   Pagamentos Recebidos", financials.collected, '#64748b');
+            if (financials.injections > 0) addRow("   Aportes de Capital", financials.injections, '#64748b');
+            
+            y += 5;
+            doc.setFontSize(12);
+            doc.setFont(undefined, 'bold');
+            doc.setTextColor('#000000');
+            doc.text('(-) SAIDAS', 20, y);
+            doc.setTextColor('#ef4444');
+            doc.text(`-${money(financials.saidas)}`, 190, y, { align: 'right' });
+            y += 8;
+
+            addRow("   Novos Emprestimos", financials.loans, '#64748b');
+            addRow("   Gastos Operacionais", financials.expenses, '#64748b');
+            if (financials.adminExpenses > 0) addRow("   Gastos Administrativos", financials.adminExpenses, '#64748b');
+            if (financials.settlementsCapital > 0) addRow("   Retiradas de Caixa", financials.settlementsCapital, '#64748b');
+
+            y += 5;
+            doc.line(20, y, 190, y);
+            y += 12;
+
+            doc.setFontSize(16);
+            doc.setFont(undefined, 'bold');
+            doc.setTextColor('#3b82f6');
+            doc.text(`SALDO FINAL CAIXA (${period.strEnd})`, 20, y);
+            doc.text(money(financials.saldoFinal), 190, y, { align: 'right' });
+
             y += 15;
+            doc.setDrawColor(139, 92, 246);
+            doc.setFillColor(243, 232, 255); 
+            doc.roundedRect(20, y, 170, 20, 3, 3, 'FD');
             
-            // 4. DESGLOSE DE GASTOS
-            const expenseKeys = Object.keys(breakdown).filter(k => breakdown[k] > 0);
-            if (expenseKeys.length > 0) {
-                doc.setFontSize(12);
-                doc.setTextColor(primaryColor);
-                doc.text(t.maxExpenseLabel.replace(':', ''), 20, y); 
-                y += 8;
+            doc.setFontSize(12);
+            doc.setTextColor('#8b5cf6');
+            doc.text('JUROS GERADOS NO PERIODO', 25, y + 13);
+            doc.text(`+${money(financials.interestGenerated)}`, 185, y + 13, { align: 'right' });
 
-                expenseKeys.forEach(cat => {
-                    const label = (translations[currentLang][cat] || cat).toUpperCase();
-                    doc.setFontSize(10);
-                    doc.setFont(undefined, 'normal');
-                    doc.setTextColor(100);
-                    doc.text(`• ${label}`, 25, y);
-                    doc.setTextColor('#ef4444');
-                    doc.text(`-${money(breakdown[cat])}`, 190, y, { align: 'right' });
-                    y += 6;
-                });
-            }
-
-            // 5. PIE DE PÁGINA
             const pageHeight = doc.internal.pageSize.getHeight();
             doc.setFontSize(9);
             doc.setTextColor(150);
-            doc.text('Gerado por LUMIX Finanças', 105, pageHeight - 10, { align: 'center' });
+            doc.text('Gerado por LUMIX Financas', 105, pageHeight - 10, { align: 'center' });
 
-            doc.save(`Analise_Financeira_${new Date().toLocaleDateString().replace(/\//g, '-')}.pdf`);
-            showToast('PDF do gráfico baixado!');
+            doc.save(`Extrato_${collector}_${period.strStart.replace(/\//g, '-')}.pdf`);
+            showToast('Extrato PDF baixado!');
         }
 
 
