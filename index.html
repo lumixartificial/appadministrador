@@ -2113,7 +2113,7 @@ function checkAndRunGlobalUpdate() {
                 const totalGlobalAdminExpenses = globalAdminExpenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
                 
                 sumGlobalPatrimonio -= totalGlobalAdminExpenses;
-                sumGlobalCapitalOnHand -= totalGlobalAdminExpenses;
+                
 
                 calculatedGlobalMetrics = calculateGlobalMetrics(
                     allCollectors, allClients, allExpenses, allSettlements, allCapitalInjections, allAdminExpenses
@@ -2209,9 +2209,15 @@ function checkAndRunGlobalUpdate() {
             const collectorAdminExpenses = allAdminExpenses.filter(e => e.collectorId === collectorId);
             const totalAdminExpenses = collectorAdminExpenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
             
-            const collectorSettlementsCapital = allSettlements.filter(s => s.collectorId === collectorId && s.status === 'approved' && s.type !== 'insurance');
+            // CORRECCIÓN: Para el Capital en Mano, restamos TODAS las liquidaciones aprobadas (Capital + Seguro), 
+            // ya que ambas representan dinero físico que salió del bolsillo del cobrador.
+            const collectorSettlementsAll = allSettlements.filter(s => s.collectorId === collectorId && s.status === 'approved');
+            const totalSettledCapital = collectorSettlementsAll.reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
+            
+            // Para estadísticas visuales mantenemos la separación
             const collectorSettlementsInsurance = allSettlements.filter(s => s.collectorId === collectorId && s.status === 'approved' && s.type === 'insurance');
-            const totalInsuranceWithdrawn = collectorSettlementsInsurance.reduce((sum, s) => sum + (s.amount || 0), 0);
+            const totalInsuranceWithdrawn = collectorSettlementsInsurance.reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
+            
             const collectorInjections = allCapitalInjections.filter(i => i.collectorId === collectorId && i.status === 'approved');
 
             let totalPaid = 0, totalPrincipal = 0, totalDistributedCapital_Outstanding = 0, totalLateFees = 0;
@@ -2235,12 +2241,17 @@ function checkAndRunGlobalUpdate() {
                     const loanDetails = calculateLoanDetails(loan);
                     const currentStatus = loanDetails.status;
 
+                    // CORRECCIÓN: Casteo estricto a Number para evitar implosión por concatenación de strings
                     if (!loan.migrationDate) {
-                        if (loan.principalAmount) totalPrincipal += loan.principalAmount;
-                        else if (loan.totalLoan && c.interestRate) totalPrincipal += (loan.totalLoan / (1 + (c.interestRate / 100)));
+                        let principal = Number(loan.principalAmount) || 0;
+                        if (principal === 0 && loan.totalLoan) {
+                            const rate = Number(c.interestRate) || 20;
+                            principal = Number(loan.totalLoan) / (1 + (rate / 100));
+                        }
+                        totalPrincipal += principal;
                     }
 
-                    collectorTotalInsuranceGenerated += (parseFloat(loan.microInsurance) || 0);
+                    collectorTotalInsuranceGenerated += (Number(loan.microInsurance) || 0);
                     const todayDate = new Date(todayStart);
                     const dayW = todayDate.getDay(), dayM = todayDate.getDate();
                     const pDays = loan.paymentDays || [];
@@ -2251,22 +2262,31 @@ function checkAndRunGlobalUpdate() {
                     else if (freq === 'weekly') isToday = pDays[0] === dayW;
                     else if (freq === 'monthly') isToday = pDays[0] === dayM;
 
-                    if (isToday && loanDetails.status !== 'finished') expectedToday += (parseFloat(loan.originalInstallmentAmount) || 0);
+                    if (isToday && loanDetails.status !== 'finished') expectedToday += (Number(loan.originalInstallmentAmount) || 0);
 
                     (loan.history || []).forEach(h => {
-                        if (h.date?.seconds && h.status !== 'pending_verification' && h.status !== 'rejected' && h.status !== 'postponed' && h.method !== 'migration') {
-                            const paymentAmount = h.amount || 0;
+                        // CORRECCIÓN: Quitamos la restricción "h.date?.seconds". Sumamos todo lo aprobado, igual que el cobrador.
+                           if (h.status !== 'pending_verification' && h.status !== 'rejected' && h.status !== 'postponed' && h.method !== 'migration') {
+                            const paymentAmount = Number(h.amount) || 0;
                             totalPaid += paymentAmount; 
-                            const paymentDate = new Date(h.date.seconds * 1000);
-                            if (paymentDate >= todayStart) dailyCollected += paymentAmount;
-                            if (paymentDate >= weekStart) weeklyCollected += paymentAmount;
-                            if (paymentDate >= monthStart) monthlyCollected += paymentAmount;
+                            
+                            // Las fechas solo son requeridas para las métricas específicas de hoy/semana/mes
+                            let paymentDate = null;
+                            if (h.date?.seconds) paymentDate = new Date(h.date.seconds * 1000);
+                            else if (h.date instanceof Date) paymentDate = h.date;
+                            else if (typeof h.date === 'string') paymentDate = new Date(h.date);
+
+                            if (paymentDate && !isNaN(paymentDate.getTime())) {
+                                if (paymentDate >= todayStart) dailyCollected += paymentAmount;
+                                if (paymentDate >= weekStart) weeklyCollected += paymentAmount;
+                                if (paymentDate >= monthStart) monthlyCollected += paymentAmount;
+                            }
                         }
                     });
                     
                     if (currentStatus !== 'finished') {
-                        const totalPaidForThisLoan = (loan.history || []).filter(h => h.status !== 'pending_verification' && h.status !== 'rejected' && h.status !== 'postponed').reduce((sum, h) => sum + (h.amount || 0), 0);
-                        totalDistributedCapital_Outstanding += ((loan.totalLoan || 0) - totalPaidForThisLoan);
+                        const totalPaidForThisLoan = (loan.history || []).filter(h => h.status === 'approved' || h.method === 'migration').reduce((sum, h) => sum + (Number(h.amount) || 0), 0);
+                        totalDistributedCapital_Outstanding += Math.max(0, (Number(loan.totalLoan) || 0) - totalPaidForThisLoan);
                         isClientActive = true; 
                     }
 
@@ -2276,14 +2296,13 @@ function checkAndRunGlobalUpdate() {
                 if (isClientActive) activeClientsCount++;
             });
 
-            const totalExpenses = collectorExpenses.reduce((sum, e) => sum + (e.value || 0), 0);
-            const totalSettledCapital = collectorSettlementsCapital.reduce((sum, s) => sum + (s.amount || 0), 0);
-            const totalInjected = collectorInjections.reduce((sum, i) => sum + (i.amount || 0), 0);
-            const currentStartingCapital = (collector && collector.startingCapitalOnHand !== undefined) ? collector.startingCapitalOnHand : (collector && collector.startingCapital) || 0; 
-            const historicalBalance = collector.historicalBalance || 0;
+            const totalExpenses = collectorExpenses.reduce((sum, e) => sum + (Number(e.value) || Number(e.amount) || 0), 0);
+            const totalInjected = collectorInjections.reduce((sum, i) => sum + (Number(i.amount) || 0), 0);
+            const currentStartingCapital = (collector && collector.startingCapitalOnHand !== undefined) ? Number(collector.startingCapitalOnHand) : (Number(collector?.startingCapital) || 0); 
+            const historicalBalance = Number(collector?.historicalBalance || 0);
             
-            // EL DESCUENTO DE GASTOS ADMIN A LA CAJA DEL COBRADOR SE HACE AQUÍ (- totalAdminExpenses)
-            const capitalOnHand = currentStartingCapital + totalInjected + totalPaid - totalPrincipal - totalExpenses - totalSettledCapital + historicalBalance - totalAdminExpenses;
+            // FÓRMULA MAESTRA SINCRONIZADA
+            const capitalOnHand = currentStartingCapital + totalInjected + totalPaid + historicalBalance - totalPrincipal - totalExpenses - totalSettledCapital - totalAdminExpenses;
             const totalPatrimonio = capitalOnHand + totalDistributedCapital_Outstanding;
 
             const collectorNetInsurance = Math.max(0, collectorTotalInsuranceGenerated - totalInsuranceWithdrawn);
