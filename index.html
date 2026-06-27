@@ -6800,18 +6800,12 @@ async function submitCollectorReport(collectorId) {
             const activeOrLastFinishedLoans = displayableLoans.length > 0 ? displayableLoans : (client.loans && client.loans.length > 0 ? [client.loans[client.loans.length - 1]] : []);
             
             let currentLoanIndex = loanIndex;
-            if (loanIndex < 0 || !client.loans[loanIndex] || (activeOrLastFinishedLoans.length > 0 && !activeOrLastFinishedLoans.includes(client.loans[loanIndex]))) {
-                 if (activeOrLastFinishedLoans.length > 0) {
-                     currentLoanIndex = client.loans.indexOf(activeOrLastFinishedLoans[0]);
-                 } else {
-                     currentLoanIndex = 0;
-                 }
-            }
+            
 
             const loan = client.loans[currentLoanIndex];
             if (!loan) { console.error("No se pudo cargar el préstamo."); return; }
 
-            const hasMultipleDisplayable = activeOrLastFinishedLoans.length > 1;
+            const hasMultipleDisplayable = (client.loans && client.loans.length > 1);
             
             // --- CÁLCULOS FINANCIEROS ---
             const paidAmount = (loan.history || [])
@@ -6906,7 +6900,17 @@ async function submitCollectorReport(collectorId) {
                     <span class="modal-title">${client.name}</span>
                 </header>
                 
-                ${hasMultipleDisplayable ? `<div class="loan-tabs-wrapper"><div class="loan-tabs-container" id="loan-tabs-container">${client.loans.map((l, index) => (activeOrLastFinishedLoans.includes(l) || index === currentLoanIndex) ? `<button class="loan-tab ${index === currentLoanIndex ? 'active' : ''}" data-loan-index="${index}">Préstamo ${index + 1} ${l.status === 'finished' ? '(Finalizado)' : ''}</button>` : '').join('')}</div></div>` : ''}
+               ${hasMultipleDisplayable ? `
+    <div class="loan-tabs-wrapper">
+        <div class="loan-tabs-container" id="loan-tabs-container">
+            ${client.loans.map((l, index) => `
+                <button class="loan-tab ${index === currentLoanIndex ? 'active' : ''}" data-loan-index="${index}">
+                    Préstamo ${index + 1} ${l.status === 'finished' ? '(Finalizado)' : ''}
+                </button>
+            `).join('')}
+        </div>
+    </div>
+` : ''}
 
                 <div class="modal-content-wrapper container">
                     <!-- ESTADO DEL PRÉSTAMO -->
