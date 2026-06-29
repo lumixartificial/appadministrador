@@ -5232,22 +5232,83 @@ async function submitCollectorReport(collectorId) {
                     </div>
                 </div>
 
-                <div>
-                    <details class="kpi-card" style="background: var(--surface); border: 1px solid var(--border-color);">
-                        <summary style="cursor: pointer; font-weight: 600; color: var(--text-secondary); padding: 15px; display: flex; align-items: center; gap: 10px;">
-                            <i data-lucide="list"></i> Ver Lista Completa de Registros
-                        </summary>
-                        <div id="report-details-lists" style="margin-top: 0; padding: 0 15px 15px; display: flex; flex-direction: column; gap: 10px;">
-                            ${generateDetailListHTML("Entradas (Cobrado + Aportes)", 'arrow-up-circle', '#00ff9d', [...filteredPayments, ...filteredInjections], (item) => `<span>${item.clientName || 'Aporte'}</span><span style="color:var(--accent-green); font-weight:700;">${money(item.amount)}</span>`)}
-                            ${generateDetailListHTML("Juros Gerados", 'trending-up', '#8b5cf6', filteredNewLoans.filter(l => (Number(l.totalLoan) - Number(l.principalAmount)) > 0), (l) => `<span>${l.clientName}</span><span style="color:#8b5cf6; font-weight:700;">${money(Number(l.totalLoan) - Number(l.principalAmount))}</span>`)}
-                            ${generateDetailListHTML("Micro Seguro Arrecadado", 'shield-check', '#0ea5e9', filteredNewLoans.filter(l => l.microInsurance > 0), (l) => `<span>${l.clientName} (Seguro)</span><span style="color:#0ea5e9; font-weight:700;">${money(l.microInsurance)}</span>`)}
-                            ${generateDetailListHTML("Saídas (Novos Empréstimos)", 'briefcase', '#00f2ff', filteredNewLoans, (l) => `<span>${l.clientName}</span><span style="color:#3b82f6; font-weight:700;">${money(l.principalAmount)}</span>`)}
-                            ${generateDetailListHTML("Saídas (Gastos do Cobrador)", 'shopping-cart', '#ff0055', filteredExpenses, (e) => `<span>${t[e.category]||e.category}</span><span style="color:var(--danger-color); font-weight:700;">${money(e.value)}</span>`)}
-                            ${generateDetailListHTML("Saídas (Gastos Administrativos)", 'building', '#dc2626', filteredAdminExpenses, (e) => `<span>${t[e.category]||e.category} (${e.collectorName || 'Global'})</span><span style="color:#dc2626; font-weight:700;">${money(e.amount)}</span>`)}
-                            ${generateDetailListHTML("Saídas (Retiradas de Caixa)", 'archive', '#a855f7', filteredSettlementsCapital, (s) => `<span>${s.collectorName || 'Cobrador'}</span><span style="color:#a855f7; font-weight:700;">${money(s.amount)}</span>`)}
-                        </div>
-                    </details>
-                </div>
+                ${generateDetailListHTML("Pagamentos Recebidos (Cobrado)", 'arrow-up-circle', '#00ff9d', filteredPayments, (item) => {
+                                let d = item.date?.seconds ? new Date(item.date.seconds * 1000).toLocaleDateString('pt-BR') : '--/--';
+                                let obs = item.notes ? `<br><span style="font-size:0.8em; color:var(--text-secondary); font-style:italic;">Obs: ${item.notes}</span>` : '';
+                                return `<div style="display:flex; flex-direction:column; gap:4px; max-width:70%;">
+                                            <span style="font-size:0.9em; font-weight:600;">${item.clientName || 'Cliente'}</span>
+                                            <span style="font-size:0.8em; color:var(--text-secondary);">${d} ${obs}</span>
+                                        </div>
+                                        <span style="color:var(--accent-green); font-weight:700; flex-shrink:0;">${money(item.amount)}</span>`;
+                            })}
+
+                            ${generateDetailListHTML("Aportes de Capital", 'plus-circle', '#facc15', filteredInjections, (item) => {
+                                let d = item.date?.seconds ? new Date(item.date.seconds * 1000).toLocaleDateString('pt-BR') : '--/--';
+                                let obs = item.notes ? `<br><span style="font-size:0.8em; color:var(--text-secondary); font-style:italic;">Obs: ${item.notes}</span>` : '';
+                                return `<div style="display:flex; flex-direction:column; gap:4px; max-width:70%;">
+                                            <span style="font-size:0.9em; font-weight:600;">Aporte (${item.collectorName || 'Cobrador'})</span>
+                                            <span style="font-size:0.8em; color:var(--text-secondary);">${d} ${obs}</span>
+                                        </div>
+                                        <span style="color:#facc15; font-weight:700; flex-shrink:0;">${money(item.amount)}</span>`;
+                            })}
+
+                            ${generateDetailListHTML("Juros Gerados", 'trending-up', '#8b5cf6', filteredNewLoans.filter(l => (Number(l.totalLoan) - Number(l.principalAmount)) > 0), (l) => {
+                                let d = l.startDate?.seconds ? new Date(l.startDate.seconds * 1000).toLocaleDateString('pt-BR') : '--/--';
+                                return `<div style="display:flex; flex-direction:column; gap:4px; max-width:70%;">
+                                            <span style="font-size:0.9em; font-weight:600;">${l.clientName}</span>
+                                            <span style="font-size:0.8em; color:var(--text-secondary);">${d}</span>
+                                        </div>
+                                        <span style="color:#8b5cf6; font-weight:700; flex-shrink:0;">${money(Number(l.totalLoan) - Number(l.principalAmount))}</span>`;
+                            })}
+
+                            ${generateDetailListHTML("Micro Seguro Arrecadado", 'shield-check', '#0ea5e9', filteredNewLoans.filter(l => l.microInsurance > 0), (l) => {
+                                let d = l.startDate?.seconds ? new Date(l.startDate.seconds * 1000).toLocaleDateString('pt-BR') : '--/--';
+                                return `<div style="display:flex; flex-direction:column; gap:4px; max-width:70%;">
+                                            <span style="font-size:0.9em; font-weight:600;">${l.clientName} (Seguro)</span>
+                                            <span style="font-size:0.8em; color:var(--text-secondary);">${d}</span>
+                                        </div>
+                                        <span style="color:#0ea5e9; font-weight:700; flex-shrink:0;">${money(l.microInsurance)}</span>`;
+                            })}
+
+                            ${generateDetailListHTML("Saídas (Novos Empréstimos)", 'briefcase', '#00f2ff', filteredNewLoans, (l) => {
+                                let d = l.startDate?.seconds ? new Date(l.startDate.seconds * 1000).toLocaleDateString('pt-BR') : '--/--';
+                                let obs = l.notes ? `<br><span style="font-size:0.8em; color:var(--text-secondary); font-style:italic;">Obs: ${l.notes}</span>` : '';
+                                return `<div style="display:flex; flex-direction:column; gap:4px; max-width:70%;">
+                                            <span style="font-size:0.9em; font-weight:600;">${l.clientName}</span>
+                                            <span style="font-size:0.8em; color:var(--text-secondary);">${d} ${obs}</span>
+                                        </div>
+                                        <span style="color:#3b82f6; font-weight:700; flex-shrink:0;">${money(l.principalAmount)}</span>`;
+                            })}
+
+                            ${generateDetailListHTML("Saídas (Gastos do Cobrador)", 'shopping-cart', '#ff0055', filteredExpenses, (e) => {
+                                let d = e.date?.seconds ? new Date(e.date.seconds * 1000).toLocaleDateString('pt-BR') : '--/--';
+                                let obs = (e.description || e.observations) ? `<br><span style="font-size:0.8em; color:var(--text-secondary); font-style:italic;">Obs: ${e.description || e.observations}</span>` : '';
+                                return `<div style="display:flex; flex-direction:column; gap:4px; max-width:70%;">
+                                            <span style="font-size:0.9em; font-weight:600;">${t[e.category]||e.category}</span>
+                                            <span style="font-size:0.8em; color:var(--text-secondary);">${d} ${obs}</span>
+                                        </div>
+                                        <span style="color:var(--danger-color); font-weight:700; flex-shrink:0;">${money(e.value)}</span>`;
+                            })}
+
+                            ${generateDetailListHTML("Saídas (Gastos Administrativos)", 'building', '#dc2626', filteredAdminExpenses, (e) => {
+                                let d = e.date?.seconds ? new Date(e.date.seconds * 1000).toLocaleDateString('pt-BR') : '--/--';
+                                let obs = e.notes ? `<br><span style="font-size:0.8em; color:var(--text-secondary); font-style:italic;">Obs: ${e.notes}</span>` : '';
+                                return `<div style="display:flex; flex-direction:column; gap:4px; max-width:70%;">
+                                            <span style="font-size:0.9em; font-weight:600;">${t[e.category]||e.category} (${e.collectorName || 'Global'})</span>
+                                            <span style="font-size:0.8em; color:var(--text-secondary);">${d} ${obs}</span>
+                                        </div>
+                                        <span style="color:#dc2626; font-weight:700; flex-shrink:0;">${money(e.amount)}</span>`;
+                            })}
+
+                            ${generateDetailListHTML("Saídas (Retiradas de Caixa)", 'archive', '#a855f7', filteredSettlementsCapital, (s) => {
+                                let d = s.date?.seconds ? new Date(s.date.seconds * 1000).toLocaleDateString('pt-BR') : '--/--';
+                                let obs = s.notes ? `<br><span style="font-size:0.8em; color:var(--text-secondary); font-style:italic;">Obs: ${s.notes}</span>` : '';
+                                return `<div style="display:flex; flex-direction:column; gap:4px; max-width:70%;">
+                                            <span style="font-size:0.9em; font-weight:600;">${s.collectorName || 'Retirada'}</span>
+                                            <span style="font-size:0.8em; color:var(--text-secondary);">${d} ${obs}</span>
+                                        </div>
+                                        <span style="color:#a855f7; font-weight:700; flex-shrink:0;">${money(s.amount)}</span>`;
+                            })}
             `;
 
             const ctx = document.getElementById('ultra-chart').getContext('2d');
@@ -5373,13 +5434,14 @@ async function submitCollectorReport(collectorId) {
                 </summary>
                 <div class="item-list" style="margin-top: 15px; border-top: 1px solid var(--border-color); padding-top: 15px; display: flex; flex-direction: column; gap: 10px;">
                     ${items.map(item => `
-                        <div class="payment-history-item" style="padding: 10px; cursor: default; background-color: var(--bg);">
-                            <span style="font-size: 0.9em;">${renderItem(item)}</span>
+                        <div class="payment-history-item" style="padding: 10px; cursor: default; background-color: var(--bg); display: flex; justify-content: space-between; align-items: center;">
+                            ${renderItem(item)}
                         </div>
                     `).join('')}
                 </div>
             </details>`;
         }
+        
 
 
 
