@@ -8509,26 +8509,27 @@ function updateAdminNotificationsView() {
                     
                     if (clientData) {
                         // 1. CALCULAR EL IMPACTO NETO DEL CLIENTE EN LA CAJA
-                        let clientImpactoNeto = 0;
-                        (clientData.loans || []).forEach(loan => {
-                            // Pagos recibidos: Igual que el Dashboard (ignora método 'migration' y 'initialMigratedAmount')
-                            const loanPaid = (loan.history || [])
-                                .filter(h => h.status !== 'pending_verification' && h.status !== 'rejected' && h.status !== 'postponed' && h.method !== 'migration')
-                                .reduce((sum, h) => sum + (h.amount || 0), 0);
+                        // 1. CALCULAR EL IMPACTO NETO DEL CLIENTE EN LA CAJA
+let clientImpactoNeto = 0;
+(clientData.loans || []).forEach(loan => {
+    // CORRECCIÓN: Forzamos Number(h.amount) para evitar que JavaScript concatene textos
+    const loanPaid = (loan.history || [])
+        .filter(h => h.status !== 'pending_verification' && h.status !== 'rejected' && h.status !== 'postponed' && h.method !== 'migration')
+        .reduce((sum, h) => sum + (Number(h.amount) || 0), 0); // <-- Asegura suma matemática real
 
-                            // Capital prestado: Igual que el Dashboard (solo suma si NO es una migración)
-                            let principal = 0;
-                            if (!loan.migrationDate) {
-                                if (loan.principalAmount) {
-                                    principal = loan.principalAmount;
-                                } else if (loan.totalLoan) {
-                                    const rate = clientData.interestRate || 20;
-                                    principal = loan.totalLoan / (1 + (rate / 100));
-                                }
-                            }
-                            
-                            clientImpactoNeto += (loanPaid - principal);
-                        });
+    // Capital prestado: Forzamos conversión a número de todas las variables
+    let principal = 0;
+    if (!loan.migrationDate) {
+        if (loan.principalAmount) {
+            principal = Number(loan.principalAmount) || 0; // <-- Asegura que sea número
+        } else if (loan.totalLoan) {
+            const rate = Number(clientData.interestRate) || 20;
+            principal = Number(loan.totalLoan) / (1 + (rate / 100));
+        }
+    }
+    
+    clientImpactoNeto += (loanPaid - principal);
+});
 
                         // 2. GUARDAR ESE IMPACTO EN LA CAJA DEL COBRADOR PARA CONGELARLA
                         if (clientData.collectorId) {
