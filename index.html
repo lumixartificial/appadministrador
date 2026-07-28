@@ -45,12 +45,12 @@
     
 
     <link rel="icon" type="image/png" href="https://firebasestorage.googleapis.com/v0/b/lumix-financas-app.firebasestorage.app/o/LOGO---LUMIX-FINANZAS-REDUCIDO.png?alt=media&token=0b4c34d2-f2e3-44b3-a380-7aadfb9c0991">
-    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://unpkg.com/lucide@0.287.0/dist/umd/lucide.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://unpkg.com/jspdf-autotable@3.5.23/dist/jspdf.plugin.autotable.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
+    <script src="https://unpkg.com/jspdf-autotable@3.5.23/dist/jspdf.plugin.autotable.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.css">
     <style>
         /* === ESTILOS FUTURISTAS LUMIX NEON === */
@@ -2105,8 +2105,9 @@ function extractCoords(input) {
 
             
             
-function checkAndRunGlobalUpdate() {
-            if (collectorsReady && clientsReady && expensesReady && settlementsReady && capitalInjectionsReady && adminExpensesReady) {
+                 function checkAndRunGlobalUpdate() {
+                 // CÓDIGO OPTIMIZADO:
+                if (collectorsReady || clientsReady) {
                 console.log("[ADMIN-APP] Datos listos. Actualizando todo...");
                 
                 calculatedCollectorMetrics.clear(); 
@@ -9237,7 +9238,8 @@ async function showRefinanceVerificationModal(clientId) {
                 if (user) {
                     try {
                         console.log("Verificando permissões do admin...");
-                        const tokenResult = await user.getIdTokenResult(true); 
+                        // CÓDIGO OPTIMIZADO:
+                        const tokenResult = await user.getIdTokenResult(false);
                         const claims = tokenResult.claims;
 
                         console.log("Claims (permissões) do usuário:", claims);
@@ -9653,5 +9655,3 @@ async function generateDelinquencyPDF(collectorId) {
     </script>
 </body>
     </html>
-
-
