@@ -2230,8 +2230,9 @@ function extractCoords(input) {
             
             // CORRECCIÓN: Para el Capital en Mano, restamos TODAS las liquidaciones aprobadas (Capital + Seguro), 
             // ya que ambas representan dinero físico que salió del bolsillo del cobrador.
-            const collectorSettlementsAll = allSettlements.filter(s => s.collectorId === collectorId && s.status === 'approved');
-            const totalSettledCapital = collectorSettlementsAll.reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
+            // CÓDIGO CORREGIDO (Filtra para que los retiros de seguro NO toquen la caja):
+            const collectorSettlementsCapital = allSettlements.filter(s => s.collectorId === collectorId && s.status === 'approved' && s.type !== 'insurance');
+            const totalSettledCapital = collectorSettlementsCapital.reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
             
             // Para estadísticas visuales mantenemos la separación
             const collectorSettlementsInsurance = allSettlements.filter(s => s.collectorId === collectorId && s.status === 'approved' && s.type === 'insurance');
