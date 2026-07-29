@@ -1482,14 +1482,15 @@ function extractCoords(input) {
             }
             // -----------------------------------------------------------------------
 
-            // Mapas de formato regional para que los puntos y comas se vean bien según el país
-            const localeMap = {
-                'USD': 'en-US', // $ 1,000.00 (Punto para decimales)
-                'MXN': 'es-MX', // $ 1,000.00
-                'COP': 'es-CO', // $ 1.000,00
-                'ARS': 'es-AR', // $ 1.000,00
-                'CLP': 'es-CL', // $ 1.000
-                'EUR': 'es-ES'  // 1.000,00 €
+            // CÓDIGO CORREGIDO:
+                const localeMap = {
+               'USD': 'en-US', // $ 1,000.00 (Punto para decimales)
+               'MXN': 'es-MX', // $ 1,000.00
+               'COP': 'es-CO', // $ 1.000,00
+               'ARS': 'es-AR', // $ 1.000,00
+               'CLP': 'es-CL', // $ 1.000
+               'EUR': 'es-ES', // 1.000,00 €
+               'UYU': 'es-UY'  // Formato nativo de Uruguay ($U 0,00)
             };
             
             // Si es USD, usamos formato americano (en-US) para asegurar el punto decimal ($ 1,200.50)
