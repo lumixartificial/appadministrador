@@ -2123,21 +2123,23 @@ function extractCoords(input) {
                     );
                     calculatedCollectorMetrics.set(collector.id, metrics);
 
-                    sumGlobalDistributed += (metrics.totalDistributedCapital || 0);
-                    sumGlobalPatrimonio += (metrics.totalPatrimonio || 0);
-                    sumGlobalCapitalOnHand += (metrics.capitalOnHand || 0); 
-                });
+                sumGlobalDistributed += (metrics.totalDistributedCapital || 0);
+                sumGlobalPatrimonio += (metrics.totalPatrimonio || 0);
+                sumGlobalCapitalOnHand += (metrics.capitalOnHand || 0); 
+            });
 
-                // DESCUENTO GLOBAL: Si el gasto admin es global, se resta directamente del patrimonio y caja de la empresa
-                const globalAdminExpenses = allAdminExpenses.filter(e => e.collectorId === 'global');
-                const totalGlobalAdminExpenses = globalAdminExpenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
-                
-                sumGlobalPatrimonio -= totalGlobalAdminExpenses;
-                
+            // DESCUENTO GLOBAL: Si el gasto admin es global, se resta directamente del patrimonio y caja de la empresa
+            const globalAdminExpenses = allAdminExpenses.filter(e => e.collectorId === 'global');
+            const totalGlobalAdminExpenses = globalAdminExpenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+            
+            sumGlobalPatrimonio -= totalGlobalAdminExpenses;
+            // NUEVO: Restamos también de la caja global sumando todo el capital en mano
+            sumGlobalCapitalOnHand -= totalGlobalAdminExpenses;
+            
 
-                calculatedGlobalMetrics = calculateGlobalMetrics(
-                    allCollectors, allClients, allExpenses, allSettlements, allCapitalInjections, allAdminExpenses
-                );
+            calculatedGlobalMetrics = calculateGlobalMetrics(
+                allCollectors, allClients, allExpenses, allSettlements, allCapitalInjections, allAdminExpenses
+            );
                 
                 calculatedGlobalMetrics.sumGlobalDistributed = sumGlobalDistributed;
                 calculatedGlobalMetrics.sumGlobalPatrimonio = sumGlobalPatrimonio;
@@ -2193,20 +2195,20 @@ function extractCoords(input) {
             });
 
             const totalExpensesGlobal = expenses.reduce((sum, e) => sum + (e.value || 0), 0);
-            // Sumamos los gastos admin globales
-            const totalAdminExpensesGlobal = adminExpenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
-            
-            const totalSettlementsGlobal = settlements.filter(s => s.status === 'approved' && s.type !== 'insurance').reduce((sum, s) => sum + (s.amount || 0), 0);
-            const totalInjectionsGlobal = capitalInjections.filter(i => i.status === 'approved').reduce((sum, i) => sum + (i.amount || 0), 0);
-            const totalInsuranceWithdrawn = settlements.filter(s => s.status === 'approved' && s.type === 'insurance').reduce((sum, s) => sum + (s.amount || 0), 0);
-            
-            const availableInsuranceFund = Math.max(0, totalMicroInsuranceGlobal - totalInsuranceWithdrawn);
+        // Sumamos los gastos admin globales
+        const totalAdminExpensesGlobal = adminExpenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+        
+        const totalSettlementsGlobal = settlements.filter(s => s.status === 'approved' && s.type !== 'insurance').reduce((sum, s) => sum + (s.amount || 0), 0);
+        const totalInjectionsGlobal = capitalInjections.filter(i => i.status === 'approved').reduce((sum, i) => sum + (i.amount || 0), 0);
+        const totalInsuranceWithdrawn = settlements.filter(s => s.status === 'approved' && s.type === 'insurance').reduce((sum, s) => sum + (s.amount || 0), 0);
+        
+        const availableInsuranceFund = Math.max(0, totalMicroInsuranceGlobal - totalInsuranceWithdrawn);
 
-            // DESCONTAMOS LOS GASTOS ADMIN AQUÍ (- totalAdminExpensesGlobal)
-            const totalCapital = totalStartingCapital + totalInjectionsGlobal + totalPaidFromHistory - totalPrincipalFromLoans - totalExpensesGlobal - totalSettlementsGlobal + totalLateFeesGlobal - totalAdminExpensesGlobal;
-            
-            const fieldValue = (totalPrincipalFromLoans + totalLateFeesGlobal) - totalPaidFromHistory;
-            const grossProfitBeforeExpenses = (totalPaidFromHistory + totalLateFeesGlobal) - totalPrincipalFromLoans;
+        // DESCONTAMOS LOS GASTOS ADMIN AQUÍ (- totalAdminExpensesGlobal)
+        const totalCapital = totalStartingCapital + totalInjectionsGlobal + totalPaidFromHistory - totalPrincipalFromLoans - totalExpensesGlobal - totalSettlementsGlobal + totalLateFeesGlobal - totalAdminExpensesGlobal;
+        
+        const fieldValue = (totalPrincipalFromLoans + totalLateFeesGlobal) - totalPaidFromHistory;
+        const grossProfitBeforeExpenses = (totalPaidFromHistory + totalLateFeesGlobal) - totalPrincipalFromLoans;
             
             // DESCONTAMOS LOS GASTOS ADMIN DE LA GANANCIA AQUÍ
             const grossProfit = grossProfitBeforeExpenses - totalExpensesGlobal - totalAdminExpensesGlobal; 
