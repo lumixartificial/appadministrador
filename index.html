@@ -5478,28 +5478,78 @@ async function submitCollectorReport(collectorId) {
              const title = t.selectPeriod || 'Selecione o Período';
 
              modal.innerHTML = `
-                <div class="modal-content">
+                <div class="modal-content" style="max-width: 450px;">
                     <button class="close-modal-btn" style="position: absolute; top: 10px; right: 10px; background: none; border: none; font-size: 24px; color: var(--text-secondary);">&times;</button>
-                    <h3>${title}</h3>
-                    <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 20px;">
+                    <h3 style="margin-bottom: 20px;">${title}</h3>
+                    
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px;">
                         <button class="btn-secondary" data-report-period="24h">${t.last24h}</button>
                         <button class="btn-secondary" data-report-period="48h">${t.last48h}</button>
                         <button class="btn-secondary" data-report-period="week">${t.lastWeek}</button>
                         <button class="btn-secondary" data-report-period="month">${t.lastMonth}</button>
                     </div>
+
+                    <!-- NUEVO BLOQUE DE FILTRO POR FECHAS -->
+                    <div style="border-top: 1px solid var(--border-color); padding-top: 20px; margin-top: 10px;">
+                        <h4 style="margin-top: 0; margin-bottom: 15px; font-size: 0.9em; color: var(--text-secondary); text-transform: uppercase;">Período Personalizado</h4>
+                        <div class="form-group grid-2">
+                            <div>
+                                <label for="custom-date-start" style="font-size: 0.85em;">${t.dateStart || 'Data Início'}</label>
+                                <input type="date" id="custom-date-start" style="padding: 10px; font-size: 0.9em;">
+                            </div>
+                            <div>
+                                <label for="custom-date-end" style="font-size: 0.85em;">${t.dateEnd || 'Data Fim'}</label>
+                                <input type="date" id="custom-date-end" style="padding: 10px; font-size: 0.9em;">
+                            </div>
+                        </div>
+                        <button id="generate-custom-report-btn" class="btn-primary" style="width: 100%; margin-top: 10px; padding: 12px; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                            <i data-lucide="file-down" style="width: 18px; height: 18px;"></i> 
+                            ${t.downloadReport || 'Baixar Relatório'}
+                        </button>
+                    </div>
                 </div>
              `;
              
+             lucide.createIcons({nodes: modal.querySelectorAll('[data-lucide]')});
+
              // Listener para cerrar
              modal.querySelector('.close-modal-btn').addEventListener('click', () => modal.classList.remove('active'));
 
-             // Listeners para los botones de período
+             // Listeners para los botones de período rápidos
              modal.querySelectorAll('[data-report-period]').forEach(btn => {
                 btn.addEventListener('click', () => {
-                    // Llama a la función de reporte normal (de texto)
                     generatePDFReport(collectorId, btn.dataset.reportPeriod);
                     modal.classList.remove('active');
                 });
+             });
+
+             // Listener para el NUEVO botón de reporte personalizado
+             const generateCustomBtn = modal.querySelector('#generate-custom-report-btn');
+             const startDateInput = modal.querySelector('#custom-date-start');
+             const endDateInput = modal.querySelector('#custom-date-end');
+
+             generateCustomBtn.addEventListener('click', () => {
+                 const startVal = startDateInput.value;
+                 const endVal = endDateInput.value;
+
+                 if (!startVal) {
+                     showToast('Selecione uma data de início.', true);
+                     return;
+                 }
+                 if (!endVal) {
+                     showToast('Selecione uma data de fim.', true);
+                     return;
+                 }
+
+                 if (new Date(startVal) > new Date(endVal)) {
+                     showToast('A data de início não pode ser maior que a data de fim.', true);
+                     return;
+                 }
+
+                 // Pasamos un objeto JSON como string para que 'generatePDFReport' lo procese
+                 const customPeriod = JSON.stringify({ custom: true, start: startVal, end: endVal });
+                 generatePDFReport(collectorId, customPeriod);
+                 modal.classList.remove('active');
              });
         }
         
@@ -5672,9 +5722,31 @@ async function submitCollectorReport(collectorId) {
                     return;
                 }
 
-                let startDate;
+                let startDate = null; // startDate puede ser null si es 'Período Completo'
+                let endDate = new Date(); // Por defecto es hasta hoy
                 let periodText = t.periodFull;
-                if (period === '24h') {
+                
+                // NUEVA LÓGICA: Comprobamos si el 'period' es un rango personalizado
+                if (period.startsWith('{')) {
+                    try {
+                        const customData = JSON.parse(period);
+                        if (customData.custom) {
+                            // Las fechas vienen en formato "YYYY-MM-DD"
+                            // Añadimos horas para asegurarnos de cubrir todo el día desde la zona horaria local
+                            startDate = new Date(customData.start + "T00:00:00");
+                            endDate = new Date(customData.end + "T23:59:59");
+                            
+                            // Ajustamos el texto del período para mostrarlo en el PDF
+                            const fmtStart = startDate.toLocaleDateString(currentLang === 'pt' ? 'pt-BR' : 'es-ES');
+                            const fmtEnd = endDate.toLocaleDateString(currentLang === 'pt' ? 'pt-BR' : 'es-ES');
+                            periodText = `${fmtStart} - ${fmtEnd}`;
+                        }
+                    } catch (e) {
+                        console.error("Error parseando fecha personalizada", e);
+                    }
+                } 
+                // LÓGICA ANTIGUA (Botones rápidos)
+                else if (period === '24h') {
                     startDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
                     periodText = t.period24h;
                 } else if (period === '48h') {
@@ -5720,7 +5792,11 @@ async function submitCollectorReport(collectorId) {
                             if (h.date?.seconds && h.status !== 'pending_verification' && h.status !== 'rejected' && h.status !== 'postponed' && h.method !== 'migration') {
                                 const paymentDateObj = h.date.seconds ? new Date(h.date.seconds * 1000) : null;
                                 
-                                if (paymentDateObj && (!startDate || paymentDateObj >= startDate)) {
+                                // MODIFICADO: Ahora comprobamos si está entre startDate y endDate
+                                const isAfterStart = !startDate || paymentDateObj >= startDate;
+                                const isBeforeEnd = !endDate || paymentDateObj <= endDate;
+
+                                if (paymentDateObj && isAfterStart && isBeforeEnd) {
                                     const fmt = safeDate(paymentDateObj);
                                     const amount = h.amount || 0;
                                     periodPaymentsList.push({
@@ -5748,7 +5824,12 @@ async function submitCollectorReport(collectorId) {
                     (client.loans || []).forEach((loan, index) => {
                         if (loan.startDate?.seconds) {
                             const loanDateObj = new Date(loan.startDate.seconds * 1000);
-                            if (!startDate || loanDateObj >= startDate) {
+                            
+                            // MODIFICADO: Comprobación de rango para nuevos préstamos
+                            const isAfterStart = !startDate || loanDateObj >= startDate;
+                            const isBeforeEnd = !endDate || loanDateObj <= endDate;
+
+                            if (isAfterStart && isBeforeEnd) {
                                 if (!loan.migrationDate) {
                                     let principal = loan.principalAmount;
                                     if (!principal && loan.totalLoan) {
@@ -5778,7 +5859,11 @@ async function submitCollectorReport(collectorId) {
                 const periodExpenses = allExpenses.filter(e => {
                     if (e.collectorId !== collectorId) return false;
                     const d = e.date && e.date.seconds ? new Date(e.date.seconds * 1000) : new Date();
-                    return !startDate || d >= startDate;
+                    
+                    // MODIFICADO: Comprobación de rango para gastos
+                    const isAfterStart = !startDate || d >= startDate;
+                    const isBeforeEnd = !endDate || d <= endDate;
+                    return isAfterStart && isBeforeEnd;
                 });
                 const totalExpenses = periodExpenses.reduce((sum, e) => sum + e.value, 0);
                 periodExpenses.sort((a, b) => (a.date.seconds || 0) - (b.date.seconds || 0));
@@ -5792,8 +5877,10 @@ async function submitCollectorReport(collectorId) {
                     if (s.date && s.date.seconds) itemDate = new Date(s.date.seconds * 1000);
                     else if (s.date instanceof Date) itemDate = s.date;
                     
-                    if (startDate && itemDate < startDate) return false;
-                    return true;
+                    // MODIFICADO: Comprobación de rango para retiros
+                    const isAfterStart = !startDate || itemDate >= startDate;
+                    const isBeforeEnd = !endDate || itemDate <= endDate;
+                    return isAfterStart && isBeforeEnd;
                 });
                 
                 const settlementsCapital = periodSettlements.filter(s => s.type !== 'insurance');
@@ -5813,7 +5900,11 @@ async function submitCollectorReport(collectorId) {
                     if (!i.date?.seconds) return false;
                     if (i.status !== 'approved') return false;
                     const d = new Date(i.date.seconds * 1000);
-                    return !startDate || d >= startDate;
+                    
+                    // MODIFICADO: Comprobación de rango para aportes
+                    const isAfterStart = !startDate || d >= startDate;
+                    const isBeforeEnd = !endDate || d <= endDate;
+                    return isAfterStart && isBeforeEnd;
                 });
                 const totalInjections = periodInjections.reduce((sum, i) => sum + i.amount, 0);
                 periodInjections.sort((a, b) => (a.date.seconds || 0) - (b.date.seconds || 0));
