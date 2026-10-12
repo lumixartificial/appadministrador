@@ -2642,7 +2642,7 @@ function extractCoords(input) {
                                       loansWithStatus.find(l => l.status === 'pending') || 
                                       loansWithStatus.find(l => l.status === 'paid') || 
                                       loansWithStatus[0];
-                    if (!displayLoan) displayLoan = { amount: 0, status: 'n/a', lateDays: 0, originalIndex: 0 };
+                    if (!displayLoan) displayLoan = { amount: 0, status: 'finished', lateDays: 0, originalIndex: 0 };
 
                     const activeLoansCount = loansWithStatus.filter(l => l.status !== 'finished').length;
                     return { client, displayLoan, activeLoansCount };
@@ -3970,8 +3970,14 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
                return details;
            }
 
+           // CORRECCIÓN: Si el préstamo no tiene deuda registrada o fue creado con 0, está finalizado automáticamente.
+           if (totalOriginalDebt <= 0) {
+               details.status = 'finished';
+               return details;
+           }
+
            // 3. Configurar Fechas (Normalización estricta a medianoche)
-            let today = new Date();
+           let today = new Date();
             if (today.getHours() < 5) today.setDate(today.getDate() - 1);
             today.setHours(0, 0, 0, 0);
            
@@ -6885,10 +6891,16 @@ async function submitCollectorReport(collectorId) {
             const activeOrLastFinishedLoans = displayableLoans.length > 0 ? displayableLoans : (client.loans && client.loans.length > 0 ? [client.loans[client.loans.length - 1]] : []);
             
             let currentLoanIndex = loanIndex;
-            
+            if (isNaN(currentLoanIndex) || currentLoanIndex < 0) currentLoanIndex = 0;
 
-            const loan = client.loans[currentLoanIndex];
-            if (!loan) { console.error("No se pudo cargar el préstamo."); return; }
+            let loan = (client.loans && client.loans[currentLoanIndex]) ? client.loans[currentLoanIndex] : null;
+            
+            // CORRECCIÓN: Si el préstamo no existe (cliente corrupto o sin datos), generamos un fallback 
+            // para permitir que la ventana se abra y el administrador pueda eliminar al cliente.
+            if (!loan) { 
+                console.warn("Préstamo no encontrado, generando fallback para permitir edición/eliminación.");
+                loan = { history: [], totalLoan: 0, originalInstallmentAmount: 0, status: 'finished', installments: '0/0', microInsurance: 0 };
+            }
 
             const hasMultipleDisplayable = (client.loans && client.loans.length > 1);
             
