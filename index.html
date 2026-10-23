@@ -1355,6 +1355,7 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
                     <input type="password" id="password" required>
                 </div>
                 <button type="submit" class="btn-primary" data-lang-key="accessPanel">Acessar Painel</button>
+                <button type="button" id="forgot-password-btn" style="margin-top: 12px; border: none; background: transparent; color: var(--accent-blue); cursor: pointer; text-decoration: underline;">Esqueci minha senha</button>
             </form>
         </div>
     </div>
@@ -1374,20 +1375,21 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.js"></script>
     <script type="module">
+        import { calculateLoanDetails } from "./loan-calculations.js?v=20261023-0100";
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
         import { getFirestore, collection, onSnapshot, doc, getDoc, query, where, setDoc, updateDoc, deleteDoc, Timestamp, addDoc, orderBy, serverTimestamp, increment, getDocs, arrayUnion } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
-        import { getAuth, createUserWithEmailAndPassword, updateProfile, signInWithEmailAndPassword, onAuthStateChanged, signOut, updatePassword } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
+        import { getAuth, createUserWithEmailAndPassword, updateProfile, signInWithEmailAndPassword, sendPasswordResetEmail, onAuthStateChanged, signOut, updatePassword } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
         import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-storage.js";
         
         const firebaseConfig = {
             apiKey: "AIzaSyBRxJjpH6PBi-GRxOXS8klv-8v91sO4X-Y",
             authDomain: "lumix-financas-app.firebaseapp.com",
             projectId: "lumix-financas-app",
-            storageBucket: "gs://lumix-financas-app.firebasestorage.app/",
+            storageBucket: "lumix-financas-app.firebasestorage.app",
             messagingSenderId: "463777495321",
             appId: "1:463777495321:web:106118f53f56abd206ed88"
         };
-        const app = initializeApp(firebaseConfig);
+        const app = initializeApp(firebaseConfig, 'lumix-administrador');
         const db = getFirestore(app);
         const auth = getAuth(app);     
         const storage = getStorage(app);
@@ -1514,6 +1516,8 @@ function extractCoords(input) {
             adminExpensesTitle: 'Gastos Administrativos',
             saveAdminExp: 'Salvar Gasto',
             expAssignedTo: 'Atribuir à Rota / Cobrador',
+            selectCollector: 'Selecione um cobrador',
+            adminExpenseCollectorHelp: 'O valor será descontado do caixa deste cobrador e dos totais da empresa. O cobrador não verá os detalhes do gasto.',
             globalExp: 'Gasto Global',
             catPolice: 'Polícia / Pago',
             catMoto: 'Compra de Moto',
@@ -1721,6 +1725,8 @@ function extractCoords(input) {
             adminExpensesTitle: 'Gastos Administrativos',
             saveAdminExp: 'Guardar Gasto',
             expAssignedTo: 'Asignar a Ruta / Cobrador',
+            selectCollector: 'Seleccione un cobrador',
+            adminExpenseCollectorHelp: 'El valor se descontará de la caja de este cobrador y de los totales de la empresa. El cobrador no verá los detalles del gasto.',
             globalExp: 'Gasto Global',
             catPolice: 'Policía / pago',
             catMoto: 'Compra de Moto',
@@ -1923,6 +1929,8 @@ function extractCoords(input) {
             adminExpensesTitle: 'Administrative Expenses',
             saveAdminExp: 'Save Expense',
             expAssignedTo: 'Assign to Route / Collector',
+            selectCollector: 'Select a collector',
+            adminExpenseCollectorHelp: "The amount will be deducted from this collector's cash and the company totals. The collector will not see the expense details.",
             globalExp: 'Global Expense',
             catPolice: 'Police / Security',
             catMoto: 'Motorcycle Purchase',
@@ -2108,7 +2116,7 @@ function extractCoords(input) {
             
                  function checkAndRunGlobalUpdate() {
                  // CÓDIGO OPTIMIZADO:
-                if (collectorsReady || clientsReady) {
+                if (collectorsReady && clientsReady && expensesReady && settlementsReady && capitalInjectionsReady && adminExpensesReady) {
                 console.log("[ADMIN-APP] Datos listos. Actualizando todo...");
                 
                 calculatedCollectorMetrics.clear(); 
@@ -2133,6 +2141,7 @@ function extractCoords(input) {
                 const totalGlobalAdminExpenses = globalAdminExpenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
                 
                 sumGlobalPatrimonio -= totalGlobalAdminExpenses;
+                sumGlobalCapitalOnHand -= totalGlobalAdminExpenses;
                 
 
                 calculatedGlobalMetrics = calculateGlobalMetrics(
@@ -2635,7 +2644,7 @@ function extractCoords(input) {
                 const sortedClients = clients.map(client => {
                     const loansWithStatus = (client.loans || []).map((loan, index) => {
                         const details = calculateLoanDetails(loan);
-                        return { ...loan, status: details.status, lateDays: details.lateDays, originalIndex: index };
+                        return { ...loan, status: details.status, lateDays: details.lateDays, overdueInstallments: details.overdueInstallments, originalIndex: index };
                     });
                     
                     let displayLoan = loansWithStatus.find(l => l.status === 'late') || 
@@ -2669,8 +2678,8 @@ function extractCoords(input) {
                         statusColor = 'var(--accent-green)'; progressColor = 'var(--accent-green)'; cardBorderColor = 'var(--accent-green)';
                     } else if (statusKey === 'late') {
                         statusColor = 'var(--danger-color)'; progressColor = 'var(--danger-color)'; cardBorderColor = 'var(--danger-color)';
-                        const daysText = lang === 'es' ? 'días' : 'dias';
-                        statusLabel = `${statusLabel} (${details.lateDays}${daysText[0]})`; 
+                        const installmentShort = lang === 'es' ? 'cuota' : (lang === 'en' ? 'inst.' : 'parc.');
+                        statusLabel = `${statusLabel} (${details.lateDays}d • ${details.overdueInstallments} ${installmentShort})`;
                     } else if (statusKey === 'finished') {
                         statusColor = '#3b82f6'; progressColor = '#3b82f6'; cardBorderColor = '#3b82f6';
                     }
@@ -3139,7 +3148,9 @@ function extractCoords(input) {
                     if (activeLoanIdx === -1 && c.loans && c.loans.length > 0) activeLoanIdx = c.loans.length - 1;
                     const loan = activeLoanIdx >= 0 ? c.loans[activeLoanIdx] : null;
                     if (!loan) return '';
-                    const currentFine = loan.lateFeeAmount || 0; const currentDays = loan.lateFeeDelay || 5;
+                    const currentFine = loan.lateFeeAmount || 0;
+                    const configuredDays = Number.parseInt(loan.lateFeeDelay, 10);
+                    const currentDays = Number.isInteger(configuredDays) && configuredDays >= 1 && configuredDays <= 5 ? configuredDays : 5;
                     const details = calculateLoanDetails(loan); const realLateDays = details.lateDays || 0;
                     const lateStatusColor = realLateDays >= currentDays ? '#ef4444' : (realLateDays > 0 ? '#f59e0b' : '#10b981');
                     return `<div class="client-fine-card" style="background-color: var(--bg); border: 1px solid var(--border-color); border-radius: 8px; padding: 10px; display: flex; flex-direction: column; gap: 8px;">
@@ -3158,14 +3169,18 @@ function extractCoords(input) {
                         const currentVal = e.currentTarget.dataset.currentFine; const currentDays = e.currentTarget.dataset.currentDays;
                         card.innerHTML = `<div style="margin-bottom: 8px;"><strong style="font-size: 0.9em;">Editar Configuração de Multa</strong></div>
                             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
-                                <div><label style="font-size: 0.75em; color: var(--text-secondary);">Dias p/ Aplicar</label><input type="number" class="fine-days-input" value="${currentDays}" min="1" style="width: 100%; padding: 6px; border-radius: 6px; border: 1px solid var(--border-color); font-weight: 600;"></div>
+                                <div><label style="font-size: 0.75em; color: var(--text-secondary);">Dias p/ Aplicar</label><select class="fine-days-input" style="width: 100%; padding: 6px; border-radius: 6px; border: 1px solid var(--border-color); font-weight: 600;">${[1, 2, 3, 4, 5].map(day => `<option value="${day}" ${day === Number(currentDays) ? 'selected' : ''}>${day} ${day === 1 ? 'dia' : 'dias'}</option>`).join('')}</select></div>
                                 <div><label style="font-size: 0.75em; color: var(--text-secondary);">Valor da Multa</label><input type="number" class="fine-amount-input" value="${currentVal}" step="0.01" style="width: 100%; padding: 6px; border-radius: 6px; border: 1px solid var(--accent-blue); font-weight: 700; color: var(--accent-blue);"></div>
                             </div>
                             <div style="display: flex; gap: 10px;"><button class="btn-cancel-edit" style="flex: 1; background: transparent; border: 1px solid var(--border-color); color: var(--text-secondary); padding: 6px; border-radius: 6px; cursor: pointer;">Cancelar</button><button class="btn-save-fine" style="flex: 1; background: var(--accent-blue); border: none; color: white; border-radius: 6px; padding: 6px; cursor: pointer; font-weight: 600;">Salvar</button></div>`;
                         card.querySelector('.btn-cancel-edit').addEventListener('click', () => renderFineResults(fineSearch.value));
                         card.querySelector('.btn-save-fine').addEventListener('click', async () => {
-                            const newDays = parseInt(card.querySelector('.fine-days-input').value) || 5;
+                            const newDays = parseInt(card.querySelector('.fine-days-input').value, 10);
                             const newAmount = parseFloat(card.querySelector('.fine-amount-input').value) || 0;
+                            if (!Number.isInteger(newDays) || newDays < 1 || newDays > 5) {
+                                showToast('O prazo da multa deve estar entre 1 e 5 dias.', true);
+                                return;
+                            }
                             const confirmed = await showConfirmationModal('Alterar Multa?', `Confirma a configuração?<br><br><b>Dias de Carência:</b> ${newDays} dias<br><b>Valor da Multa:</b> ${money(newAmount)}`, 'Sim, Salvar', 'btn-primary', 'var(--warning-color)', '#000000');
                             if(!confirmed) return;
                             try {
@@ -3567,7 +3582,7 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
             if (viewName === 'admin-expenses') {
                 const select = document.getElementById('admin-exp-collector');
                 if (select) {
-                    select.innerHTML = `<option value="global" data-lang-key="globalExp">Gasto Global</option>` + 
+                    select.innerHTML = `<option value="" disabled selected data-lang-key="selectCollector">Selecione um cobrador</option>` +
                                        allCollectors.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
                 }
                 const list = document.getElementById('admin-expenses-list');
@@ -3873,8 +3888,8 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
 
                             <div class="form-group">
                                 <label data-lang-key="expAssignedTo">Atribuir à Rota / Cobrador</label>
-                                <select id="admin-exp-collector"></select>
-                                <p style="font-size: 0.8em; color: var(--text-secondary); margin-top: 5px;">Se selecionado, o dinheiro sairá do caixa deste cobrador. Ele nunca verá esse gasto.</p>
+                                <select id="admin-exp-collector" required></select>
+                                <p data-lang-key="adminExpenseCollectorHelp" style="font-size: 0.8em; color: var(--text-secondary); margin-top: 5px;">O valor será descontado do caixa deste cobrador e dos totais da empresa. O cobrador não verá os detalhes do gasto.</p>
                             </div>
 
                             <div class="form-group">
@@ -3936,7 +3951,7 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
         const nationalHolidays = [ '01/01', '21/04', '01/05', '07/09', '12/10', '02/11', '15/11', '25/12' ];
 
         
-        function calculateLoanDetails(loan) {
+        function legacyCalculateLoanDetails(loan) {
            let details = {
                lateDays: 0,
                lateFeesAccumulated: 0,
@@ -4095,7 +4110,9 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
            const fixedFineAmount = parseFloat(loan.lateFeeAmount) || 0;
            let appliedFixedFine = 0;
            
-           if (accumulatedLateDays >= 5 && fixedFineAmount > 0) {
+           const configuredFineDelay = Number.parseInt(loan.lateFeeDelay, 10);
+           const fixedFineDelay = Number.isInteger(configuredFineDelay) && configuredFineDelay >= 1 && configuredFineDelay <= 5 ? configuredFineDelay : 5;
+           if (accumulatedLateDays >= fixedFineDelay && fixedFineAmount > 0) {
                appliedFixedFine = fixedFineAmount;
                details.fixedFineApplied = fixedFineAmount; 
                details.hasFixedFine = true; 
@@ -6934,7 +6951,10 @@ async function submitCollectorReport(collectorId) {
 
             if (currentStatus === 'late' && loanDetails.lateDays > 0) {
                 const daysLabel = { pt: 'dias', es: 'días', en: 'days' }[currentLang] || 'dias';
-                statusText += ` (${loanDetails.lateDays} ${daysLabel})`;
+                const installmentLabel = loanDetails.overdueInstallments === 1
+                    ? ({ pt: 'parcela', es: 'cuota', en: 'installment' }[currentLang] || 'parcela')
+                    : ({ pt: 'parcelas', es: 'cuotas', en: 'installments' }[currentLang] || 'parcelas');
+                statusText += ` (${loanDetails.lateDays} ${daysLabel} • ${loanDetails.overdueInstallments} ${installmentLabel})`;
             }
 
             const displayMicroInsurance = currentStatus === 'finished' ? 0 : (loan.microInsurance || 0);
@@ -8799,11 +8819,11 @@ function setupEventListeners() {
                     const amount = parseFloat(document.getElementById('admin-exp-amount').value);
                     const category = document.getElementById('admin-exp-category').value;
                     const collectorId = document.getElementById('admin-exp-collector').value;
-                    const collectorSelect = document.getElementById('admin-exp-collector');
-                    const collectorName = collectorSelect.options[collectorSelect.selectedIndex].text;
+                    const selectedCollector = allCollectors.find(c => c.id === collectorId);
                     const notes = document.getElementById('admin-exp-notes').value;
 
                     if (isNaN(amount) || amount <= 0) { showToast("Digite um valor válido", true); return; }
+                    if (!collectorId || !selectedCollector) { showToast("Selecione um cobrador válido", true); return; }
                     
                     const btn = target.closest('#save-admin-exp-btn');
                     btn.disabled = true; btn.innerHTML = `<i data-lucide="loader-circle" style="animation: spin 1s linear infinite;"></i>...`;
@@ -8811,11 +8831,12 @@ function setupEventListeners() {
                     
                     addDoc(collection(db, 'companies', currentCompanyId, 'adminExpenses'), {
                         amount: amount, category: category, collectorId: collectorId,
-                        collectorName: collectorId === 'global' ? 'Global' : collectorName,
+                        collectorName: selectedCollector.name,
                         notes: notes, date: serverTimestamp(), adminId: auth.currentUser.uid
                     }).then(() => {
                         showToast("Gasto salvo. O caixa foi ajustado!", "success");
                         document.getElementById('admin-exp-amount').value = '';
+                        document.getElementById('admin-exp-collector').value = '';
                         document.getElementById('admin-exp-notes').value = '';
                     }).catch(err => { console.error(err); showToast("Erro ao salvar", true); })
                     .finally(() => { btn.disabled = false; btn.innerHTML = `<i data-lucide="save"></i> Salvar Gasto`; lucide.createIcons({ nodes: [btn.querySelector('i')] }); });
@@ -9144,6 +9165,29 @@ async function showRefinanceVerificationModal(clientId) {
         }
 
         
+        async function handlePasswordReset() {
+            const emailInput = document.getElementById('username');
+            const email = emailInput?.value.trim();
+
+            if (!email) {
+                showToast('Digite o email da sua conta para recuperar a senha.', true);
+                emailInput?.focus();
+                return;
+            }
+
+            try {
+                await sendPasswordResetEmail(auth, email);
+                showToast('Email de recuperação enviado. Verifique sua caixa de entrada.', 'success');
+            } catch (error) {
+                console.error('Erro ao solicitar recuperação de senha:', error.code);
+                if (error.code === 'auth/invalid-email') {
+                    showToast('Formato de email inválido.', true);
+                } else {
+                    showToast('Não foi possível enviar o email de recuperação.', true);
+                }
+            }
+        }
+
         async function handleLogin(event) {
     event.preventDefault();
     
@@ -9310,6 +9354,10 @@ async function showRefinanceVerificationModal(clientId) {
                     const loginForm = document.getElementById('login-form');
                     if (loginForm) { 
                         loginForm.addEventListener('submit', handleLogin);
+                    }
+                    const forgotPasswordBtn = document.getElementById('forgot-password-btn');
+                    if (forgotPasswordBtn) {
+                        forgotPasswordBtn.onclick = handlePasswordReset;
                     }
                 }
             });
@@ -9659,7 +9707,7 @@ async function generateDelinquencyPDF(collectorId) {
                     await updateDoc(doc(db, 'companies', currentCompanyId, 'adminExpenses', expenseId), {
                         amount: newVal, notes: newNotes, lastEditedBy: auth.currentUser.uid, lastEditedAt: serverTimestamp()
                     });
-                    showToast('Gasto atualizado! O dinheiro voltou ao caixa.', 'success');
+                    showToast('Gasto administrativo atualizado com sucesso!', 'success');
                     modal.classList.remove('active');
                 } catch (error) { showToast('Erro ao atualizar.', true); e.currentTarget.disabled = false; e.currentTarget.innerHTML = t.saveChanges || 'Salvar'; }
             };
