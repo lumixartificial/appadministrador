@@ -1377,7 +1377,7 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
     <script type="module">
         import { calculateLoanDetails } from "./loan-calculations.js?v=20261023-0100";
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
-        import { getFirestore, collection, onSnapshot, doc, getDoc, query, where, setDoc, updateDoc, deleteDoc, Timestamp, addDoc, orderBy, serverTimestamp, increment, getDocs, arrayUnion } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+        import { getFirestore, collection, onSnapshot, doc, getDoc, query, where, setDoc, updateDoc, deleteDoc, Timestamp, addDoc, orderBy, serverTimestamp, increment, getDocs, arrayUnion, writeBatch } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
         import { getAuth, createUserWithEmailAndPassword, updateProfile, signInWithEmailAndPassword, sendPasswordResetEmail, onAuthStateChanged, signOut, updatePassword } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
         import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-storage.js";
         
@@ -1518,6 +1518,10 @@ function extractCoords(input) {
             expAssignedTo: 'Atribuir à Rota / Cobrador',
             selectCollector: 'Selecione um cobrador',
             adminExpenseCollectorHelp: 'O valor será descontado do caixa deste cobrador e dos totais da empresa. O cobrador não verá os detalhes do gasto.',
+            pendingExpenseLink: 'Pendente de vinculação',
+            pendingExpensesTitle: 'Gastos antigos sem cobrador',
+            pendingExpensesHelp: 'Esses lançamentos ainda não foram descontados do caixa de nenhum cobrador.',
+            linkAllToCollector: 'Vincular todos ao único cobrador',
             globalExp: 'Gasto Global',
             catPolice: 'Polícia / Pago',
             catMoto: 'Compra de Moto',
@@ -1727,6 +1731,10 @@ function extractCoords(input) {
             expAssignedTo: 'Asignar a Ruta / Cobrador',
             selectCollector: 'Seleccione un cobrador',
             adminExpenseCollectorHelp: 'El valor se descontará de la caja de este cobrador y de los totales de la empresa. El cobrador no verá los detalles del gasto.',
+            pendingExpenseLink: 'Pendiente de vinculación',
+            pendingExpensesTitle: 'Gastos antiguos sin cobrador',
+            pendingExpensesHelp: 'Estos registros todavía no se descontaron de la caja de ningún cobrador.',
+            linkAllToCollector: 'Vincular todos al único cobrador',
             globalExp: 'Gasto Global',
             catPolice: 'Policía / pago',
             catMoto: 'Compra de Moto',
@@ -1931,6 +1939,10 @@ function extractCoords(input) {
             expAssignedTo: 'Assign to Route / Collector',
             selectCollector: 'Select a collector',
             adminExpenseCollectorHelp: "The amount will be deducted from this collector's cash and the company totals. The collector will not see the expense details.",
+            pendingExpenseLink: 'Pending assignment',
+            pendingExpensesTitle: 'Old expenses without a collector',
+            pendingExpensesHelp: 'These entries have not yet been deducted from any collector cash balance.',
+            linkAllToCollector: 'Assign all to the only collector',
             globalExp: 'Global Expense',
             catPolice: 'Police / Security',
             catMoto: 'Motorcycle Purchase',
@@ -2137,11 +2149,13 @@ function extractCoords(input) {
                 });
 
                 // DESCUENTO GLOBAL: Si el gasto admin es global, se resta directamente del patrimonio y caja de la empresa
-                const globalAdminExpenses = allAdminExpenses.filter(e => e.collectorId === 'global');
+                const globalAdminExpenses = allAdminExpenses.filter(e => !e.collectorId || e.collectorId === 'global');
                 const totalGlobalAdminExpenses = globalAdminExpenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
                 
                 sumGlobalPatrimonio -= totalGlobalAdminExpenses;
-                sumGlobalCapitalOnHand -= totalGlobalAdminExpenses;
+                // "Capital em caixas" representa exclusivamente a soma do dinheiro
+                // em mãos dos cobradores. Gastos antigos sem vínculo não pertencem
+                // a nenhum caixa até que o administrador escolha um cobrador.
                 
 
                 calculatedGlobalMetrics = calculateGlobalMetrics(
@@ -3584,6 +3598,7 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
                 if (select) {
                     select.innerHTML = `<option value="" disabled selected data-lang-key="selectCollector">Selecione um cobrador</option>` +
                                        allCollectors.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+                    if (allCollectors.length === 1) select.value = allCollectors[0].id;
                 }
                 const list = document.getElementById('admin-expenses-list');
                 if (list) {
@@ -3591,23 +3606,35 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
                         list.innerHTML = `<p style="text-align:center; color:var(--text-secondary);">Sem registros administrativos.</p>`;
                     } else {
                         const t = translations[currentLang];
-                        list.innerHTML = [...allAdminExpenses].sort((a,b) => (b.date?.seconds||0) - (a.date?.seconds||0)).map(e => {
+                        const pendingExpenses = allAdminExpenses.filter(isUnassignedAdminExpense);
+                        const pendingTotal = pendingExpenses.reduce((sum, expense) => sum + (Number(expense.amount) || Number(expense.value) || 0), 0);
+                        const pendingPanel = pendingExpenses.length > 0 ? `
+                            <div style="margin-bottom: 18px; padding: 16px; border: 2px solid var(--warning-color); border-radius: 12px; background: color-mix(in srgb, var(--warning-color) 8%, var(--surface));">
+                                <strong style="display:block; color:var(--warning-color); font-size:1.05em;">${escapeAdminExpenseText(t.pendingExpensesTitle || 'Gastos antigos sem cobrador')}</strong>
+                                <span style="display:block; margin-top:6px; color:var(--text-secondary);">${pendingExpenses.length} lançamento(s) • ${money(pendingTotal)}</span>
+                                <p style="margin:8px 0 0; color:var(--text-secondary); font-size:0.9em;">${escapeAdminExpenseText(t.pendingExpensesHelp || 'Esses lançamentos ainda não foram descontados do caixa de nenhum cobrador.')}</p>
+                                ${allCollectors.length === 1 ? `<button type="button" onclick="window.linkAllPendingAdminExpenses()" class="btn-primary" style="margin-top:12px; width:100%; background:var(--warning-color); border-color:var(--warning-color);">${escapeAdminExpenseText(t.linkAllToCollector || 'Vincular todos ao único cobrador')}: ${escapeAdminExpenseText(allCollectors[0].name || allCollectors[0].id)}</button>` : ''}
+                            </div>` : '';
+
+                        const expenseCards = [...allAdminExpenses].sort((a,b) => (b.date?.seconds||0) - (a.date?.seconds||0)).map(e => {
                             const d = e.date?.seconds ? new Date(e.date.seconds*1000).toLocaleDateString() : '--/--';
                             const cat = t[e.category] || e.category;
+                            const isPending = isUnassignedAdminExpense(e);
+                            const collectorLabel = isPending ? (t.pendingExpenseLink || 'Pendente de vinculação') : (e.collectorName || e.collectorId || '--');
                             return `
-                            <div class="payment-history-item" style="border-left: 4px solid var(--danger-color); cursor:default; align-items: flex-start;">
+                            <div class="payment-history-item" style="border-left: 4px solid ${isPending ? 'var(--warning-color)' : 'var(--danger-color)'}; cursor:default; align-items: flex-start;">
                                 <div style="flex-grow: 1;">
-                                    <strong style="display:block; color:var(--text-primary); font-size: 1.05em;">${cat}</strong>
-                                    <span style="font-size:0.85em; color:var(--text-secondary); display:block; margin-top: 2px;">${d} | Rota: <strong>${e.collectorName}</strong></span>
-                                    ${e.notes ? `<p style="margin:4px 0 0; font-size:0.85em; font-style:italic; color: var(--text-secondary);">Obs: ${e.notes}</p>` : ''}
+                                    <strong style="display:block; color:var(--text-primary); font-size: 1.05em;">${escapeAdminExpenseText(cat)}</strong>
+                                    <span style="font-size:0.85em; color:${isPending ? 'var(--warning-color)' : 'var(--text-secondary)'}; display:block; margin-top: 2px;">${d} | Rota: <strong>${escapeAdminExpenseText(collectorLabel)}</strong></span>
+                                    ${e.notes ? `<p style="margin:4px 0 0; font-size:0.85em; font-style:italic; color: var(--text-secondary);">Obs: ${escapeAdminExpenseText(e.notes)}</p>` : ''}
                                 </div>
                                 <div style="text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 5px;">
                                     <strong style="color:var(--danger-color); font-size: 1.2em;">${money(e.amount)}</strong>
-                                    <!-- AQUI ESTÁ EL BOTÓN EDITAR -->
-                                    <button onclick="window.editAdminExpense('${e.id}', '${e.amount}', '${(e.notes || '').replace(/'/g, "\\'")}')" style="background:none; border:none; color:var(--accent-blue); cursor:pointer; text-decoration:underline; font-size:0.8em; padding: 0;">(Editar)</button>
+                                    <button onclick="window.editAdminExpense('${e.id}')" style="background:none; border:none; color:var(--accent-blue); cursor:pointer; text-decoration:underline; font-size:0.8em; padding: 0;">(Editar)</button>
                                 </div>
                             </div>`;
                         }).join('');
+                        list.innerHTML = pendingPanel + expenseCards;
                     }
                 }
                 applyLanguage(currentLang);
@@ -8836,7 +8863,7 @@ function setupEventListeners() {
                     }).then(() => {
                         showToast("Gasto salvo. O caixa foi ajustado!", "success");
                         document.getElementById('admin-exp-amount').value = '';
-                        document.getElementById('admin-exp-collector').value = '';
+                        document.getElementById('admin-exp-collector').value = allCollectors.length === 1 ? allCollectors[0].id : '';
                         document.getElementById('admin-exp-notes').value = '';
                     }).catch(err => { console.error(err); showToast("Erro ao salvar", true); })
                     .finally(() => { btn.disabled = false; btn.innerHTML = `<i data-lucide="save"></i> Salvar Gasto`; lucide.createIcons({ nodes: [btn.querySelector('i')] }); });
@@ -9676,21 +9703,115 @@ async function generateDelinquencyPDF(collectorId) {
     doc.save(`Morosidad_${collector.name}.pdf`);
     showToast('Reporte generado!');
 }
-    // === FUNCIÓN PARA EDITAR GASTOS ADMINISTRATIVOS ===
-        window.editAdminExpense = async function(expenseId, currentValue, currentNotes) {
+    function isUnassignedAdminExpense(expense) {
+        return !expense?.collectorId || expense.collectorId === 'global';
+    }
+
+    function escapeAdminExpenseText(value) {
+        return String(value ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
+    window.linkAllPendingAdminExpenses = async function() {
+        const pendingExpenses = allAdminExpenses.filter(isUnassignedAdminExpense);
+        if (pendingExpenses.length === 0) {
+            showToast('Não existem gastos pendentes de vinculação.', 'blue');
+            return;
+        }
+        if (allCollectors.length !== 1) {
+            showToast('A vinculação em lote só está disponível quando existe exatamente um cobrador.', true);
+            return;
+        }
+
+        const collector = allCollectors[0];
+        const total = pendingExpenses.reduce((sum, expense) => sum + (Number(expense.amount) || Number(expense.value) || 0), 0);
+        const currentBalance = calculatedCollectorMetrics.get(collector.id)?.capitalOnHand || 0;
+        const projectedBalance = currentBalance - total;
+        const confirmed = await showConfirmationModal(
+            'Confirmar vinculação dos gastos antigos',
+            `Serão vinculados <strong>${pendingExpenses.length} lançamentos</strong>, totalizando <strong>${money(total)}</strong>, ao cobrador <strong>${escapeAdminExpenseText(collector.name || collector.id)}</strong>.<br><br>O capital em mãos projetado passará de <strong>${money(currentBalance)}</strong> para <strong>${money(projectedBalance)}</strong>.<br><br>Nenhum lançamento será excluído. A operação ficará registrada no histórico de auditoria.`,
+            'Vincular e descontar',
+            'btn-danger'
+        );
+        if (!confirmed) return;
+
+        try {
+            const chunks = [];
+            for (let index = 0; index < pendingExpenses.length; index += 450) {
+                chunks.push(pendingExpenses.slice(index, index + 450));
+            }
+
+            for (const chunk of chunks) {
+                const batch = writeBatch(db);
+                chunk.forEach(expense => {
+                    const assignedAt = Timestamp.now();
+                    batch.update(doc(db, 'companies', currentCompanyId, 'adminExpenses', expense.id), {
+                        collectorId: collector.id,
+                        collectorName: collector.name || collector.id,
+                        previousCollectorId: expense.collectorId || null,
+                        previousCollectorName: expense.collectorName || null,
+                        assignmentStatus: 'assigned',
+                        assignmentHistory: arrayUnion({
+                            fromCollectorId: expense.collectorId || null,
+                            fromCollectorName: expense.collectorName || null,
+                            toCollectorId: collector.id,
+                            toCollectorName: collector.name || collector.id,
+                            assignedBy: auth.currentUser.uid,
+                            assignedAt,
+                            method: 'single-collector-bulk'
+                        }),
+                        lastEditedBy: auth.currentUser.uid,
+                        lastEditedAt: assignedAt
+                    });
+                });
+                await batch.commit();
+            }
+
+            showToast(`${pendingExpenses.length} gastos vinculados a ${collector.name || collector.id}.`, 'success');
+        } catch (error) {
+            console.error('Erro ao vincular gastos antigos:', error);
+            showToast('Não foi possível concluir a vinculação dos gastos.', true);
+        }
+    };
+
+    // === FUNÇÃO PARA EDITAR E VINCULAR GASTOS ADMINISTRATIVOS ===
+        window.editAdminExpense = async function(expenseId) {
+            const expense = allAdminExpenses.find(item => item.id === expenseId);
+            if (!expense) {
+                showToast('Gasto administrativo não encontrado.', true);
+                return;
+            }
+
             const modal = document.getElementById('reportOptionsModal');
             const t = translations[currentLang];
+            const pending = isUnassignedAdminExpense(expense);
+            const selectedCollectorId = pending
+                ? (allCollectors.length === 1 ? allCollectors[0].id : '')
+                : expense.collectorId;
             modal.classList.add('active');
 
             modal.innerHTML = `
                 <div class="modal-content" style="max-width: 400px;">
                     <button class="close-modal-btn" style="position: absolute; top: 10px; right: 10px; background: none; border: none; font-size: 24px; color: var(--text-secondary);">&times;</button>
-                    <h3 style="margin-bottom: 15px; text-align: center;">Editar Gasto Admin</h3>
-                    <div class="form-group"><label>Valor Correto</label><input type="number" id="edit-admin-exp-val" step="0.01" value="${currentValue}" style="font-size: 1.2em; text-align: center; font-weight: bold; color: var(--danger-color);"></div>
-                    <div class="form-group"><label>Observação (Opcional)</label><textarea id="edit-admin-exp-notes" rows="2">${currentNotes}</textarea></div>
+                    <h3 style="margin-bottom: 15px; text-align: center;">Editar Gasto Administrativo</h3>
+                    ${pending ? `<div style="padding:10px; margin-bottom:14px; border:1px solid var(--warning-color); border-radius:8px; color:var(--warning-color); font-weight:600;">${escapeAdminExpenseText(t.pendingExpenseLink || 'Pendente de vinculação')}</div>` : ''}
+                    <div class="form-group"><label>Valor Correto</label><input type="number" id="edit-admin-exp-val" step="0.01" min="0.01" value="${Number(expense.amount) || Number(expense.value) || 0}" style="font-size: 1.2em; text-align: center; font-weight: bold; color: var(--danger-color);"></div>
+                    <div class="form-group">
+                        <label>Cobrador responsável</label>
+                        <select id="edit-admin-exp-collector" required>
+                            <option value="" disabled ${selectedCollectorId ? '' : 'selected'}>Selecione um cobrador</option>
+                            ${allCollectors.map(collector => `<option value="${collector.id}" ${collector.id === selectedCollectorId ? 'selected' : ''}>${escapeAdminExpenseText(collector.name || collector.id)}</option>`).join('')}
+                        </select>
+                        ${pending && allCollectors.length === 1 ? `<p style="font-size:0.82em; color:var(--warning-color); margin-top:6px;">Como existe apenas um cobrador, ele foi preselecionado. O vínculo só será realizado ao salvar.</p>` : ''}
+                    </div>
+                    <div class="form-group"><label>Observação (Opcional)</label><textarea id="edit-admin-exp-notes" rows="2">${escapeAdminExpenseText(expense.notes || '')}</textarea></div>
                     <div style="display: flex; gap: 10px; margin-top: 20px;">
                         <button class="btn-secondary" id="cancel-edit-admin-exp" style="flex: 1;">Cancelar</button>
-                        <button class="btn-primary" id="save-edit-admin-exp" style="flex: 1;">${t.saveChanges || 'Salvar'}</button>
+                        <button class="btn-primary" id="save-edit-admin-exp" style="flex: 1;">${pending ? 'Salvar e vincular' : (t.saveChanges || 'Salvar')}</button>
                     </div>
                 </div>
             `;
@@ -9700,13 +9821,44 @@ async function generateDelinquencyPDF(collectorId) {
             modal.querySelector('#save-edit-admin-exp').onclick = async (e) => {
                 const newVal = parseFloat(document.getElementById('edit-admin-exp-val').value);
                 const newNotes = document.getElementById('edit-admin-exp-notes').value;
+                const newCollectorId = document.getElementById('edit-admin-exp-collector').value;
+                const newCollector = allCollectors.find(collector => collector.id === newCollectorId);
                 if (isNaN(newVal) || newVal <= 0) { showToast('Valor inválido.', true); return; }
+                if (!newCollector) { showToast('Selecione um cobrador válido.', true); return; }
+
+                const collectorChanged = expense.collectorId !== newCollector.id;
+                if (collectorChanged) {
+                    const confirmed = window.confirm(`Confirmar o vínculo deste gasto de ${money(newVal)} ao cobrador ${newCollector.name || newCollector.id}? O valor será descontado do capital em mãos desse cobrador.`);
+                    if (!confirmed) return;
+                }
+
                 e.currentTarget.disabled = true; e.currentTarget.innerHTML = '...';
 
                 try {
-                    await updateDoc(doc(db, 'companies', currentCompanyId, 'adminExpenses', expenseId), {
-                        amount: newVal, notes: newNotes, lastEditedBy: auth.currentUser.uid, lastEditedAt: serverTimestamp()
-                    });
+                    const updatedAt = Timestamp.now();
+                    const updates = {
+                        amount: newVal,
+                        notes: newNotes,
+                        collectorId: newCollector.id,
+                        collectorName: newCollector.name || newCollector.id,
+                        assignmentStatus: 'assigned',
+                        lastEditedBy: auth.currentUser.uid,
+                        lastEditedAt: updatedAt
+                    };
+                    if (collectorChanged) {
+                        updates.previousCollectorId = expense.collectorId || null;
+                        updates.previousCollectorName = expense.collectorName || null;
+                        updates.assignmentHistory = arrayUnion({
+                            fromCollectorId: expense.collectorId || null,
+                            fromCollectorName: expense.collectorName || null,
+                            toCollectorId: newCollector.id,
+                            toCollectorName: newCollector.name || newCollector.id,
+                            assignedBy: auth.currentUser.uid,
+                            assignedAt: updatedAt,
+                            method: pending ? 'manual-legacy-assignment' : 'manual-reassignment'
+                        });
+                    }
+                    await updateDoc(doc(db, 'companies', currentCompanyId, 'adminExpenses', expenseId), updates);
                     showToast('Gasto administrativo atualizado com sucesso!', 'success');
                     modal.classList.remove('active');
                 } catch (error) { showToast('Erro ao atualizar.', true); e.currentTarget.disabled = false; e.currentTarget.innerHTML = t.saveChanges || 'Salvar'; }
