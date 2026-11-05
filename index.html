@@ -47,11 +47,6 @@
     <link rel="icon" type="image/png" href="https://firebasestorage.googleapis.com/v0/b/lumix-financas-app.firebasestorage.app/o/LOGO---LUMIX-FINANZAS-REDUCIDO.png?alt=media&token=0b4c34d2-f2e3-44b3-a380-7aadfb9c0991">
     <script src="https://unpkg.com/lucide@0.287.0/dist/umd/lucide.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
-    <script src="https://unpkg.com/jspdf-autotable@3.5.23/dist/jspdf.plugin.autotable.js" defer></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.css">
     <style>
         /* === ESTILOS FUTURISTAS LUMIX NEON === */
     /* === ESTILOS ELEGANTES LUMIX (TEMA LILA SUAVE) === */
@@ -1384,14 +1379,12 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
     <div id="subadminModal" class="modal-view"></div>
     <div id="toast-container"></div>
     
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.js"></script>
     <script type="module">
         import { calculateLoanDetails } from "./loan-calculations.js?v=20261023-0100";
         import { calculateWeeklyLoanMetrics } from "./weekly-loan-metrics.mjs?v=20261028-1900";
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
-        import { getFirestore, connectFirestoreEmulator, collection, onSnapshot, doc, getDoc, query, where, documentId, setDoc, updateDoc, deleteDoc, Timestamp, addDoc, orderBy, serverTimestamp, increment, getDocs, arrayUnion, writeBatch } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
-        import { getAuth, connectAuthEmulator, createUserWithEmailAndPassword, updateProfile, signInWithEmailAndPassword, sendPasswordResetEmail, onAuthStateChanged, signOut, updatePassword, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
+        import { getFirestore, connectFirestoreEmulator, enableMultiTabIndexedDbPersistence, collection, onSnapshot, doc, getDoc, query, where, documentId, setDoc, updateDoc, deleteDoc, Timestamp, addDoc, orderBy, serverTimestamp, increment, getDocs, arrayUnion, writeBatch } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+        import { initializeAuth, connectAuthEmulator, createUserWithEmailAndPassword, updateProfile, signInWithEmailAndPassword, sendPasswordResetEmail, onAuthStateChanged, signOut, updatePassword, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
         import { getStorage, connectStorageEmulator, ref, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-storage.js";
         
         const firebaseConfig = {
@@ -1411,9 +1404,13 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             ? { ...firebaseConfig, projectId: 'demo-lumix-subadmin', authDomain: 'demo-lumix-subadmin.firebaseapp.com' }
             : firebaseConfig;
 
+        // Nome exclusivo: impede que outros painéis no mesmo domínio compartilhem
+        // e encerrem a sessão do administrador.
         const app = initializeApp(runtimeFirebaseConfig, 'lumix-administrador');
         const db = getFirestore(app);
-        const auth = getAuth(app);     
+        // O painel usa somente email e senha. A inicializacao explicita evita
+        // dependencias de popup/redirecionamento no caminho critico do mobile.
+        const auth = initializeAuth(app, { persistence: browserLocalPersistence });
         const storage = getStorage(app);
         if (useLocalFirebaseEmulators) {
             connectFirestoreEmulator(db, '127.0.0.1', 8080);
@@ -1421,9 +1418,153 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             connectStorageEmulator(storage, '127.0.0.1', 9199);
             console.info('Modo local seguro: Firebase Emulators ativos.');
         }
+        const firestorePersistenceReady = useLocalFirebaseEmulators
+            ? Promise.resolve({ enabled: false, reason: 'emulator' })
+            : enableMultiTabIndexedDbPersistence(db)
+                .then(() => ({ enabled: true }))
+                .catch(error => {
+                    console.warn('Cache persistente do Firestore indisponivel; seguindo com cache em memoria.', error);
+                    return { enabled: false, reason: error?.code || 'unknown' };
+                });
         const adminFunctionsBaseUrl = useLocalFirebaseEmulators
             ? 'http://127.0.0.1:5001/demo-lumix-subadmin/us-central1'
             : 'https://us-central1-lumix-financas-app.cloudfunctions.net';
+
+        const startupDiagnostics = {
+            startedAt: Date.now(),
+            userAgent: navigator.userAgent,
+            standalone: window.matchMedia?.('(display-mode: standalone)').matches === true,
+            stages: [],
+        };
+        window.__lumixAdminStartup = startupDiagnostics;
+        let loginSlowTimer = null;
+
+        function markStartupStage(stage, details = {}) {
+            const entry = {
+                stage,
+                elapsedMs: Math.round(performance.now()),
+                ...(startupDiagnostics.loginStartedAtPerformance != null
+                    ? { sinceLoginMs: Math.round(performance.now() - startupDiagnostics.loginStartedAtPerformance) }
+                    : {}),
+                ...details,
+            };
+            startupDiagnostics.stages.push(entry);
+            console.info(`[Admin startup] ${stage}: ${entry.elapsedMs}ms`, details);
+            return entry;
+        }
+
+        function finishStartupDiagnostics() {
+            const finalEntry = markStartupStage('painel-visivel');
+            startupDiagnostics.completedAt = Date.now();
+            startupDiagnostics.totalMs = finalEntry.elapsedMs;
+            if (startupDiagnostics.loginStartedAtPerformance != null) {
+                startupDiagnostics.loginTotalMs = Math.round(performance.now() - startupDiagnostics.loginStartedAtPerformance);
+            }
+            console.table(startupDiagnostics.stages);
+            if (startupDiagnostics.totalMs >= 8000) {
+                console.warn('[Admin startup] Inicializacao lenta detectada.', startupDiagnostics);
+            }
+        }
+
+        function setLoginProgress(message) {
+            const button = document.querySelector('#login-form button[type="submit"]');
+            if (!button?.disabled) return;
+            button.innerHTML = `
+                <span style="display: flex; align-items: center; justify-content: center; gap: 8px;">
+                    <i data-lucide="loader-circle" style="animation: spin 1s linear infinite; width: 20px; height: 20px;"></i>
+                    <span>${message}</span>
+                </span>`;
+            lucide.createIcons({ nodes: [button.querySelector('i')] });
+        }
+
+        markStartupStage('modulo-principal-pronto');
+
+        const optionalAssetPromises = new Map();
+
+        function loadOptionalStyle(key, url, integrity = '') {
+            if (optionalAssetPromises.has(key)) return optionalAssetPromises.get(key);
+            const promise = new Promise((resolve, reject) => {
+                const existing = document.querySelector(`link[data-optional-asset="${key}"]`);
+                if (existing) {
+                    if (existing.dataset.loaded === 'true') resolve();
+                    else {
+                        existing.addEventListener('load', resolve, { once: true });
+                        existing.addEventListener('error', reject, { once: true });
+                    }
+                    return;
+                }
+                const link = document.createElement('link');
+                link.rel = 'stylesheet';
+                link.href = url;
+                link.dataset.optionalAsset = key;
+                if (integrity) {
+                    link.integrity = integrity;
+                    link.crossOrigin = '';
+                }
+                link.onload = () => {
+                    link.dataset.loaded = 'true';
+                    resolve();
+                };
+                link.onerror = () => {
+                    link.remove();
+                    reject(new Error(`Falha ao carregar ${key}.`));
+                };
+                document.head.appendChild(link);
+            });
+            const guardedPromise = promise.catch(error => {
+                optionalAssetPromises.delete(key);
+                throw error;
+            });
+            optionalAssetPromises.set(key, guardedPromise);
+            return guardedPromise;
+        }
+
+        function loadOptionalScript(key, url, integrity = '') {
+            if (optionalAssetPromises.has(key)) return optionalAssetPromises.get(key);
+            const promise = new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = url;
+                script.async = true;
+                script.dataset.optionalAsset = key;
+                if (integrity) {
+                    script.integrity = integrity;
+                    script.crossOrigin = '';
+                }
+                script.onload = resolve;
+                script.onerror = () => {
+                    script.remove();
+                    reject(new Error(`Falha ao carregar ${key}.`));
+                };
+                document.head.appendChild(script);
+            });
+            const guardedPromise = promise.catch(error => {
+                optionalAssetPromises.delete(key);
+                throw error;
+            });
+            optionalAssetPromises.set(key, guardedPromise);
+            return guardedPromise;
+        }
+
+        async function ensureFeatureAssets(feature) {
+            markStartupStage(`recurso-${feature}-solicitado`);
+            if (feature === 'map') {
+                await Promise.all([
+                    loadOptionalStyle('leaflet-css', 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css', 'sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY='),
+                    loadOptionalScript('leaflet-js', 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js', 'sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo='),
+                ]);
+            } else if (feature === 'cropper') {
+                await Promise.all([
+                    loadOptionalStyle('cropper-css', 'https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.css'),
+                    loadOptionalScript('cropper-js', 'https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.js'),
+                ]);
+            } else if (feature === 'chart') {
+                await loadOptionalScript('chart-js', 'https://cdn.jsdelivr.net/npm/chart.js');
+            } else if (feature === 'pdf') {
+                await loadOptionalScript('jspdf-js', 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+                await loadOptionalScript('jspdf-autotable-js', 'https://unpkg.com/jspdf-autotable@3.5.23/dist/jspdf.plugin.autotable.js');
+            }
+            markStartupStage(`recurso-${feature}-pronto`);
+        }
 
         
         let allCollectors = [];
@@ -1444,10 +1585,93 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
         let expensesReady = false;
         let settlementsReady = false;
         let capitalInjectionsReady = false;
+        const dashboardDataSources = new Map();
+        const dashboardFirstSnapshots = new Set();
+        let dashboardSummaryWriteTimer = null;
+        let lastDashboardSummaryJson = '';
 
         let calculatedCollectorMetrics = new Map(); // Guardará métricas por ID de cobrador
         let calculatedGlobalMetrics = {}; // Guardará métricas globales
         let reportChartInstance = null;
+
+        function allDashboardDataReady() {
+            return collectorsReady
+                && clientsReady
+                && expensesReady
+                && settlementsReady
+                && capitalInjectionsReady
+                && adminExpensesReady;
+        }
+
+        function allDashboardDataFromServer() {
+            return ['collectors', 'clients', 'adminExpenses', 'expenses', 'settlements', 'capitalInjections']
+                .every(name => dashboardDataSources.get(name) === false);
+        }
+
+        function recordDashboardSnapshot(name, documents, metadata = {}) {
+            const isFirst = !dashboardFirstSnapshots.has(name);
+            dashboardFirstSnapshots.add(name);
+            dashboardDataSources.set(name, metadata.fromCache === true);
+            markStartupStage(`dados-${name}-${isFirst ? 'primeiro-snapshot' : 'atualizados'}`, {
+                count: documents.length,
+                fromCache: metadata.fromCache === true,
+            });
+        }
+
+        function dashboardSummaryPayload() {
+            const metricNames = [
+                'activeCollectorsCount',
+                'activeClientsCount',
+                'sumGlobalDistributed',
+                'sumGlobalPatrimonio',
+                'sumGlobalCapitalOnHand',
+                'availableInsuranceFund',
+            ];
+            return Object.fromEntries(metricNames.map(name => [name, Number(calculatedGlobalMetrics?.[name]) || 0]));
+        }
+
+        function scheduleDashboardSummaryWrite() {
+            if (currentUserRole !== 'admin' || !currentCompanyId || !allDashboardDataReady() || !allDashboardDataFromServer()) return;
+            const metrics = dashboardSummaryPayload();
+            const serialized = JSON.stringify(metrics);
+            if (serialized === lastDashboardSummaryJson) return;
+            lastDashboardSummaryJson = serialized;
+            if (dashboardSummaryWriteTimer) clearTimeout(dashboardSummaryWriteTimer);
+            dashboardSummaryWriteTimer = setTimeout(async () => {
+                dashboardSummaryWriteTimer = null;
+                try {
+                    await setDoc(doc(db, 'companies', currentCompanyId, 'dashboardSummary', 'current'), {
+                        metrics,
+                        schemaVersion: 1,
+                        updatedAt: serverTimestamp(),
+                    }, { merge: true });
+                    markStartupStage('resumo-dashboard-salvo');
+                } catch (error) {
+                    lastDashboardSummaryJson = '';
+                    console.error('Falha ao salvar o resumo do painel:', error);
+                }
+            }, 400);
+        }
+
+        function watchDashboardSummary() {
+            if (currentUserRole !== 'admin' || !currentCompanyId) return;
+            const summaryRef = doc(db, 'companies', currentCompanyId, 'dashboardSummary', 'current');
+            const unsubscribe = onSnapshot(summaryRef, { includeMetadataChanges: true }, snapshot => {
+                markStartupStage('resumo-dashboard-recebido', {
+                    exists: snapshot.exists(),
+                    fromCache: snapshot.metadata.fromCache,
+                });
+                if (!snapshot.exists() || allDashboardDataReady()) return;
+                const metrics = snapshot.data()?.metrics;
+                if (!metrics || typeof metrics !== 'object') return;
+                calculatedGlobalMetrics = { ...calculatedGlobalMetrics, ...metrics };
+                updateDashboardKpis();
+                markStartupStage('resumo-dashboard-aplicado');
+            }, error => {
+                console.error('Falha ao acompanhar o resumo do painel:', error);
+            });
+            activeDataUnsubscribes.push(unsubscribe);
+        }
 
         let currentAdmin = { id: 'admin', name: 'Administrador', profilePic: '' };
         let currentUserRole = null;
@@ -2167,7 +2391,7 @@ function extractCoords(input) {
             
                  function checkAndRunGlobalUpdate() {
                  // CÓDIGO OPTIMIZADO:
-                if (collectorsReady && clientsReady && expensesReady && settlementsReady && capitalInjectionsReady && adminExpensesReady) {
+                if (allDashboardDataReady()) {
                 console.log("[ADMIN-APP] Datos listos. Actualizando todo...");
                 
                 calculatedCollectorMetrics.clear(); 
@@ -2208,6 +2432,12 @@ function extractCoords(input) {
                 updateDashboard();
                 updateProfileView();
                 updateAdminNotificationsView();
+                if (allDashboardDataFromServer()) {
+                    markStartupStage('dashboard-dados-servidor');
+                    scheduleDashboardSummaryWrite();
+                } else {
+                    markStartupStage('dashboard-dados-cache');
+                }
                 
                 if (mapInstance) updateCollectorMarkers();
                 if (document.getElementById('reports-view') && document.getElementById('reports-view').classList.contains('active')) updateReportsView();
@@ -2533,6 +2763,10 @@ function extractCoords(input) {
                 try { unsubscribe(); } catch (error) { console.warn('Falha ao encerrar listener:', error); }
             });
             activeDataUnsubscribes = [];
+            if (dashboardSummaryWriteTimer) {
+                clearTimeout(dashboardSummaryWriteTimer);
+                dashboardSummaryWriteTimer = null;
+            }
         }
 
         function clearSessionData() {
@@ -2558,6 +2792,9 @@ function extractCoords(input) {
             settlementsReady = false;
             capitalInjectionsReady = false;
             adminExpensesReady = false;
+            dashboardDataSources.clear();
+            dashboardFirstSnapshots.clear();
+            lastDashboardSummaryJson = '';
 
             Object.values(collectorMarkers).forEach(marker => marker?.remove?.());
             collectorMarkers = {};
@@ -2590,14 +2827,17 @@ function extractCoords(input) {
 
         function listenToMergedQueries(queries, onDocuments, onError = null) {
             const snapshotsByQuery = new Map();
-            const unsubscribes = queries.map((queryRef, index) => onSnapshot(queryRef, snapshot => {
-                snapshotsByQuery.set(index, snapshot.docs);
+            const unsubscribes = queries.map((queryRef, index) => onSnapshot(queryRef, { includeMetadataChanges: true }, snapshot => {
+                snapshotsByQuery.set(index, snapshot);
                 if (snapshotsByQuery.size !== queries.length) return;
                 const uniqueDocuments = new Map();
-                snapshotsByQuery.forEach(documents => {
-                    documents.forEach(documentSnapshot => uniqueDocuments.set(documentSnapshot.ref.path, documentSnapshot));
+                snapshotsByQuery.forEach(querySnapshot => {
+                    querySnapshot.docs.forEach(documentSnapshot => uniqueDocuments.set(documentSnapshot.ref.path, documentSnapshot));
                 });
-                onDocuments([...uniqueDocuments.values()]);
+                onDocuments([...uniqueDocuments.values()], {
+                    fromCache: [...snapshotsByQuery.values()].every(item => item.metadata.fromCache),
+                    queryCount: queries.length,
+                });
             }, error => {
                 console.error('Falha em consulta segmentada:', error);
                 if (onError) onError(error);
@@ -2667,8 +2907,15 @@ function extractCoords(input) {
             // 6. Mostrar la vista inicial
             const initialView = location.hash.substring(1) || 'dashboard';
             showView(initialView);
+            if (loginSlowTimer) {
+                clearTimeout(loginSlowTimer);
+                loginSlowTimer = null;
+            }
+            finishStartupDiagnostics();
 
             // --- Carga de Datos (Listeners) ---
+            markStartupStage('pipeline-dados-iniciado');
+            if (currentUserRole === 'admin') watchDashboardSummary();
 
             const hasAuthorizedCollectors = currentUserRole !== 'subadmin' || authorizedCollectorIds.length > 0;
             if (!hasAuthorizedCollectors) {
@@ -2691,7 +2938,8 @@ function extractCoords(input) {
             const collectorQueries = currentUserRole === 'subadmin'
                 ? splitIntoChunks(authorizedCollectorIds).map(ids => query(collection(db, 'collectors'), where(documentId(), 'in', ids)))
                 : [query(collection(db, 'collectors'), where('companyId', '==', currentCompanyId))];
-            listenToMergedQueries(collectorQueries, documents => {
+            listenToMergedQueries(collectorQueries, (documents, metadata) => {
+                recordDashboardSnapshot('collectors', documents, metadata);
                 allCollectors = documents.map(doc => ({ id: doc.id, ...doc.data() }));
                 
                 collectorsReady = true; 
@@ -2710,7 +2958,8 @@ function extractCoords(input) {
             const clientQueries = currentUserRole === 'subadmin'
                 ? splitIntoChunks(authorizedCollectorIds).map(ids => query(collection(db, 'companies', currentCompanyId, 'clients'), where('collectorId', 'in', ids)))
                 : [collection(db, 'companies', currentCompanyId, 'clients')];
-            listenToMergedQueries(clientQueries, documents => {
+            listenToMergedQueries(clientQueries, (documents, metadata) => {
+                recordDashboardSnapshot('clients', documents, metadata);
                 allClients = documents.map(doc => ({ id: doc.id, ...doc.data() }));
                  
                 // Procesamiento de datos
@@ -2798,7 +3047,8 @@ function extractCoords(input) {
             const adminExpenseQueries = currentUserRole === 'subadmin'
                 ? splitIntoChunks(authorizedCollectorIds).map(ids => query(collection(db, 'companies', currentCompanyId, 'adminExpenses'), where('collectorId', 'in', ids)))
                 : [collection(db, 'companies', currentCompanyId, 'adminExpenses')];
-            listenToMergedQueries(adminExpenseQueries, documents => {
+            listenToMergedQueries(adminExpenseQueries, (documents, metadata) => {
+                recordDashboardSnapshot('adminExpenses', documents, metadata);
                 allAdminExpenses = documents.map(doc => ({ id: doc.id, ...doc.data() }));
                 adminExpensesReady = true; 
                 if (collectorsReady && clientsReady) checkAndRunGlobalUpdate(); 
@@ -2807,7 +3057,8 @@ function extractCoords(input) {
             const expenseQueries = currentUserRole === 'subadmin'
                 ? splitIntoChunks(authorizedCollectorIds).map(ids => query(collection(db, 'companies', currentCompanyId, 'expenses'), where('collectorId', 'in', ids)))
                 : [collection(db, 'companies', currentCompanyId, 'expenses')];
-            listenToMergedQueries(expenseQueries, documents => {
+            listenToMergedQueries(expenseQueries, (documents, metadata) => {
+                recordDashboardSnapshot('expenses', documents, metadata);
                 allExpenses = documents.map(doc => ({ id: doc.id, ...doc.data() }));
                 expensesReady = true; 
                 checkAndRunGlobalUpdate(); 
@@ -2823,7 +3074,8 @@ function extractCoords(input) {
             const settlementQueries = currentUserRole === 'subadmin'
                 ? splitIntoChunks(authorizedCollectorIds).map(ids => query(collection(db, 'companies', currentCompanyId, 'settlements'), where('collectorId', 'in', ids)))
                 : [collection(db, 'companies', currentCompanyId, 'settlements')];
-            listenToMergedQueries(settlementQueries, documents => {
+            listenToMergedQueries(settlementQueries, (documents, metadata) => {
+                recordDashboardSnapshot('settlements', documents, metadata);
                 allSettlements = documents.map(doc => ({ id: doc.id, ...doc.data() }));
                 settlementsReady = true; 
                 checkAndRunGlobalUpdate(); 
@@ -2848,7 +3100,8 @@ function extractCoords(input) {
             const capitalInjectionQueries = currentUserRole === 'subadmin'
                 ? splitIntoChunks(authorizedCollectorIds).map(ids => query(collection(db, 'companies', currentCompanyId, 'capitalInjections'), where('collectorId', 'in', ids)))
                 : [collection(db, 'companies', currentCompanyId, 'capitalInjections')];
-            listenToMergedQueries(capitalInjectionQueries, documents => {
+            listenToMergedQueries(capitalInjectionQueries, (documents, metadata) => {
+                recordDashboardSnapshot('capitalInjections', documents, metadata);
                 allCapitalInjections = documents.map(doc => ({ id: doc.id, ...doc.data() }));
                 capitalInjectionsReady = true; 
                 checkAndRunGlobalUpdate();
@@ -4362,9 +4615,14 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
             }
 
             if (viewName === 'map') {
-                setTimeout(() => {
-                    initMap();
-                    updateCollectorMarkers(); 
+                setTimeout(async () => {
+                    try {
+                        await initMap();
+                        updateCollectorMarkers();
+                    } catch (error) {
+                        console.error('Erro ao carregar o mapa:', error);
+                        showToast('Nao foi possivel carregar o mapa. Tente novamente.', true);
+                    }
                 }, 50);
             }
             
@@ -4464,7 +4722,6 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
                 </header>
                 <main>
                     <div id="dashboard-view" class="view active container">
-                        
                         <section class="kpi-grid">
                             <!-- KPI 1: PATRIMONIO (Bordes Dobles Morados) -->
                             <div class="kpi-card" style="grid-column: 1 / -1; border-left: 4px solid var(--accent-purple); border-right: 4px solid var(--accent-purple);">
@@ -4472,7 +4729,7 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
                                     <i data-lucide="gem" style="filter: drop-shadow(0 0 5px var(--accent-purple));"></i> 
                                     <span data-lang-key="kpiGlobalPatrimony">Total Patrimônio Neto</span>
                                 </h3>
-                                <p class="kpi-value" id="kpi-global-patrimonio" style="color: var(--text-primary);"></p>
+                                <p class="kpi-value" id="kpi-global-patrimonio" style="color: var(--text-primary);">—</p>
                             </div>
 
                             <!-- KPI 2: CAPITAL DISTRIBUIDO (INTACTA - Borde Superior Amarillo) -->
@@ -4481,7 +4738,7 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
                                     <i data-lucide="briefcase" style="filter: drop-shadow(0 0 5px var(--warning-color));"></i> 
                                     <span data-lang-key="kpiGlobalDistributed">Capital Distribuído</span>
                                 </h3>
-                                <p class="kpi-value" id="kpi-global-distributed" style="color: var(--text-primary);"></p>
+                                <p class="kpi-value" id="kpi-global-distributed" style="color: var(--text-primary);">—</p>
                             </div>
                             
                             <!-- KPI 3: CAPITAL EN CAJAS (INTACTA - Borde Superior Verde) -->
@@ -4490,7 +4747,7 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
                                     <i data-lucide="banknote" style="filter: drop-shadow(0 0 5px var(--accent-green));"></i> 
                                     <span data-lang-key="kpiGlobalCash">Capital em Caixas</span>
                                 </h3>
-                                <p class="kpi-value" id="kpi-global-capital-on-hand" style="color: var(--text-primary);"></p>
+                                <p class="kpi-value" id="kpi-global-capital-on-hand" style="color: var(--text-primary);">—</p>
                             </div>
 
                             <!-- KPI 4: MICRO SEGURO (INTACTA - Borde Superior Azul) -->
@@ -4499,19 +4756,19 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
                                     <i data-lucide="shield-check" style="filter: drop-shadow(0 0 5px #0ea5e9);"></i> 
                                     <span data-lang-key="microInsuranceFund">Micro Seguro (Fundo)</span>
                                 </h3>
-                                <p class="kpi-value" id="kpi-global-micro-insurance" style="color: var(--text-primary);"></p>
+                                <p class="kpi-value" id="kpi-global-micro-insurance" style="color: var(--text-primary);">—</p>
                             </div>
 
                             <!-- KPI 5: COBRADORES (Bordes Dobles Naranja/Ámbar) -->
                             <div class="kpi-card" style="border-left: 4px solid #f59e0b; border-right: 4px solid #f59e0b;">
                                 <h3 class="kpi-title" style="color: #f59e0b;" data-lang-key="activeCollectors"><i data-lucide="users"></i> Cobradores</h3>
-                                <p class="kpi-value" id="kpi-active-collectors" style="color: #f59e0b;"></p>
+                                <p class="kpi-value" id="kpi-active-collectors" style="color: #f59e0b;">—</p>
                             </div>
 
                             <!-- KPI 6: CLIENTES (Bordes Dobles Azules) -->
                             <div class="kpi-card" style="border-left: 4px solid #3b82f6; border-right: 4px solid #3b82f6;">
                                 <h3 class="kpi-title" style="color: #3b82f6;" data-lang-key="activeClients"><i data-lucide="user-check"></i> Clientes</h3>
-                                <p class="kpi-value" id="kpi-active-clients" style="color: #3b82f6;"></p>
+                                <p class="kpi-value" id="kpi-active-clients" style="color: #3b82f6;">—</p>
                             </div>
                         </section>
 
@@ -5573,7 +5830,8 @@ async function submitCollectorReport(collectorId) {
         
         // --- [REPARACIÓN 2] Se restauran las funciones del mapa y reportes ---
         
-        function initMap() {
+        async function initMap() {
+            await ensureFeatureAssets('map');
             if (mapInstance) {
                 mapInstance.invalidateSize();
                 return;
@@ -5792,12 +6050,19 @@ async function submitCollectorReport(collectorId) {
             showView('map');
 
             // 3. Usamos un pequeño retraso para asegurar que el DOM del mapa esté listo
-            setTimeout(() => {
+            setTimeout(async () => {
                 // Si el mapa no existe, lo iniciamos. Si existe, ajustamos su tamaño.
-                if (!mapInstance) {
-                    initMap();
-                } else {
-                    mapInstance.invalidateSize();
+                try {
+                    if (!mapInstance) {
+                        await initMap();
+                        updateCollectorMarkers();
+                    } else {
+                        mapInstance.invalidateSize();
+                    }
+                } catch (error) {
+                    console.error('Erro ao carregar o mapa:', error);
+                    showToast('Nao foi possivel carregar o mapa. Tente novamente.', true);
+                    return;
                 }
 
                 // 4. Volamos a la ubicación
@@ -5819,7 +6084,7 @@ async function submitCollectorReport(collectorId) {
         }
 
         
-        function updateReportsView() {
+        async function updateReportsView() {
             const collectorFilter = document.getElementById('report-collector-filter');
             const dateStartInput = document.getElementById('report-date-start');
             const dateEndInput = document.getElementById('report-date-end');
@@ -6272,6 +6537,15 @@ async function submitCollectorReport(collectorId) {
                 tooltipEl.style.opacity = 1; tooltipEl.style.left = left + 'px'; tooltipEl.style.top = top + 'px';
             };
 
+            try {
+                await ensureFeatureAssets('chart');
+            } catch (error) {
+                console.error('Erro ao carregar os graficos:', error);
+                showToast('Nao foi possivel carregar o grafico. Tente novamente.', true);
+                generateBtn.disabled = false;
+                return;
+            }
+
             reportChartInstance = new Chart(ctx, {
                 type: 'doughnut',
                 data: { labels: chartLabels, datasets: [{ data: chartData, backgroundColor: chartColors, borderWidth: 0, hoverOffset: 15, borderRadius: 3, spacing: 2 }] },
@@ -6391,6 +6665,7 @@ async function submitCollectorReport(collectorId) {
         
          async function generatePDFReport(collectorId, period) {
             try {
+                await ensureFeatureAssets('pdf');
                 const { jsPDF } = window.jspdf;
                 const doc = new jsPDF();
                 let now = new Date();
@@ -6965,6 +7240,13 @@ async function submitCollectorReport(collectorId) {
     
     // --- FUNCIÓN FALTANTE PARA EL REPORTE GRÁFICO ---
         async function exportFinancialAnalysisPDF(reportData) {
+            try {
+                await ensureFeatureAssets('pdf');
+            } catch (error) {
+                console.error('Erro ao carregar o gerador de PDF:', error);
+                showToast('Nao foi possivel carregar o gerador de PDF. Tente novamente.', true);
+                return;
+            }
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF();
             const { period, collector, financials, breakdown, adminBreakdown } = reportData;
@@ -7497,7 +7779,7 @@ async function submitCollectorReport(collectorId) {
             }
         }
 
-              function updateDashboard() {
+        function updateDashboardKpis() {
             const kpiActiveCollectors = document.getElementById('kpi-active-collectors');
             const kpiActiveClients = document.getElementById('kpi-active-clients');
             const kpiGlobalPatrimonio = document.getElementById('kpi-global-patrimonio');
@@ -7505,7 +7787,7 @@ async function submitCollectorReport(collectorId) {
             const kpiGlobalCapitalOnHand = document.getElementById('kpi-global-capital-on-hand');
             const kpiGlobalMicroInsurance = document.getElementById('kpi-global-micro-insurance');
 
-            if(!kpiActiveCollectors) return; 
+            if (!kpiActiveCollectors) return;
             
             const {
                 activeCollectorsCount = 0,
@@ -7523,6 +7805,10 @@ async function submitCollectorReport(collectorId) {
             
             kpiActiveCollectors.textContent = activeCollectorsCount;
             kpiActiveClients.textContent = activeClientsCount;
+        }
+
+        function updateDashboard() {
+            updateDashboardKpis();
 
             const listContainer = document.getElementById('collectors-list');
             if(!listContainer) return;
@@ -9628,7 +9914,14 @@ let clientImpactoNeto = 0;
 
 
 
-        function showCropperModal(file, onCropped = handleProfilePictureChange) {
+        async function showCropperModal(file, onCropped = handleProfilePictureChange) {
+            try {
+                await ensureFeatureAssets('cropper');
+            } catch (error) {
+                console.error('Erro ao carregar o editor de imagem:', error);
+                showToast('Nao foi possivel abrir o editor de imagem. Tente novamente.', true);
+                return;
+            }
             const cropperModal = document.getElementById('cropperModal');
             cropperModal.innerHTML = `
                 <header class="modal-header">
@@ -10305,17 +10598,30 @@ async function showRefinanceVerificationModal(clientId) {
 
     const email = document.getElementById('username').value; // Ahora es un email
     const pass = document.getElementById('password').value;
+    startupDiagnostics.loginStartedAtPerformance = performance.now();
+    markStartupStage('login-enviado');
+    if (loginSlowTimer) clearTimeout(loginSlowTimer);
+    loginSlowTimer = setTimeout(() => {
+        setLoginProgress('Conexao lenta, continuamos tentando...');
+        markStartupStage('login-acima-de-8-segundos');
+    }, 8000);
 
     try {
         // ¡AQUÍ ESTÁ LA MAGIA!
         // Intentamos iniciar sesión con Firebase Auth
         await signInWithEmailAndPassword(auth, email, pass);
+        markStartupStage('credenciais-aceitas');
 
         // No necesitamos llamar a showMainApp() aquí.
         // El 'listener' de onAuthStateChanged se encargará automáticamente.
         // El botón desaparecerá junto con la pantalla de login.
 
     } catch (error) {
+        if (loginSlowTimer) {
+            clearTimeout(loginSlowTimer);
+            loginSlowTimer = null;
+        }
+        markStartupStage('login-falhou', { errorCode: error.code || 'unknown' });
         // Este es el catch correcto para el LOGIN
         console.error("Erro de login:", error.code);
         if (error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password' || error.code === 'auth/user-not-found') {
@@ -10377,13 +10683,14 @@ async function showRefinanceVerificationModal(clientId) {
 
             const splash = document.getElementById('splash-screen');
 
-            try {
-                await setPersistence(auth, browserLocalPersistence);
-            } catch (error) {
-                console.warn('Não foi possível confirmar a persistência local da sessão:', error);
-            }
+            markStartupStage('cache-firestore-aguardando');
+            const persistenceResult = await firestorePersistenceReady;
+            startupDiagnostics.firestorePersistence = persistenceResult;
+            markStartupStage('cache-firestore-pronto', persistenceResult);
 
+            markStartupStage('observador-de-sessao-registrado');
             onAuthStateChanged(auth, async (user) => {
+                markStartupStage(user ? 'sessao-autenticada' : 'sessao-nao-autenticada');
                 splash.style.opacity = '0';
                 setTimeout(() => {
                     splash.style.display = 'none';
@@ -10393,8 +10700,10 @@ async function showRefinanceVerificationModal(clientId) {
                     try {
                         subadminAccessInitialized = false;
                         console.log("Verificando permissões do admin...");
+                        setLoginProgress('Validando acesso...');
                         // CÓDIGO OPTIMIZADO:
                         const tokenResult = await user.getIdTokenResult(false);
+                        markStartupStage('permissoes-validadas');
                         const claims = tokenResult.claims;
 
                         console.log("Claims (permissões) do usuário:", claims);
@@ -10414,8 +10723,10 @@ async function showRefinanceVerificationModal(clientId) {
                         console.log("Acesso verificado. Role:", currentUserRole, "Company ID:", currentCompanyId);
 
                         if (currentUserRole === 'admin') {
+                            setLoginProgress('Carregando empresa...');
                             const companyRef = doc(db, 'companies', currentCompanyId);
                             const companySnap = await getDoc(companyRef);
+                            markStartupStage('empresa-carregada');
                             if (!companySnap.exists()) {
                                 const errorMsg = `Erro crítico: A empresa com ID (${currentCompanyId}) não foi encontrada no banco de dados.`;
                                 console.error(errorMsg);
@@ -10433,6 +10744,7 @@ async function showRefinanceVerificationModal(clientId) {
                                 getDoc(subadminRef),
                                 getDoc(publicConfigRef),
                             ]);
+                            markStartupStage('socio-admin-carregado');
                             if (!subadminSnap.exists() || subadminSnap.data().status !== 'active') {
                                 const accessError = new Error('Seu acesso de Sócio Admin está desativado ou não foi encontrado.');
                                 accessError.accessRevoked = true;
@@ -10456,12 +10768,11 @@ async function showRefinanceVerificationModal(clientId) {
                                 owner: { name: currentSubadminData.name || user.displayName || user.email },
                             };
                             currentAdmin.name = currentSubadminData.name || currentAdmin.name;
-                            try {
-                                const capacity = await callAdminFunction('subadminGetCollectorCapacity', {});
-                                applyCollectorCapacity(capacity);
-                            } catch (capacityError) {
-                                console.error('Falha ao consultar o limite de cobradores:', capacityError);
-                            }
+                            // Capacidade nao bloqueia mais a abertura do painel. O valor e
+                            // atualizado em segundo plano assim que o app ja estiver visivel.
+                            callAdminFunction('subadminGetCollectorCapacity', {})
+                                .then(capacity => applyCollectorCapacity(capacity))
+                                .catch(capacityError => console.error('Falha ao consultar o limite de cobradores:', capacityError));
                         }
 
                         if (currentCompanyData.status === 'suspended') {
@@ -10756,6 +11067,13 @@ async function showRefinanceVerificationModal(clientId) {
     modal.querySelector('.close-modal-btn').onclick = () => modal.classList.remove('active');
 }
 async function generateDelinquencyPDF(collectorId) {
+    try {
+        await ensureFeatureAssets('pdf');
+    } catch (error) {
+        console.error('Erro ao carregar o gerador de PDF:', error);
+        showToast('Nao foi possivel carregar o gerador de PDF. Tente novamente.', true);
+        return;
+    }
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
     const collector = allCollectors.find(c => c.id === collectorId);
