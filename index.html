@@ -195,7 +195,18 @@
     .lang-dropdown { display: none; position: absolute; top: 40px; right: 0; background-color: var(--surface); border-radius: 8px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); border: 1px solid var(--border-color); overflow: hidden; z-index: 110; }
     .lang-dropdown button { display: block; width: 100%; text-align: left; padding: 10px 15px; background: none; border: none; color: var(--text-primary); cursor: pointer; }
     .lang-dropdown button:hover { background-color: var(--bg); }
+    .profile { background: none; border: 0; padding: 0; cursor: pointer; display: flex; align-items: center; justify-content: center; }
     .profile img { height: 40px; width: 40px; border-radius: 50%; border: 2px solid var(--accent-blue); object-fit: cover; }
+    @media (max-width: 480px) {
+        .main-header { padding: 12px; gap: 8px; }
+        .logo { min-width: 0; flex: 1 1 auto; }
+        .logo-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .header-controls { flex: 0 0 auto; gap: 4px; }
+        .header-controls .readonly-role-badge { display: none !important; }
+        #lang-toggle span, #theme-toggle span { display: none; }
+        #lang-toggle, #theme-toggle { width: 36px !important; height: 36px !important; padding: 4px !important; }
+        #header-profile-link { display: flex !important; flex: 0 0 40px; width: 40px; }
+    }
     
     .section-title { font-size: 1.3em; font-weight: 600; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid var(--border-color); }
     .item-list { display: flex; flex-direction: column; gap: 15px; }
@@ -1370,16 +1381,18 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
     <div id="settlementVerificationModal" class="modal-view"></div>
     <div id="paymentDetailModal" class="modal-view"></div>
     <div id="refinanceVerificationModal" class="modal-view"></div>
+    <div id="subadminModal" class="modal-view"></div>
     <div id="toast-container"></div>
     
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.js"></script>
     <script type="module">
         import { calculateLoanDetails } from "./loan-calculations.js?v=20261023-0100";
+        import { calculateWeeklyLoanMetrics } from "./weekly-loan-metrics.mjs?v=20261028-1900";
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
-        import { getFirestore, collection, onSnapshot, doc, getDoc, query, where, setDoc, updateDoc, deleteDoc, Timestamp, addDoc, orderBy, serverTimestamp, increment, getDocs, arrayUnion, writeBatch } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
-        import { getAuth, createUserWithEmailAndPassword, updateProfile, signInWithEmailAndPassword, sendPasswordResetEmail, onAuthStateChanged, signOut, updatePassword } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
-        import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-storage.js";
+        import { getFirestore, connectFirestoreEmulator, collection, onSnapshot, doc, getDoc, query, where, documentId, setDoc, updateDoc, deleteDoc, Timestamp, addDoc, orderBy, serverTimestamp, increment, getDocs, arrayUnion, writeBatch } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+        import { getAuth, connectAuthEmulator, createUserWithEmailAndPassword, updateProfile, signInWithEmailAndPassword, sendPasswordResetEmail, onAuthStateChanged, signOut, updatePassword, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
+        import { getStorage, connectStorageEmulator, ref, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-storage.js";
         
         const firebaseConfig = {
             apiKey: "AIzaSyBRxJjpH6PBi-GRxOXS8klv-8v91sO4X-Y",
@@ -1389,10 +1402,28 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
             messagingSenderId: "463777495321",
             appId: "1:463777495321:web:106118f53f56abd206ed88"
         };
-        const app = initializeApp(firebaseConfig, 'lumix-administrador');
+        const isLocalHost = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+        const emulatorQueryEnabled = new URLSearchParams(window.location.search).get('firebaseEmulators') === '1';
+        if (isLocalHost && emulatorQueryEnabled) sessionStorage.setItem('lumixUseFirebaseEmulators', '1');
+        const useLocalFirebaseEmulators = isLocalHost
+            && (emulatorQueryEnabled || sessionStorage.getItem('lumixUseFirebaseEmulators') === '1');
+        const runtimeFirebaseConfig = useLocalFirebaseEmulators
+            ? { ...firebaseConfig, projectId: 'demo-lumix-subadmin', authDomain: 'demo-lumix-subadmin.firebaseapp.com' }
+            : firebaseConfig;
+
+        const app = initializeApp(runtimeFirebaseConfig, 'lumix-administrador');
         const db = getFirestore(app);
         const auth = getAuth(app);     
         const storage = getStorage(app);
+        if (useLocalFirebaseEmulators) {
+            connectFirestoreEmulator(db, '127.0.0.1', 8080);
+            connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
+            connectStorageEmulator(storage, '127.0.0.1', 9199);
+            console.info('Modo local seguro: Firebase Emulators ativos.');
+        }
+        const adminFunctionsBaseUrl = useLocalFirebaseEmulators
+            ? 'http://127.0.0.1:5001/demo-lumix-subadmin/us-central1'
+            : 'https://us-central1-lumix-financas-app.cloudfunctions.net';
 
         
         let allCollectors = [];
@@ -1404,6 +1435,8 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
         let allCapitalInjections = [];
         let allInsuranceWithdrawals = []; // Memoria para los retiros de seguro
         let allAdminExpenses = []; // Memoria para Gastos Administrativos
+        let allSubadmins = [];
+        let allSubadminAudits = [];
         let adminExpensesReady = false; 
 
         let collectorsReady = false;
@@ -1417,6 +1450,12 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
         let reportChartInstance = null;
 
         let currentAdmin = { id: 'admin', name: 'Administrador', profilePic: '' };
+        let currentUserRole = null;
+        let currentSubadminData = null;
+        let authorizedCollectorIds = [];
+        let subadminAccessInitialized = false;
+        let activeDataUnsubscribes = [];
+        let subadminAccessRetryTimer = null;
         let currentLang = localStorage.getItem('adminLanguage') || 'pt';
         let mapInstance = null;
         /* === NUEVA FUNCIÓN DE NORMALIZACIÓN DE COORDENADAS === */
@@ -2372,7 +2411,237 @@ function extractCoords(input) {
 
 // ... código existente ...
 
+        function hasSubadminPermission(permission) {
+            return currentUserRole === 'subadmin' && currentSubadminData?.permissions?.[permission] === true;
+        }
+
+        function applyRoleUi() {
+            const isSubadmin = currentUserRole === 'subadmin';
+            document.body.classList.toggle('subadmin-mode', isSubadmin);
+            const permissionClasses = {
+                'subadmin-can-manage-collectors': 'manageCollectors',
+                'subadmin-can-edit-clients': 'editClients',
+                'subadmin-can-manage-admin-expenses': 'manageAdminExpenses',
+                'subadmin-can-create-injections': 'createCapitalInjections',
+                'subadmin-can-create-withdrawals': 'createCapitalWithdrawals',
+            };
+            Object.entries(permissionClasses).forEach(([className, permission]) => {
+                document.body.classList.toggle(className, isSubadmin && hasSubadminPermission(permission));
+            });
+            if (!isSubadmin) return;
+
+            if (!document.getElementById('subadmin-readonly-styles')) {
+                const style = document.createElement('style');
+                style.id = 'subadmin-readonly-styles';
+                style.textContent = `
+                    body.subadmin-mode:not(.subadmin-can-manage-collectors) #addCollectorBtn,
+                    body.subadmin-mode:not(.subadmin-can-manage-collectors) #editCollectorBtn,
+                    body.subadmin-mode:not(.subadmin-can-manage-collectors) #saveCollectorBtn,
+                    body.subadmin-mode:not(.subadmin-can-manage-collectors) #collectorFormModal,
+                    body.subadmin-mode:not(.subadmin-can-edit-clients) #editClientBtn,
+                    body.subadmin-mode:not(.subadmin-can-edit-clients) #saveClientBtn,
+                    body.subadmin-mode:not(.subadmin-can-edit-clients) #clientFormModal,
+                    body.subadmin-mode:not(.subadmin-can-create-withdrawals) #register-settlement-btn,
+                    body.subadmin-mode:not(.subadmin-can-create-withdrawals) #confirm-settlement-btn,
+                    body.subadmin-mode:not(.subadmin-can-create-injections) #add-capital-injection-btn,
+                    body.subadmin-mode:not(.subadmin-can-manage-admin-expenses) #save-admin-exp-btn,
+                    body.subadmin-mode:not(.subadmin-can-manage-admin-expenses) #save-edit-admin-exp,
+                    body.subadmin-mode #deleteCollectorBtn,
+                    body.subadmin-mode #reportCollectorBtn,
+                    body.subadmin-mode #open-trash-btn,
+                    body.subadmin-mode #deleteClientBtn,
+                    body.subadmin-mode #approve-settlement-btn,
+                    body.subadmin-mode #reject-settlement-btn,
+                    body.subadmin-mode #approve-refinance-btn,
+                    body.subadmin-mode #reject-refinance-btn,
+                    body.subadmin-mode #delete-payment-btn,
+                    body.subadmin-mode #confirm-delete-btn,
+                    body.subadmin-mode #confirm-report-btn,
+                    body.subadmin-mode #save-edit-exp,
+                    body.subadmin-mode #submit-post-btn,
+                    body.subadmin-mode #save-settings-btn,
+                    body.subadmin-mode #clear-chat-btn,
+                    body.subadmin-mode .delete-alert-btn,
+                    body.subadmin-mode .btn-edit-fine,
+                    body.subadmin-mode #clientDetailModal .chat-input-area,
+                    body.subadmin-mode .admin-only-section,
+                    body.subadmin-mode #profile-view .settings-section:not(.subadmin-visible-section),
+                    body.subadmin-mode #profile-view .admin-only-profile-heading,
+                    body.subadmin-mode #profile-view .admin-profile-actions,
+                    body.subadmin-mode #collectorDetailView .toggle-switch {
+                        display: none !important;
+                    }
+                    body.subadmin-mode #profile-view .profile-pic-wrapper {
+                        pointer-events: none;
+                        cursor: default;
+                    }
+                    body.subadmin-mode #profile-view .profile-pic-wrapper::after {
+                        display: none;
+                    }
+                    body.subadmin-mode .readonly-role-badge {
+                        display: inline-flex;
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+
+            const headerControls = document.querySelector('.header-controls');
+            if (headerControls && !headerControls.querySelector('.readonly-role-badge')) {
+                const badge = document.createElement('span');
+                badge.className = 'readonly-role-badge';
+                badge.style.cssText = 'font-size:.75rem;font-weight:700;padding:5px 9px;border-radius:999px;background:rgba(59,130,246,.16);color:var(--accent-blue);';
+                headerControls.prepend(badge);
+            }
+            const badge = headerControls?.querySelector('.readonly-role-badge');
+            if (badge) {
+                const permissionCount = SUBADMIN_PERMISSION_DEFINITIONS
+                    .filter(item => hasSubadminPermission(item.key)).length;
+                badge.textContent = permissionCount > 0
+                    ? `Sócio Admin · ${permissionCount} permissão(ões)`
+                    : 'Sócio Admin · somente leitura';
+            }
+            updateAccountProfileView();
+        }
+
+        function renderSubadminEmptyState() {
+            if (currentUserRole !== 'subadmin' || authorizedCollectorIds.length > 0) return;
+            const container = document.getElementById('collectors-list');
+            if (!container) return;
+            container.innerHTML = `
+                <div class="kpi-card" style="text-align:center; padding:30px; grid-column:1/-1;">
+                    <i data-lucide="route-off" style="width:44px;height:44px;color:var(--text-secondary);"></i>
+                    <h3 style="margin:12px 0 6px;">Nenhum cobrador vinculado</h3>
+                    <p style="margin:0;color:var(--text-secondary);">Solicite ao administrador principal que vincule uma rota ao seu acesso.</p>
+                </div>`;
+            lucide.createIcons();
+        }
+
+        function splitIntoChunks(values, size = 30) {
+            const chunks = [];
+            for (let index = 0; index < values.length; index += size) {
+                chunks.push(values.slice(index, index + size));
+            }
+            return chunks;
+        }
+
+        function clearDataListeners() {
+            if (subadminAccessRetryTimer) {
+                clearTimeout(subadminAccessRetryTimer);
+                subadminAccessRetryTimer = null;
+            }
+            activeDataUnsubscribes.forEach(unsubscribe => {
+                try { unsubscribe(); } catch (error) { console.warn('Falha ao encerrar listener:', error); }
+            });
+            activeDataUnsubscribes = [];
+        }
+
+        function clearSessionData() {
+            clearDataListeners();
+
+            allCollectors = [];
+            allClients = [];
+            allExpenses = [];
+            allCommunityPosts = [];
+            allSettlements = [];
+            allCapitalInjections = [];
+            allInsuranceWithdrawals = [];
+            allAdminExpenses = [];
+            allSubadmins = [];
+            allSubadminAudits = [];
+            calculatedCollectorMetrics = new Map();
+            calculatedGlobalMetrics = {};
+            globalSettings = {};
+
+            collectorsReady = false;
+            clientsReady = false;
+            expensesReady = false;
+            settlementsReady = false;
+            capitalInjectionsReady = false;
+            adminExpensesReady = false;
+
+            Object.values(collectorMarkers).forEach(marker => marker?.remove?.());
+            collectorMarkers = {};
+            Object.values(window.clientMarkers || {}).forEach(marker => marker?.remove?.());
+            window.clientMarkers = {};
+            if (mapInstance) {
+                mapInstance.remove();
+                mapInstance = null;
+            }
+            if (reportChartInstance) {
+                reportChartInstance.destroy();
+                reportChartInstance = null;
+            }
+
+            ['collectorDetailView', 'clientDetailModal'].forEach(id => {
+                const modal = document.getElementById(id);
+                if (!modal) return;
+                modal.classList.remove('active');
+                modal.replaceChildren();
+            });
+
+            currentCompanyId = null;
+            currentCompanyData = null;
+            currentAdmin = { id: 'admin', name: 'Administrador', profilePic: '' };
+            currentUserRole = null;
+            currentSubadminData = null;
+            authorizedCollectorIds = [];
+            subadminAccessInitialized = false;
+        }
+
+        function listenToMergedQueries(queries, onDocuments, onError = null) {
+            const snapshotsByQuery = new Map();
+            const unsubscribes = queries.map((queryRef, index) => onSnapshot(queryRef, snapshot => {
+                snapshotsByQuery.set(index, snapshot.docs);
+                if (snapshotsByQuery.size !== queries.length) return;
+                const uniqueDocuments = new Map();
+                snapshotsByQuery.forEach(documents => {
+                    documents.forEach(documentSnapshot => uniqueDocuments.set(documentSnapshot.ref.path, documentSnapshot));
+                });
+                onDocuments([...uniqueDocuments.values()]);
+            }, error => {
+                console.error('Falha em consulta segmentada:', error);
+                if (onError) onError(error);
+            }));
+            activeDataUnsubscribes.push(...unsubscribes);
+            return unsubscribes;
+        }
+
+        function watchSubadminAccess() {
+            if (currentUserRole !== 'subadmin' || !auth.currentUser) return;
+            if (subadminAccessRetryTimer) {
+                clearTimeout(subadminAccessRetryTimer);
+                subadminAccessRetryTimer = null;
+            }
+            const accessRef = doc(db, 'companies', currentCompanyId, 'subadmins', auth.currentUser.uid);
+            const unsubscribe = onSnapshot(accessRef, async snapshot => {
+                if (!snapshot.exists() || snapshot.data().status !== 'active') {
+                    showBlockedView('Seu acesso de Sócio Admin foi desativado.');
+                    await signOut(auth);
+                    return;
+                }
+                const newIds = [...new Set(snapshot.data().assignedCollectorIds || [])].sort();
+                const newPermissions = normalizedSubadminPermissions(snapshot.data().permissions);
+                const currentPermissions = normalizedSubadminPermissions(currentSubadminData?.permissions);
+                const changed = JSON.stringify(newIds) !== JSON.stringify(authorizedCollectorIds)
+                    || JSON.stringify(newPermissions) !== JSON.stringify(currentPermissions);
+                if (subadminAccessInitialized && changed) {
+                    window.location.reload();
+                    return;
+                }
+                subadminAccessInitialized = true;
+            }, error => {
+                console.error('Falha temporária ao acompanhar o acesso do subadministrador:', error);
+                showToast('Conexão instável. Seu acesso será verificado novamente sem encerrar a sessão.', true);
+                subadminAccessRetryTimer = setTimeout(() => {
+                    subadminAccessRetryTimer = null;
+                    watchSubadminAccess();
+                }, 5000);
+            });
+            activeDataUnsubscribes.push(unsubscribe);
+        }
+
         function showMainApp() {
+            clearDataListeners();
             document.getElementById('login-view').style.display = 'none';
             document.getElementById('splash-screen').style.display = 'none';
             document.getElementById('app-container').style.display = 'flex';
@@ -2393,6 +2662,7 @@ function extractCoords(input) {
             // 5. [CORRECCIÓN CLAVE] Aplicar Idioma INMEDIATAMENTE
             // Esto asegura que el menú inferior tenga texto desde el inicio
             applyLanguage(currentLang);
+            applyRoleUi();
             
             // 6. Mostrar la vista inicial
             const initialView = location.hash.substring(1) || 'dashboard';
@@ -2400,18 +2670,48 @@ function extractCoords(input) {
 
             // --- Carga de Datos (Listeners) ---
 
-            const collectorsQuery = query(collection(db, 'collectors'), where('companyId', '==', currentCompanyId));
-            onSnapshot(collectorsQuery, snapshot => {
-                allCollectors = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            const hasAuthorizedCollectors = currentUserRole !== 'subadmin' || authorizedCollectorIds.length > 0;
+            if (!hasAuthorizedCollectors) {
+                allCollectors = [];
+                allClients = [];
+                allAdminExpenses = [];
+                allExpenses = [];
+                allSettlements = [];
+                allInsuranceWithdrawals = [];
+                allCapitalInjections = [];
+                collectorsReady = true;
+                clientsReady = true;
+                adminExpensesReady = true;
+                expensesReady = true;
+                settlementsReady = true;
+                capitalInjectionsReady = true;
+                checkAndRunGlobalUpdate();
+                renderSubadminEmptyState();
+            } else {
+            const collectorQueries = currentUserRole === 'subadmin'
+                ? splitIntoChunks(authorizedCollectorIds).map(ids => query(collection(db, 'collectors'), where(documentId(), 'in', ids)))
+                : [query(collection(db, 'collectors'), where('companyId', '==', currentCompanyId))];
+            listenToMergedQueries(collectorQueries, documents => {
+                allCollectors = documents.map(doc => ({ id: doc.id, ...doc.data() }));
                 
                 collectorsReady = true; 
                 checkAndRunGlobalUpdate(); 
 
                 updateCollectorMarkers();
+                if (currentUserRole === 'admin') renderSubadminsView();
+
+                const collectorView = document.getElementById('collectorDetailView');
+                if (collectorView?.classList.contains('active')) {
+                    const currentCollectorId = collectorView.querySelector('#editCollectorBtn')?.dataset.collectorId;
+                    if (currentCollectorId) showCollectorDetails(currentCollectorId);
+                }
             });
 
-            onSnapshot(collection(db, 'companies', currentCompanyId, 'clients'), snapshot => {
-                allClients = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            const clientQueries = currentUserRole === 'subadmin'
+                ? splitIntoChunks(authorizedCollectorIds).map(ids => query(collection(db, 'companies', currentCompanyId, 'clients'), where('collectorId', 'in', ids)))
+                : [collection(db, 'companies', currentCompanyId, 'clients')];
+            listenToMergedQueries(clientQueries, documents => {
+                allClients = documents.map(doc => ({ id: doc.id, ...doc.data() }));
                  
                 // Procesamiento de datos
                 allClients.forEach(client => {
@@ -2495,14 +2795,20 @@ function extractCoords(input) {
                 }
             });
             
-            onSnapshot(collection(db, 'companies', currentCompanyId, 'adminExpenses'), snapshot => {
-                allAdminExpenses = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            const adminExpenseQueries = currentUserRole === 'subadmin'
+                ? splitIntoChunks(authorizedCollectorIds).map(ids => query(collection(db, 'companies', currentCompanyId, 'adminExpenses'), where('collectorId', 'in', ids)))
+                : [collection(db, 'companies', currentCompanyId, 'adminExpenses')];
+            listenToMergedQueries(adminExpenseQueries, documents => {
+                allAdminExpenses = documents.map(doc => ({ id: doc.id, ...doc.data() }));
                 adminExpensesReady = true; 
                 if (collectorsReady && clientsReady) checkAndRunGlobalUpdate(); 
             });
 
-            onSnapshot(collection(db, 'companies', currentCompanyId, 'expenses'), snapshot => {
-                allExpenses = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            const expenseQueries = currentUserRole === 'subadmin'
+                ? splitIntoChunks(authorizedCollectorIds).map(ids => query(collection(db, 'companies', currentCompanyId, 'expenses'), where('collectorId', 'in', ids)))
+                : [collection(db, 'companies', currentCompanyId, 'expenses')];
+            listenToMergedQueries(expenseQueries, documents => {
+                allExpenses = documents.map(doc => ({ id: doc.id, ...doc.data() }));
                 expensesReady = true; 
                 checkAndRunGlobalUpdate(); 
                 
@@ -2514,8 +2820,11 @@ function extractCoords(input) {
                 }
             });
 
-            onSnapshot(collection(db, 'companies', currentCompanyId, 'settlements'), snapshot => {
-                allSettlements = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            const settlementQueries = currentUserRole === 'subadmin'
+                ? splitIntoChunks(authorizedCollectorIds).map(ids => query(collection(db, 'companies', currentCompanyId, 'settlements'), where('collectorId', 'in', ids)))
+                : [collection(db, 'companies', currentCompanyId, 'settlements')];
+            listenToMergedQueries(settlementQueries, documents => {
+                allSettlements = documents.map(doc => ({ id: doc.id, ...doc.data() }));
                 settlementsReady = true; 
                 checkAndRunGlobalUpdate(); 
                 const detailView = document.getElementById('collectorDetailView');
@@ -2526,21 +2835,33 @@ function extractCoords(input) {
             });
                 
                  // --- NUEVO: ESCUCHAR RETIROS DE MICRO SEGURO (FALTABA ESTO) ---
-            onSnapshot(collection(db, 'companies', currentCompanyId, 'insuranceWithdrawals'), snapshot => {
-                allInsuranceWithdrawals = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            const insuranceWithdrawalQueries = currentUserRole === 'subadmin'
+                ? splitIntoChunks(authorizedCollectorIds).map(ids => query(collection(db, 'companies', currentCompanyId, 'insuranceWithdrawals'), where('collectorId', 'in', ids)))
+                : [collection(db, 'companies', currentCompanyId, 'insuranceWithdrawals')];
+            listenToMergedQueries(insuranceWithdrawalQueries, documents => {
+                allInsuranceWithdrawals = documents.map(doc => ({ id: doc.id, ...doc.data() }));
                 // Forzamos el recálculo para que la tarjeta azul se actualice
                 if (collectorsReady && clientsReady) checkAndRunGlobalUpdate(); 
             });
 
 
-            onSnapshot(collection(db, 'companies', currentCompanyId, 'capitalInjections'), snapshot => {
-                allCapitalInjections = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            const capitalInjectionQueries = currentUserRole === 'subadmin'
+                ? splitIntoChunks(authorizedCollectorIds).map(ids => query(collection(db, 'companies', currentCompanyId, 'capitalInjections'), where('collectorId', 'in', ids)))
+                : [collection(db, 'companies', currentCompanyId, 'capitalInjections')];
+            listenToMergedQueries(capitalInjectionQueries, documents => {
+                allCapitalInjections = documents.map(doc => ({ id: doc.id, ...doc.data() }));
                 capitalInjectionsReady = true; 
-                checkAndRunGlobalUpdate(); 
+                checkAndRunGlobalUpdate();
+                const detailView = document.getElementById('collectorDetailView');
+                if (detailView?.classList.contains('active')) {
+                    const collectorId = detailView.querySelector('#editCollectorBtn')?.dataset.collectorId;
+                    if (collectorId) showCollectorDetails(collectorId);
+                }
             }, (error) => {
                 console.error("Error al obtener aportes de capital: ", error);
                 showToast('Falha ao carregar dados de aportes de capital.', true);
             });
+            }
 
             // Configuración del Perfil con Datos de la Empresa
             const logoUrl = currentCompanyData.plan?.companyLogo || DEFAULT_LOGO_URL;
@@ -2560,13 +2881,18 @@ function extractCoords(input) {
 
             currentAdmin.name = currentCompanyData.owner?.name || companyName;
 
-            const postsQuery = query(collection(db, 'communityPosts'), orderBy('createdAt', 'desc'));
-            onSnapshot(postsQuery, (snapshot) => {
-                allCommunityPosts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                if (document.getElementById('community-view')?.classList.contains('active')) {
-                    renderCommunityView();
-                }
-            });
+            if (currentUserRole === 'admin') {
+                const postsQuery = query(collection(db, 'communityPosts'), orderBy('createdAt', 'desc'));
+                const unsubscribe = onSnapshot(postsQuery, (snapshot) => {
+                    allCommunityPosts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    if (document.getElementById('community-view')?.classList.contains('active')) {
+                        renderCommunityView();
+                    }
+                });
+                activeDataUnsubscribes.push(unsubscribe);
+            }
+            startSubadminManagementListener();
+            watchSubadminAccess();
         }
 
         
@@ -2611,15 +2937,6 @@ function extractCoords(input) {
             // --- RECOLECTAR ALERTAS Y CALCULAR PRÉSTAMOS SEMANALES ---
             let clientsWithAlerts = [];
             
-            // Lógica para calcular préstamos de la semana
-            let weeklyLoansAmount = 0;
-            let weeklyInterestAmount = 0;
-            let weeklyLoansDetails = [];
-            const todayForLoans = new Date();
-            todayForLoans.setHours(0,0,0,0);
-            const weekStartForLoans = new Date(todayForLoans);
-            weekStartForLoans.setDate(weekStartForLoans.getDate() - weekStartForLoans.getDay()); // Domingo como inicio de semana
-
             const clients = allClients.filter(c => c.collectorId === collectorId); 
             clients.forEach(c => {
                 // Alertas
@@ -2630,27 +2947,12 @@ function extractCoords(input) {
                         });
                     }
                     
-                    // Cálculo de Préstamos Semanales
-                    if (l.startDate && l.startDate.seconds) {
-                        const loanDate = new Date(l.startDate.seconds * 1000);
-                        // Si el préstamo se hizo esta semana (y no es migración)
-                        if (loanDate >= weekStartForLoans && !l.migrationDate) {
-                            let principal = parseFloat(l.principalAmount);
-                            if (isNaN(principal) && l.totalLoan) {
-                                // Estimación segura si no existe el capital explícito
-                                const rate = parseFloat(c.interestRate) || 20; 
-                                principal = parseFloat(l.totalLoan) / (1 + (rate / 100));
-                            }
-                            weeklyLoansAmount += (principal || 0);
-                            weeklyLoansDetails.push({ name: c.name, amount: (principal || 0) });
-                            // Calcular ganancia de interés
-                            let totalVal = parseFloat(l.totalLoan) || 0;
-                            let interestVal = totalVal - (principal || 0);
-                            weeklyInterestAmount += interestVal;
-                        }
-                    }
                 });
             });
+            const weeklyMetrics = calculateWeeklyLoanMetrics(allClients, collectorId);
+            const weeklyLoansAmount = weeklyMetrics.loansAmount;
+            const weeklyInterestAmount = weeklyMetrics.interestAmount;
+            const weeklyLoansDetails = weeklyMetrics.details;
 
             // --- LISTA DE CLIENTES ---
             let clientsListHtml = '';
@@ -2800,7 +3102,7 @@ function extractCoords(input) {
             const dateStr = op.date?.seconds ? new Date(op.date.seconds * 1000).toLocaleDateString() : '--/--';
             
             // Botón de editar SOLO si es gasto
-            const editButton = op.canEdit 
+            const editButton = op.canEdit && currentUserRole === 'admin'
                 ? `<button onclick="window.editExpense('${op.id}', '${op.val}', '${op.description || ''}')" style="background:none; border:none; color:var(--text-secondary); cursor:pointer; text-decoration:underline; font-size:0.75em; margin-left:8px;">(Editar)</button>` 
                 : '';
 
@@ -2854,7 +3156,7 @@ function extractCoords(input) {
                     <!-- CAPITAL EN MANOS (Bordes Dobles Verdes) -->
                     <div class="kpi-card" style="margin-bottom: 20px; text-align: center; border-color: var(--border-color); border-left: 4px solid var(--accent-green); border-right: 4px solid var(--accent-green);">
                         <h3 class="kpi-title" style="justify-content: center; color: var(--accent-green);" data-lang-key="capitalOnHand"><i data-lucide="banknote"></i></h3>
-                        <p class="kpi-value" id="kpi-capital-total" style="color: var(--accent-green); font-size: 2em;">${money(capitalOnHand)}</p>
+                        <p class="kpi-value" id="collector-detail-capital-on-hand" style="color: var(--accent-green); font-size: 2em;">${money(capitalOnHand)}</p>
                     </div>
                     <!-- META DE RECAUDO (Bordes Dobles Cian) -->
 <div class="kpi-card" style="margin-bottom: 20px; text-align: center; border-left: 4px solid #00d2ff; border-right: 4px solid #00d2ff; background-color: color-mix(in srgb, #00d2ff 5%, var(--card-bg));">
@@ -2919,7 +3221,7 @@ function extractCoords(input) {
                     </div>
 
                     <!-- TARJETA SEGURIDAD (Bordes Dobles Grises) -->
-                    <div class="kpi-card" style="margin-bottom: 30px; border-left: 4px solid var(--text-secondary); border-right: 4px solid var(--text-secondary);">
+                    <div class="kpi-card admin-only-section" style="margin-bottom: 30px; border-left: 4px solid var(--text-secondary); border-right: 4px solid var(--text-secondary);">
                         <h3 class="kpi-title" style="margin-bottom: 15px; color: var(--text-primary);">
                             <i data-lucide="lock"></i> <span data-lang-key="securitySettings">Segurança</span>
                         </h3>
@@ -2972,7 +3274,7 @@ function extractCoords(input) {
                     </div>
 
                     <!-- SECCIÓN ALERTAS (Bordes Dobles Rojos) -->
-                    <div class="kpi-card" style="margin-bottom: 30px; background-color: var(--surface); border-left: 4px solid #dc3545; border-right: 4px solid #dc3545;">
+                    <div class="kpi-card admin-only-section" style="margin-bottom: 30px; background-color: var(--surface); border-left: 4px solid #dc3545; border-right: 4px solid #dc3545;">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">
                             <h3 class="kpi-title" style="color: #dc3545; margin: 0; font-size: 1em;"><i data-lucide="bell-ring"></i> ${alertTitle}</h3>
                             <span style="background-color: #dc3545; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.8em; font-weight: 700;">${clientsWithAlerts.length}</span>
@@ -2987,7 +3289,7 @@ function extractCoords(input) {
                     </div>
 
                     <!-- SECCIÓN GESTIÓN MULTAS (Bordes Dobles Ambar) -->
-                    <div class="kpi-card" style="margin-bottom: 30px; background-color: var(--surface); border-left: 4px solid #f59e0b; border-right: 4px solid #f59e0b;">
+                    <div class="kpi-card admin-only-section" style="margin-bottom: 30px; background-color: var(--surface); border-left: 4px solid #f59e0b; border-right: 4px solid #f59e0b;">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">
                             <h3 class="kpi-title" style="color: #f59e0b; margin: 0; font-size: 1em;"><i data-lucide="gavel"></i> ${t.fineManagerTitle || 'Gestão de Multas'}</h3>
                         </div>
@@ -3540,7 +3842,491 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
 
 
         
+        function escapeHtml(value) {
+            return String(value ?? '')
+                .replaceAll('&', '&amp;')
+                .replaceAll('<', '&lt;')
+                .replaceAll('>', '&gt;')
+                .replaceAll('"', '&quot;')
+                .replaceAll("'", '&#039;');
+        }
+
+        async function callAdminFunction(functionName, data) {
+            if (!['admin', 'subadmin'].includes(currentUserRole) || !auth.currentUser) {
+                throw new Error('Sessão administrativa inválida.');
+            }
+            const idToken = await auth.currentUser.getIdToken(false);
+            const response = await fetch(`${adminFunctionsBaseUrl}/${functionName}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${idToken}`,
+                },
+                body: JSON.stringify({ data }),
+            });
+            const payload = await response.json().catch(() => ({}));
+            if (!response.ok || payload.error) {
+                throw new Error(payload.error?.message || 'A operação não pôde ser concluída.');
+            }
+            return payload.result || payload.data || {};
+        }
+
+        function applyCollectorCapacity(capacity) {
+            if (!currentCompanyData || !capacity) return;
+            currentCompanyData.plan = currentCompanyData.plan || {};
+            currentCompanyData.plan.type = capacity.planType || currentCompanyData.plan.type || 'pro';
+            currentCompanyData.plan.collectorLimit = capacity.unlimited ? -1 : Number(capacity.limit);
+            currentCompanyData.plan.collectorUsed = Number(capacity.used) || 0;
+            currentCompanyData.plan.collectorRemaining = capacity.unlimited
+                ? null
+                : Math.max(0, Number(capacity.remaining) || 0);
+            currentCompanyData.plan.collectorCapacityAvailable = true;
+        }
+
+        function startSubadminManagementListener() {
+            if (currentUserRole !== 'admin') return;
+            const subadminsUnsubscribe = onSnapshot(
+                collection(db, 'companies', currentCompanyId, 'subadmins'),
+                (snapshot) => {
+                    allSubadmins = snapshot.docs.map(item => ({ id: item.id, ...item.data() }));
+                    renderSubadminsView();
+                    renderSubadminAudit();
+                },
+                (error) => {
+                    console.error('Falha ao carregar subadministradores:', error);
+                    showToast('Não foi possível carregar os Sócios Admin.', true);
+                },
+            );
+            const auditUnsubscribe = onSnapshot(
+                query(collection(db, 'companies', currentCompanyId, 'subadminAudit'), orderBy('createdAt', 'desc')),
+                (snapshot) => {
+                    allSubadminAudits = snapshot.docs.map(item => ({ id: item.id, ...item.data() }));
+                    renderSubadminAudit();
+                },
+                (error) => {
+                    console.error('Falha ao carregar auditoria dos subadministradores:', error);
+                    const container = document.getElementById('subadmin-audit-list');
+                    if (container) container.innerHTML = '<p style="color:var(--danger-color);">Não foi possível carregar o histórico.</p>';
+                },
+            );
+            activeDataUnsubscribes.push(subadminsUnsubscribe, auditUnsubscribe);
+        }
+
+        function collectorAssignmentOwner(collectorId, ignoredUid = null) {
+            return allSubadmins.find(subadmin =>
+                subadmin.id !== ignoredUid &&
+                Array.isArray(subadmin.assignedCollectorIds) &&
+                subadmin.assignedCollectorIds.includes(collectorId)
+            ) || null;
+        }
+
+        const SUBADMIN_PERMISSION_DEFINITIONS = [
+            {
+                key: 'manageCollectors',
+                label: 'Criar e editar cobradores',
+                description: 'Pode cadastrar cobradores, redefinir suas senhas e editar somente os cobradores vinculados.',
+            },
+            {
+                key: 'editClients',
+                label: 'Editar clientes',
+                description: 'Pode editar dados e condições dos clientes pertencentes aos cobradores vinculados.',
+            },
+            {
+                key: 'manageAdminExpenses',
+                label: 'Registrar e editar gastos administrativos',
+                description: 'Pode registrar e editar gastos dos cobradores vinculados, mas nunca excluir.',
+            },
+            {
+                key: 'createCapitalInjections',
+                label: 'Fazer aportes de capital',
+                description: 'Lança aportes imediatos e auditados somente nos caixas vinculados.',
+                financial: true,
+            },
+            {
+                key: 'createCapitalWithdrawals',
+                label: 'Fazer retiradas de capital',
+                description: 'Lança retiradas imediatas e auditadas somente nos caixas vinculados.',
+                financial: true,
+            },
+        ];
+
+        const SUBADMIN_PROFILE_ACTIONS = {
+            manageCollectors: { label: 'Gerenciar cobradores', icon: 'users', view: 'dashboard' },
+            editClients: { label: 'Editar clientes vinculados', icon: 'contact-round', view: 'dashboard' },
+            manageAdminExpenses: { label: 'Gastos administrativos', icon: 'receipt-text', view: 'admin-expenses' },
+            createCapitalInjections: { label: 'Fazer aporte de capital', icon: 'circle-plus', view: 'dashboard' },
+            createCapitalWithdrawals: { label: 'Fazer retirada de capital', icon: 'circle-minus', view: 'dashboard' },
+        };
+
+        function updateAccountProfileView() {
+            const isSubadmin = currentUserRole === 'subadmin';
+            const roleTitle = document.getElementById('profile-role-title');
+            const roleSubtitle = document.getElementById('profile-role-subtitle');
+            const panel = document.getElementById('subadmin-account-panel');
+            if (roleTitle) roleTitle.textContent = isSubadmin ? 'Sócio Admin' : 'Administrador';
+            if (roleSubtitle) roleSubtitle.textContent = isSubadmin ? 'Conta e permissões' : 'Painel de Controle';
+            if (!panel) return;
+            panel.hidden = !isSubadmin;
+            if (!isSubadmin) return;
+
+            const accountName = panel.querySelector('#subadmin-account-name');
+            const accountEmail = panel.querySelector('#subadmin-account-email');
+            if (accountName) accountName.textContent = currentSubadminData?.name || currentAdmin.name || 'Sócio Admin';
+            if (accountEmail) accountEmail.textContent = currentSubadminData?.email || auth.currentUser?.email || '';
+
+            const actionsContainer = panel.querySelector('#subadmin-permitted-actions');
+            if (!actionsContainer) return;
+            actionsContainer.replaceChildren();
+            const enabledPermissions = SUBADMIN_PERMISSION_DEFINITIONS.filter(item => hasSubadminPermission(item.key));
+            if (enabledPermissions.length === 0) {
+                const emptyState = document.createElement('p');
+                emptyState.style.cssText = 'margin:0;color:var(--text-secondary);line-height:1.5;';
+                emptyState.textContent = 'Este perfil possui acesso somente para visualização.';
+                actionsContainer.appendChild(emptyState);
+            } else {
+                enabledPermissions.forEach(permission => {
+                    const action = SUBADMIN_PROFILE_ACTIONS[permission.key];
+                    const button = document.createElement('button');
+                    button.type = 'button';
+                    button.className = 'btn-secondary';
+                    button.dataset.subadminProfileAction = permission.key;
+                    button.dataset.view = action.view;
+                    button.style.cssText = 'width:100%;justify-content:flex-start;text-align:left;';
+                    button.innerHTML = `<i data-lucide="${action.icon}"></i><span>${action.label}</span>`;
+                    actionsContainer.appendChild(button);
+                });
+            }
+            lucide.createIcons({ nodes: actionsContainer.querySelectorAll('[data-lucide]') });
+        }
+
+        function normalizedSubadminPermissions(value = {}) {
+            return Object.fromEntries(SUBADMIN_PERMISSION_DEFINITIONS.map(item => [item.key, value?.[item.key] === true]));
+        }
+
+        function renderSubadminsView() {
+            const container = document.getElementById('subadmins-list');
+            if (!container || currentUserRole !== 'admin') return;
+            if (allSubadmins.length === 0) {
+                container.innerHTML = `
+                    <div class="kpi-card" style="text-align:center; padding:30px;">
+                        <i data-lucide="shield-check" style="width:42px; height:42px; color:var(--accent-blue);"></i>
+                        <p style="margin:12px 0 0; color:var(--text-secondary);">Nenhum Sócio Admin cadastrado.</p>
+                    </div>`;
+                lucide.createIcons();
+                return;
+            }
+
+            container.innerHTML = [...allSubadmins]
+                .sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')))
+                .map(subadmin => {
+                    const collectorNames = (subadmin.assignedCollectorIds || []).map(collectorId => {
+                        const collector = allCollectors.find(item => item.id === collectorId);
+                        return collector?.name || collectorId;
+                    });
+                    const active = subadmin.status === 'active';
+                    const enabledPermissions = SUBADMIN_PERMISSION_DEFINITIONS
+                        .filter(item => subadmin.permissions?.[item.key] === true)
+                        .map(item => item.label);
+                    return `
+                        <article class="kpi-card" style="margin-bottom:12px; border-left:4px solid ${active ? 'var(--accent-green)' : 'var(--danger-color)'};">
+                            <div style="display:flex; justify-content:space-between; gap:12px; align-items:flex-start; flex-wrap:wrap;">
+                                <div style="min-width:0; flex:1;">
+                                    <h3 style="margin:0 0 4px; color:var(--text-primary);">${escapeHtml(subadmin.name || 'Sem nome')}</h3>
+                                    <p style="margin:0; color:var(--text-secondary); word-break:break-all;">${escapeHtml(subadmin.email || '')}</p>
+                                    <span style="display:inline-block; margin-top:8px; padding:4px 8px; border-radius:999px; font-size:.78rem; font-weight:700; background:${active ? 'rgba(16,185,129,.15)' : 'rgba(239,68,68,.15)'}; color:${active ? 'var(--accent-green)' : 'var(--danger-color)'};">
+                                        ${active ? 'ATIVO' : 'DESATIVADO'}
+                                    </span>
+                                </div>
+                                <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                                    <button class="btn-secondary" data-subadmin-action="edit" data-subadmin-uid="${escapeHtml(subadmin.id)}"><i data-lucide="pencil"></i> Editar</button>
+                                    <button class="btn-secondary" data-subadmin-action="status" data-subadmin-uid="${escapeHtml(subadmin.id)}" data-next-status="${active ? 'disabled' : 'active'}">
+                                        <i data-lucide="${active ? 'user-x' : 'user-check'}"></i> ${active ? 'Desativar' : 'Ativar'}
+                                    </button>
+                                </div>
+                            </div>
+                            <div style="margin-top:14px;">
+                                <strong style="font-size:.9rem;">Cobradores vinculados (${collectorNames.length})</strong>
+                                <p style="margin:5px 0 0; color:var(--text-secondary);">${collectorNames.length ? collectorNames.map(escapeHtml).join(', ') : 'Nenhum cobrador vinculado'}</p>
+                            </div>
+                            <div style="margin-top:12px;">
+                                <strong style="font-size:.9rem;">Permissões operacionais (${enabledPermissions.length})</strong>
+                                <p style="margin:5px 0 0; color:var(--text-secondary);">${enabledPermissions.length ? enabledPermissions.map(escapeHtml).join(', ') : 'Somente visualização'}</p>
+                            </div>
+                        </article>`;
+                }).join('');
+            lucide.createIcons();
+        }
+
+        function renderSubadminAudit() {
+            const container = document.getElementById('subadmin-audit-list');
+            if (!container || currentUserRole !== 'admin') return;
+            if (allSubadminAudits.length === 0) {
+                container.innerHTML = '<p style="margin:0; color:var(--text-secondary);">Nenhuma alteração registrada.</p>';
+                return;
+            }
+
+            const actionLabels = {
+                'subadmin.created': 'Sócio Admin criado',
+                'subadmin.updated': 'Dados atualizados',
+                'subadmin.assignments.updated': 'Vínculos atualizados',
+                'subadmin.permissions.updated': 'Permissões atualizadas',
+                'subadmin.permissions.migrated': 'Permissões antigas migradas',
+                'subadmin.password.reset': 'Senha redefinida',
+                'subadmin.status.updated': 'Status alterado',
+                'collector.deleted': 'Cobrador excluído',
+            };
+            const collectorNames = (ids = []) => ids.map(collectorId =>
+                allCollectors.find(item => item.id === collectorId)?.name || collectorId
+            ).join(', ') || 'Nenhum';
+            const describeChange = (audit) => {
+                const before = audit.before || {};
+                const after = audit.after || {};
+                if (audit.action === 'subadmin.created') {
+                    const permissions = SUBADMIN_PERMISSION_DEFINITIONS
+                        .filter(item => after.permissions?.[item.key] === true)
+                        .map(item => item.label)
+                        .join(', ') || 'somente visualização';
+                    return `Criado como ${after.name || 'sem nome'} (${after.email || 'sem e-mail'}), com: ${collectorNames(after.assignedCollectorIds)}. Permissões: ${permissions}.`;
+                }
+                if (audit.action === 'subadmin.updated') {
+                    const changes = [];
+                    if (before.name !== after.name || before.email !== after.email) {
+                        changes.push(`${before.name || before.email || 'Cadastro'} → ${after.name || after.email || 'Cadastro atualizado'}.`);
+                    }
+                    if (JSON.stringify(before.assignedCollectorIds || []) !== JSON.stringify(after.assignedCollectorIds || [])) {
+                        changes.push(`Vínculos: ${collectorNames(before.assignedCollectorIds)} → ${collectorNames(after.assignedCollectorIds)}.`);
+                    }
+                    const beforePermissions = normalizedSubadminPermissions(before.permissions);
+                    const afterPermissions = normalizedSubadminPermissions(after.permissions);
+                    const permissionChanges = SUBADMIN_PERMISSION_DEFINITIONS
+                        .filter(item => beforePermissions[item.key] !== afterPermissions[item.key])
+                        .map(item => `${item.label}: ${afterPermissions[item.key] ? 'concedida' : 'revogada'}`);
+                    if (permissionChanges.length) changes.push(`Permissões: ${permissionChanges.join(', ')}.`);
+                    return changes.join(' ') || 'Cadastro salvo sem alterações de conteúdo.';
+                }
+                if (audit.action === 'subadmin.assignments.updated') {
+                    return `Antes: ${collectorNames(before.assignedCollectorIds)}. Depois: ${collectorNames(after.assignedCollectorIds)}.`;
+                }
+                if (audit.action === 'subadmin.permissions.updated') {
+                    const beforePermissions = normalizedSubadminPermissions(before.permissions);
+                    const afterPermissions = normalizedSubadminPermissions(after.permissions);
+                    const granted = SUBADMIN_PERMISSION_DEFINITIONS
+                        .filter(item => !beforePermissions[item.key] && afterPermissions[item.key])
+                        .map(item => item.label);
+                    const revoked = SUBADMIN_PERMISSION_DEFINITIONS
+                        .filter(item => beforePermissions[item.key] && !afterPermissions[item.key])
+                        .map(item => item.label);
+                    return [
+                        granted.length ? `Concedidas: ${granted.join(', ')}.` : '',
+                        revoked.length ? `Revogadas: ${revoked.join(', ')}.` : '',
+                    ].filter(Boolean).join(' ') || 'Nenhuma permissão operacional foi alterada.';
+                }
+                if (audit.action === 'subadmin.permissions.migrated') {
+                    return `${after.migratedProfiles || 0} perfil(is) antigo(s) migrado(s) com permissões operacionais desativadas.`;
+                }
+                if (audit.action === 'subadmin.status.updated') {
+                    const statusLabels = {
+                        active: 'Ativo',
+                        disabled: 'Desativado',
+                    };
+                    return `${statusLabels[before.status] || before.status || 'Desconhecido'} → ${statusLabels[after.status] || after.status || 'Desconhecido'}.`;
+                }
+                if (audit.action === 'subadmin.password.reset') return 'Senha redefinida e sessões anteriores revogadas.';
+                if (audit.action === 'collector.deleted') {
+                    return `${before.collectorName || before.collectorId || 'Cobrador'} excluído; vínculos de Sócio Admin revogados.`;
+                }
+                return 'Alteração administrativa registrada.';
+            };
+
+            container.innerHTML = allSubadminAudits.slice(0, 50).map(audit => {
+                const target = allSubadmins.find(item => item.id === audit.targetUid);
+                const date = audit.createdAt?.toDate ? audit.createdAt.toDate() : null;
+                const dateLabel = date
+                    ? date.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })
+                    : 'Data pendente';
+                const actorLabel = audit.actorUid === currentAdmin.id
+                    ? (currentAdmin.name || 'Administrador atual')
+                    : (audit.actorUid || 'Administrador');
+                return `
+                    <article style="padding:12px 0; border-bottom:1px solid var(--border-color);">
+                        <div style="display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+                            <strong>${escapeHtml(actionLabels[audit.action] || audit.action || 'Alteração')}</strong>
+                            <time style="color:var(--text-secondary); font-size:.82rem;">${escapeHtml(dateLabel)}</time>
+                        </div>
+                        <p style="margin:5px 0; color:var(--text-secondary);">${escapeHtml(describeChange(audit))}</p>
+                        <small style="color:var(--text-secondary);">Alvo: ${escapeHtml(target?.name || audit.targetUid || 'Não identificado')} · Responsável: ${escapeHtml(actorLabel)}</small>
+                    </article>`;
+            }).join('');
+        }
+
+        function showSubadminModal(uid = null) {
+            if (currentUserRole !== 'admin') return;
+            const modal = document.getElementById('subadminModal');
+            const subadmin = uid ? allSubadmins.find(item => item.id === uid) : null;
+            if (uid && !subadmin) {
+                showToast('Sócio Admin não encontrado.', true);
+                return;
+            }
+
+            const selectedIds = new Set(subadmin?.assignedCollectorIds || []);
+            const selectedPermissions = normalizedSubadminPermissions(subadmin?.permissions);
+            const collectorOptions = [...allCollectors]
+                .sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')))
+                .map(collector => {
+                    const owner = collectorAssignmentOwner(collector.id, uid);
+                    const disabled = Boolean(owner);
+                    return `
+                        <label style="display:flex; align-items:flex-start; gap:10px; padding:10px; border:1px solid var(--border-color); border-radius:8px; opacity:${disabled ? '.55' : '1'};">
+                            <input type="checkbox" name="collectorIds" value="${escapeHtml(collector.id)}" ${selectedIds.has(collector.id) ? 'checked' : ''} ${disabled ? 'disabled' : ''} style="width:auto; margin-top:3px;">
+                            <span>
+                                <strong>${escapeHtml(collector.name || collector.id)}</strong>
+                                <small style="display:block; color:var(--text-secondary);">${disabled ? `Já vinculado a ${escapeHtml(owner.name || owner.email)}` : escapeHtml(collector.routeName || collector.id)}</small>
+                            </span>
+                        </label>`;
+                }).join('');
+            const permissionOptions = SUBADMIN_PERMISSION_DEFINITIONS.map(item => `
+                <label style="display:flex; align-items:flex-start; gap:10px; padding:12px; border:1px solid var(--border-color); border-radius:8px;">
+                    <input type="checkbox" name="permissions" value="${escapeHtml(item.key)}" ${selectedPermissions[item.key] ? 'checked' : ''} style="width:auto; margin-top:3px;">
+                    <span>
+                        <strong>${escapeHtml(item.label)}${item.financial ? ' · Financeira' : ''}</strong>
+                        <small style="display:block; margin-top:3px; color:var(--text-secondary);">${escapeHtml(item.description)}</small>
+                    </span>
+                </label>`).join('');
+
+            modal.innerHTML = `
+                <div class="modal-header">
+                    <button class="back-btn" data-subadmin-close><i data-lucide="arrow-left"></i></button>
+                    <h2>${subadmin ? 'Editar Sócio Admin' : 'Novo Sócio Admin'}</h2>
+                </div>
+                <div class="modal-content-wrapper container">
+                    <form id="subadmin-form" data-subadmin-uid="${escapeHtml(uid || '')}">
+                        <div class="form-group">
+                            <label for="subadmin-name">Nome completo</label>
+                            <input id="subadmin-name" name="name" required minlength="2" maxlength="120" value="${escapeHtml(subadmin?.name || '')}">
+                        </div>
+                        <div class="form-group">
+                            <label for="subadmin-email">E-mail de acesso</label>
+                            <input id="subadmin-email" name="email" type="email" required value="${escapeHtml(subadmin?.email || '')}">
+                        </div>
+                        <div class="form-group">
+                            <label for="subadmin-password">${subadmin ? 'Nova senha (opcional)' : 'Senha inicial'}</label>
+                            <input id="subadmin-password" name="password" type="password" minlength="6" ${subadmin ? '' : 'required'} autocomplete="new-password">
+                            <small style="color:var(--text-secondary);">Mínimo de 6 caracteres.</small>
+                        </div>
+                        <div class="form-group">
+                            <label>Cobradores</label>
+                            <p style="font-size:.85rem; color:var(--text-secondary); margin-top:0;">Cada cobrador pode pertencer a somente um Sócio Admin.</p>
+                            <div style="display:grid; gap:8px; max-height:330px; overflow:auto;">${collectorOptions || '<p style="color:var(--text-secondary);">Nenhum cobrador disponível.</p>'}</div>
+                        </div>
+                        <div class="form-group">
+                            <label>Permissões operacionais</label>
+                            <p style="font-size:.85rem; color:var(--text-secondary); margin-top:0;">Todas as permissões abaixo valem exclusivamente para os cobradores vinculados e suas informações.</p>
+                            <div style="display:grid; gap:8px;">${permissionOptions}</div>
+                        </div>
+                        <div class="action-buttons" style="position:static; margin-top:20px;">
+                            <button class="btn-primary" id="save-subadmin-btn" type="submit"><i data-lucide="save"></i> Salvar</button>
+                            <button class="btn-secondary" type="button" data-subadmin-close>Cancelar</button>
+                        </div>
+                    </form>
+                </div>`;
+            modal.classList.add('active');
+            lucide.createIcons();
+        }
+
+        async function saveSubadminForm(form) {
+            const uid = form.dataset.subadminUid || null;
+            const button = form.querySelector('#save-subadmin-btn');
+            const data = new FormData(form);
+            const payload = {
+                name: String(data.get('name') || '').trim(),
+                email: String(data.get('email') || '').trim(),
+                collectorIds: data.getAll('collectorIds').map(String),
+                permissions: Object.fromEntries(SUBADMIN_PERMISSION_DEFINITIONS.map(item => [
+                    item.key,
+                    data.getAll('permissions').includes(item.key),
+                ])),
+            };
+            const password = String(data.get('password') || '');
+
+            const currentSubadmin = uid ? allSubadmins.find(item => item.id === uid) : null;
+            const currentPermissions = normalizedSubadminPermissions(currentSubadmin?.permissions);
+            const newlyEnabledFinancial = SUBADMIN_PERMISSION_DEFINITIONS.filter(item =>
+                item.financial && payload.permissions[item.key] && !currentPermissions[item.key]
+            );
+            if (newlyEnabledFinancial.length > 0) {
+                const confirmed = await showConfirmationModal(
+                    'Confirmar permissões financeiras',
+                    `${payload.name} poderá ${newlyEnabledFinancial.map(item => item.label.toLowerCase()).join(' e ')} nos caixas dos cobradores vinculados. Os lançamentos serão imediatos e auditados.`,
+                    'Conceder permissões',
+                    'btn-primary',
+                );
+                if (!confirmed) return;
+            }
+
+            button.disabled = true;
+            const originalButtonHtml = button.innerHTML;
+            button.innerHTML = '<i data-lucide="loader-circle" style="animation:spin 1s linear infinite;"></i> Salvando...';
+            lucide.createIcons({ nodes: [button.querySelector('i')] });
+
+            try {
+                const startedAt = performance.now();
+                let result;
+                if (uid) {
+                    result = await callAdminFunction('updateSubadmin', {
+                        uid,
+                        ...payload,
+                        ...(password ? { newPassword: password } : {}),
+                    });
+                } else {
+                    result = await callAdminFunction('createSubadmin', { ...payload, password });
+                }
+                console.info('[SÓCIO ADMIN] Salvamento concluído.', {
+                    frontendDurationMs: Math.round(performance.now() - startedAt),
+                    backendDurationMs: result.durationMs || null,
+                    uid: uid || result.uid || null,
+                });
+                document.getElementById('subadminModal').classList.remove('active');
+                if (result.warning) {
+                    showToast(result.warning, true);
+                } else {
+                    showToast(uid ? 'Sócio Admin atualizado.' : 'Sócio Admin criado.');
+                }
+            } catch (error) {
+                console.error('Falha ao salvar Sócio Admin:', error);
+                showToast(error.message || 'Não foi possível salvar o Sócio Admin.', true);
+            } finally {
+                button.disabled = false;
+                button.innerHTML = originalButtonHtml;
+                lucide.createIcons({ nodes: button.querySelectorAll('[data-lucide]') });
+            }
+        }
+
+        async function changeSubadminStatus(uid, status) {
+            const subadmin = allSubadmins.find(item => item.id === uid);
+            if (!subadmin) return;
+            const confirmed = await showConfirmationModal(
+                status === 'disabled' ? 'Desativar Sócio Admin?' : 'Ativar Sócio Admin?',
+                status === 'disabled'
+                    ? `O acesso de ${subadmin.name || subadmin.email} será encerrado e bloqueado.`
+                    : `O acesso de ${subadmin.name || subadmin.email} será reativado.`,
+                status === 'disabled' ? 'Desativar' : 'Ativar',
+                status === 'disabled' ? 'btn-danger' : 'btn-primary',
+            );
+            if (!confirmed) return;
+            try {
+                await callAdminFunction('setSubadminStatus', { uid, status });
+                showToast(status === 'disabled' ? 'Sócio Admin desativado.' : 'Sócio Admin ativado.');
+            } catch (error) {
+                showToast(error.message || 'Não foi possível alterar o status.', true);
+            }
+        }
+
         function showView(viewName) {
+            const allowedSubadminViews = ['dashboard', 'map', 'reports', 'profile'];
+            if (hasSubadminPermission('manageAdminExpenses')) allowedSubadminViews.push('admin-expenses');
+            if (currentUserRole === 'subadmin' && !allowedSubadminViews.includes(viewName)) {
+                viewName = 'dashboard';
+            }
             // Guardamos la ubicación para que al volver atrás (cerrar modal) el sistema sepa dónde estábamos
             if (viewName !== 'dashboard') {
                 location.hash = viewName;
@@ -3565,12 +4351,14 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
 
             const addCollectorFab = document.getElementById('addCollectorBtn');
             if(addCollectorFab) {
-                addCollectorFab.style.display = viewName === 'dashboard' ? 'flex' : 'none';
+                addCollectorFab.style.display = (currentUserRole === 'admin' || hasSubadminPermission('manageCollectors'))
+                    && viewName === 'dashboard' ? 'flex' : 'none';
             }
 
             if (viewName === 'profile') {
                 updateProfileView();
-                updateSettingsForm(globalSettings); 
+                updateSettingsForm(globalSettings);
+                updateAccountProfileView();
             }
 
             if (viewName === 'map') {
@@ -3583,6 +4371,11 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
             if (viewName === 'reports') {
                 console.log("[ADMIN-APP] Abriendo pestaña 'Relatórios'. Llamando a updateReportsView().");
                 updateReportsView();
+            }
+
+            if (viewName === 'subadmins') {
+                renderSubadminsView();
+                renderSubadminAudit();
             }
 
             if (viewName === 'notifications') {
@@ -3666,7 +4459,7 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
                             <i data-lucide="moon" style="width: 24px; height: 24px;"></i>
                             <span style="font-size: 0.85em; font-weight: 700; margin-top: 2px;">Tema</span>
                         </button>
-                        <div class="profile" id="header-profile-link" style="cursor: pointer;"><img src="https://placehold.co/80x80/3b82f6/FFFFFF?text=A" alt="Foto do Admin"></div>
+                        <button type="button" class="profile" id="header-profile-link" aria-label="Abrir conta e opções de acesso" title="Conta e opções de acesso"><img src="https://placehold.co/80x80/3b82f6/FFFFFF?text=A" alt="Foto do usuário"></button>
                     </div>
                 </header>
                 <main>
@@ -3785,9 +4578,20 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
                                 <img id="profile-view-img" src="https://placehold.co/100x100/3b82f6/FFFFFF?text=A" alt="Foto do Admin">
                             </label>
                             <input type="file" id="admin-profile-pic-input" accept="image/*" style="display: none;">
-                            <h2 style="margin: 15px 0 0; font-size: 1.5em;">Administrador</h2>
-                            <p style="margin: 5px 0 0; color: var(--text-secondary);">Painel de Controle</p>
+                            <h2 id="profile-role-title" style="margin: 15px 0 0; font-size: 1.5em;">Administrador</h2>
+                            <p id="profile-role-subtitle" style="margin: 5px 0 0; color: var(--text-secondary);">Painel de Controle</p>
                         </div>
+
+                        <section id="subadmin-account-panel" class="settings-section subadmin-visible-section" hidden>
+                            <h2 class="section-title" style="border:none;margin-bottom:12px;">Minha conta</h2>
+                            <p id="subadmin-account-name" style="margin:0;font-weight:700;font-size:1.05em;"></p>
+                            <p id="subadmin-account-email" style="margin:5px 0 20px;color:var(--text-secondary);word-break:break-all;"></p>
+                            <h3 style="margin:0 0 10px;font-size:1em;">Ações permitidas</h3>
+                            <div id="subadmin-permitted-actions" style="display:grid;gap:10px;"></div>
+                            <button type="button" id="subadmin-logout-btn" class="btn-danger" style="width:100%;margin-top:22px;background-color:transparent;border:2px solid var(--danger-color);color:var(--danger-color);">
+                                <i data-lucide="log-out"></i> Sair (Log Out)
+                            </button>
+                        </section>
 
                         <div class="settings-section">
                             <h2 class="section-title" style="border: none; margin-bottom: 15px;">
@@ -3802,7 +4606,7 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
                             </div>
                         </div>
                         
-                        <h1 class="section-title" data-lang-key="settings"></h1>
+                        <h1 class="section-title admin-only-profile-heading" data-lang-key="settings"></h1>
 
                         <div class="settings-section">
                             <h2 class="section-title" data-lang-key="companySettings"></h2>
@@ -3863,7 +4667,7 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
                             </div>
                         </div>
 
-                        <div class="action-buttons" style="position: static; margin-top: 20px;">
+                        <div class="action-buttons admin-profile-actions" style="position: static; margin-top: 20px;">
                             <button id="save-settings-btn" class="btn-primary" disabled><i data-lucide="save"></i> <span data-lang-key="saveSettings"></span></button>
                             <button id="logout-btn" class="btn-danger" style="background-color: transparent; border: 2px solid var(--danger-color); color: var(--danger-color);">
                                 <i data-lucide="log-out"></i> Sair (Log Out)
@@ -3932,6 +4736,28 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
                         <h2 class="section-title">Histórico de Gastos Admin</h2>
                         <div id="admin-expenses-list" class="item-list"></div>
                     </div>
+                    ${currentUserRole === 'admin' ? `
+                    <div id="subadmins-view" class="view container">
+                        <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:20px; flex-wrap:wrap;">
+                            <div>
+                                <h1 class="section-title" style="margin-bottom:4px;">Sócios Admin</h1>
+                                <p style="margin:0; color:var(--text-secondary);">Gerencie acessos e vincule cada cobrador a no máximo um Sócio Admin.</p>
+                            </div>
+                            <button id="add-subadmin-btn" class="btn-primary"><i data-lucide="user-plus"></i> Novo Sócio Admin</button>
+                        </div>
+                        <div id="subadmins-list">
+                            <p style="text-align:center; color:var(--text-secondary);">Carregando...</p>
+                        </div>
+                        <section class="kpi-card" style="margin-top:24px;">
+                            <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px;">
+                                <i data-lucide="history" style="color:var(--accent-blue);"></i>
+                                <h2 style="margin:0; font-size:1.1rem;">Histórico de alterações</h2>
+                            </div>
+                            <div id="subadmin-audit-list">
+                                <p style="margin:0; color:var(--text-secondary);">Carregando histórico...</p>
+                            </div>
+                        </section>
+                    </div>` : ''}
                 </main>
                 <nav class="bottom-nav">
                     <a class="nav-item active" data-view="dashboard">
@@ -3946,19 +4772,28 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
                         <i data-lucide="file-text"></i>
                         <span data-lang-key="reports">Relatório</span>
                     </a>
+                    ${currentUserRole === 'admin' ? `
+                    <a class="nav-item" data-view="subadmins">
+                        <i data-lucide="shield-check"></i>
+                        <span>Sócios Admin</span>
+                    </a>` : ''}
+                    ${currentUserRole === 'admin' ? `
                     <a class="nav-item" data-view="community">
                         <i data-lucide="users"></i>
                         <span data-lang-key="community">Comunidade</span>
                     </a>
+                    ` : ''}
+                    ${currentUserRole === 'admin' || hasSubadminPermission('manageAdminExpenses') ? `
                     <a class="nav-item" data-view="admin-expenses">
                         <i data-lucide="building"></i>
                         <span data-lang-key="adminExpenses">Gastos Admin</span>
-                    </a>
+                    </a>` : ''}
+                    ${currentUserRole === 'admin' ? `
                     <a class="nav-item" data-view="notifications">
                         <i data-lucide="bell"></i>
                         <span data-lang-key="notifications">Notificações</span>
                         <span class="notification-badge" id="admin-notification-badge" style="display:none;">0</span>
-                    </a>
+                    </a>` : ''}
                 </nav>
                 <button class="fab" id="addCollectorBtn" title="Adicionar Cobrador"><i data-lucide="plus"></i></button>
                 
@@ -6307,13 +7142,13 @@ async function submitCollectorReport(collectorId) {
                             <div style="font-size: 0.8em; margin-top: 2px;">${money(currentCapitalOnHand)}</div>
                         </div>
                     </label>
-                    <label style="flex: 1; cursor: pointer;">
+                    ${currentUserRole === 'admin' ? `<label style="flex: 1; cursor: pointer;">
                         <input type="radio" name="settlement-type" value="insurance" style="display: none;">
                         <div class="type-btn" style="text-align: center; padding: 10px; border-radius: 6px; border: 1px solid var(--border-color); color: var(--text-secondary);">
                             ${t.microInsuranceLabelSimple}
                             <div style="font-size: 0.8em; margin-top: 2px;">${money(availableInsurance)}</div>
                         </div>
-                    </label>
+                    </label>` : ''}
                 </div>
 
                 <div class="form-group">
@@ -6386,17 +7221,28 @@ async function submitCollectorReport(collectorId) {
                     const adminUserId = auth.currentUser ? auth.currentUser.uid : 'admin_manual';
 
                     if (type === 'capital') {
-                        await addDoc(collection(db, 'companies', currentCompanyId, 'settlements'), {
-                            collectorId: collectorId,
-                            collectorName: collectorName, 
-                            amount: amount,
-                            notes: noteText,
-                            date: serverTimestamp(), 
-                            adminId: adminUserId, 
-                            status: 'approved',
-                            type: 'capital'
-                        });
+                        if (currentUserRole === 'subadmin') {
+                            await callAdminFunction('subadminCreateCapitalWithdrawal', {
+                                collectorId,
+                                amount,
+                                notes: noteText,
+                            });
+                        } else {
+                            await addDoc(collection(db, 'companies', currentCompanyId, 'settlements'), {
+                                collectorId: collectorId,
+                                collectorName: collectorName,
+                                amount: amount,
+                                notes: noteText,
+                                date: serverTimestamp(),
+                                adminId: adminUserId,
+                                status: 'approved',
+                                type: 'capital'
+                            });
+                        }
                     } else {
+                        if (currentUserRole === 'subadmin') {
+                            throw new Error('O Sócio Admin não possui permissão para retirar microseguro.');
+                        }
                         await addDoc(collection(db, 'companies', currentCompanyId, 'insuranceWithdrawals'), {
                             collectorId: collectorId,
                             amount: amount,
@@ -6498,7 +7344,15 @@ async function submitCollectorReport(collectorId) {
                 };
 
                 try {
-                    await addDoc(collection(db, 'companies', currentCompanyId, 'capitalInjections'), injectionData);
+                    if (currentUserRole === 'subadmin') {
+                        await callAdminFunction('subadminCreateCapitalInjection', {
+                            collectorId,
+                            amount,
+                            notes: notesInput.value.trim(),
+                        });
+                    } else {
+                        await addDoc(collection(db, 'companies', currentCompanyId, 'capitalInjections'), injectionData);
+                    }
                     // Usamos 'success' para que salga verde
                     showToast('Aporte de capital registrado com sucesso!', 'success');
                     closeModal();
@@ -6865,7 +7719,9 @@ async function submitCollectorReport(collectorId) {
                 const planTypeText = plan.type === 'pro' ? `PRO (${plan.plan || 'N/A'})` : 'DEMO';
                 planTypeElement.textContent = planTypeText; 
                 
-                const currentCollectorCount = allCollectors.length; 
+                const currentCollectorCount = currentUserRole === 'subadmin'
+                    ? (Number.isFinite(Number(plan.collectorUsed)) ? Number(plan.collectorUsed) : '?')
+                    : allCollectors.length;
                 let collectorLimit = 'Ilimitado';
                 
                 if (plan.type === 'demo') {
@@ -6876,7 +7732,8 @@ async function submitCollectorReport(collectorId) {
                 
                 planCollectorsElement.textContent = `${currentCollectorCount} / ${collectorLimit}`;
                 
-                if (collectorLimit !== 'Ilimitado' && collectorLimit !== '?' && currentCollectorCount >= collectorLimit) {
+                if (collectorLimit !== 'Ilimitado' && collectorLimit !== '?'
+                    && currentCollectorCount !== '?' && currentCollectorCount >= collectorLimit) {
                     planCollectorsElement.style.color = 'var(--danger-color)';
                     planCollectorsElement.style.fontWeight = 'bold';
                 } else {
@@ -7185,7 +8042,7 @@ async function submitCollectorReport(collectorId) {
             const chatInput = document.getElementById('chat-input-field');
             const clearChatBtn = document.getElementById('clear-chat-btn');
 
-            if (sendChatBtn && chatInput) {
+            if (currentUserRole === 'admin' && sendChatBtn && chatInput) {
                 const sendMessage = async () => {
                     const text = chatInput.value.trim();
                     if (!text) return;
@@ -7245,7 +8102,7 @@ async function submitCollectorReport(collectorId) {
                 });
             }
 
-            if (clearChatBtn) {
+            if (currentUserRole === 'admin' && clearChatBtn) {
                 clearChatBtn.addEventListener('click', async () => {
                     const confirmed = await showConfirmationModal(
                         currentLang === 'es' ? '¿Borrar Chat?' : 'Limpar Chat?',
@@ -8171,17 +9028,18 @@ function updateAdminNotificationsView() {
                     // 4. Subida de Imágenes
                     let profilePicUrl = collector.profilePictureUrl || ''; 
                     let documentPicUrl = collector.documentPictureUrl || ''; 
+                    const deferNewSubadminUploads = currentUserRole === 'subadmin' && !isEditMode;
 
                     if (markProfileForRemoval) profilePicUrl = '';
                     if (markDocumentForRemoval) documentPicUrl = '';
 
-                    if (profileFile) {
+                    if (profileFile && !deferNewSubadminUploads) {
                         const profileStorageRef = ref(storage, `companies/${currentCompanyId}/collectors/${username}/profile.jpg`);
                         await uploadBytes(profileStorageRef, profileFile);
                         profilePicUrl = await getDownloadURL(profileStorageRef);
                     }
 
-                    if (documentFile) {
+                    if (documentFile && !deferNewSubadminUploads) {
                         const documentStorageRef = ref(storage, `companies/${currentCompanyId}/collectors/${username}/document.jpg`);
                         await uploadBytes(documentStorageRef, documentFile);
                         documentPicUrl = await getDownloadURL(documentStorageRef);
@@ -8223,6 +9081,21 @@ function updateAdminNotificationsView() {
                         updatedAt: serverTimestamp(),
                         deviceToken: isEditMode ? (collector.deviceToken || null) : null
                     };
+                    const subadminCollectorFields = {
+                        name: collectorData.name,
+                        routeName: collectorData.routeName,
+                        documentNumber: collectorData.documentNumber,
+                        address: collectorData.address,
+                        phone: collectorData.phone,
+                        whatsapp: collectorData.whatsapp,
+                        operatingCurrency: collectorData.operatingCurrency,
+                        startingCapitalOnHand: collectorData.startingCapitalOnHand,
+                        profilePictureUrl: collectorData.profilePictureUrl,
+                        documentPictureUrl: collectorData.documentPictureUrl,
+                        workStartTime: collectorData.workStartTime,
+                        workEndTime: collectorData.workEndTime,
+                        workingDays: collectorData.workingDays,
+                    };
                     
                     // 6. Guardado / Actualización
                     if (isEditMode) {
@@ -8230,46 +9103,67 @@ function updateAdminNotificationsView() {
                         dataToUpdate.updatedAt = serverTimestamp();
 
                         if (password) {
-                            if (!auth.currentUser) throw new Error("Admin não autenticado.");
-                            const idToken = await auth.currentUser.getIdToken(true);
-                            const functionUrl = "https://us-central1-lumix-financas-app.cloudfunctions.net/updateCollectorAuth";
-                            await fetch(functionUrl, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
-                                body: JSON.stringify({ data: { collectorUsername: collectorId, newPassword: password } })
+                            const passwordResult = await callAdminFunction(currentUserRole === 'subadmin'
+                                ? 'subadminResetCollectorPassword'
+                                : 'updateCollectorAuth', currentUserRole === 'subadmin' ? {
+                                collectorId,
+                                newPassword: password,
+                            } : {
+                                collectorUsername: collectorId,
+                                newPassword: password,
                             });
-                            showToast("Senha alterada!");
+                            showToast(passwordResult.accountCreated
+                                ? "Acesso do cobrador criado e senha definida!"
+                                : "Senha alterada!");
                         }
-                        
-                        await updateDoc(doc(db, "collectors", collectorId), dataToUpdate);
+
+                        if (currentUserRole === 'subadmin') {
+                            await callAdminFunction('subadminUpdateCollector', {
+                                collectorId,
+                                collector: subadminCollectorFields,
+                            });
+                        } else {
+                            await updateDoc(doc(db, "collectors", collectorId), dataToUpdate);
+                        }
                         showToast(translations[currentLang].collectorUpdated);
                         formModal.classList.remove('active');
 
                     } else {
                         // MODO CREACIÓN
-                        if (!auth.currentUser) throw new Error("Admin não autenticado.");
-                        const idToken = await auth.currentUser.getIdToken(true);
+                        if (currentUserRole === 'subadmin') {
+                            const creationResult = await callAdminFunction('subadminCreateCollector', {
+                                username,
+                                password,
+                                name,
+                                collector: subadminCollectorFields,
+                            });
+                            applyCollectorCapacity(creationResult.capacity);
 
-                        const functionUrl = "https://us-central1-lumix-financas-app.cloudfunctions.net/createCollector";
-                        const response = await fetch(functionUrl, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
-                            body: JSON.stringify({ 
-                                data: { 
-                                    collectorEmail: email, 
-                                    collectorPassword: password, 
-                                    collectorData: collectorData 
-                                } 
-                            })
-                        });
-
-                        if (!response.ok) {
-                            const errorData = await response.json().catch(() => ({}));
-                            if (response.status === 409 || response.status === 500) {
-                                throw new Error("Este usuário/email já existe. Tente outro nome.");
-                            } else {
-                                throw new Error(errorData.error?.message || "Erro ao criar cobrador.");
+                            // O vínculo exclusivo já existe; agora o Storage pode aceitar
+                            // somente as imagens deste novo cobrador.
+                            if (profileFile) {
+                                const profileStorageRef = ref(storage, `companies/${currentCompanyId}/collectors/${username}/profile.jpg`);
+                                await uploadBytes(profileStorageRef, profileFile);
+                                profilePicUrl = await getDownloadURL(profileStorageRef);
                             }
+                            if (documentFile) {
+                                const documentStorageRef = ref(storage, `companies/${currentCompanyId}/collectors/${username}/document.jpg`);
+                                await uploadBytes(documentStorageRef, documentFile);
+                                documentPicUrl = await getDownloadURL(documentStorageRef);
+                            }
+                            if (profileFile || documentFile) {
+                                await callAdminFunction('subadminUpdateCollector', {
+                                    collectorId: username,
+                                    collector: { profilePictureUrl: profilePicUrl, documentPictureUrl: documentPicUrl },
+                                });
+                            }
+                        } else {
+                            const creationResult = await callAdminFunction('createCollector', {
+                                collectorEmail: email,
+                                collectorPassword: password,
+                                collectorData,
+                            });
+                            applyCollectorCapacity(creationResult.capacity);
                         }
 
                         showToast(translations[currentLang].collectorAdded);
@@ -8324,50 +9218,19 @@ function updateAdminNotificationsView() {
             overlay.classList.add('active');
 
             try {
-                // 3. Eliminar todos los clientes de este cobrador
-                console.log(`Buscando clientes para eliminar del cobrador: ${collectorId}`);
-                const clientsQuery = query(
-                    collection(db, 'companies', currentCompanyId, 'clients'),
-                    where('collectorId', '==', collectorId)
-                );
-                
-                const clientsSnapshot = await getDocs(clientsQuery);
-                const deleteClientPromises = [];
-                
-                clientsSnapshot.forEach(clientDoc => {
-                    console.log(`Añadiendo cliente a la cola de eliminación: ${clientDoc.id}`);
-                    deleteClientPromises.push(deleteDoc(doc(db, 'companies', currentCompanyId, 'clients', clientDoc.id)));
+                await callAdminFunction('deleteCollector', {
+                    collectorUsername: collectorId,
                 });
 
-                if (deleteClientPromises.length > 0) {
-                    await Promise.all(deleteClientPromises);
-                    console.log(`${deleteClientPromises.length} clientes eliminados.`);
-                } else {
-                    console.log("No se encontraron clientes para este cobrador.");
-                }
-
-                // 4. Eliminar el documento principal del cobrador
-                console.log(`Eliminando documento principal del cobrador: ${collectorId}`);
-                const collectorRef = doc(db, 'collectors', collectorId);
-                await deleteDoc(collectorRef);
-                
-                // NOTA: La cuenta de autenticación (Auth) de Firebase no se elimina
-                // desde el cliente. Esto requiere una Cloud Function.
-                // El 'auth user' quedará huérfano.
-
                 console.log("¡Eliminación completada!");
-                showToast('Cobrador e todos os seus clientes foram eliminados com sucesso.');
+                showToast('Cobrador, acessos e dados associados foram eliminados com sucesso.');
 
-                // 5. Cerrar todos los modales
                 overlay.classList.remove('active');
                 if (modal) modal.classList.remove('active');
                 if (detailView) detailView.classList.remove('active');
-                
-                // El onSnapshot de 'allCollectors' se actualizará automáticamente.
-
             } catch (error) {
-                console.error("Erro catastrófico ao eliminar cobrador:", error);
-                showToast('Erro ao eliminar o cobrador. Verifique o console.', true);
+                console.error("Erro ao eliminar cobrador:", error);
+                showToast(error.message || 'Erro ao eliminar o cobrador.', true);
                 overlay.classList.remove('active');
             }
         }
@@ -8379,6 +9242,9 @@ function updateAdminNotificationsView() {
                 showToast('Cliente não encontrado.', true);
                 return;
             }
+            let clientProfileBlob = null;
+            let removeClientProfilePicture = false;
+            let clientProfilePreviewObjectUrl = null;
 
             // 1. Determinar qué préstamo vamos a editar (Activo o el último)
             // Si pasamos un índice específico (ej: el segundo préstamo), lo usamos. 
@@ -8424,6 +9290,22 @@ function updateAdminNotificationsView() {
                 </header>
                 <div class="modal-content-wrapper container">
                     <form id="client-form-edit">
+                        <div class="form-group">
+                            <label style="display:block; margin-bottom:10px; font-weight:700;">Foto de identificação</label>
+                            <div style="display:flex; align-items:center; gap:16px; flex-wrap:wrap;">
+                                <img id="client-profile-preview" src="${client.profilePictureUrl || `https://placehold.co/256x256/22c55e/FFFFFF?text=${encodeURIComponent((client.name || 'C').charAt(0).toUpperCase())}`}" alt="Foto de identificação" style="width:88px; height:88px; border-radius:50%; object-fit:cover; border:3px solid var(--accent-green); background:var(--bg);">
+                                <div style="display:flex; flex:1; min-width:210px; flex-direction:column; gap:8px;">
+                                    <div style="display:flex; flex-wrap:wrap; gap:8px;">
+                                        <button type="button" class="btn-secondary" id="client-profile-camera-btn"><i data-lucide="camera"></i> Tirar foto</button>
+                                        <button type="button" class="btn-secondary" id="client-profile-gallery-btn"><i data-lucide="image-plus"></i> Galeria</button>
+                                        <button type="button" class="btn-secondary" id="client-profile-remove-btn" style="${client.profilePictureUrl ? '' : 'display:none;'} color:var(--accent-red);"><i data-lucide="trash-2"></i> Remover</button>
+                                    </div>
+                                    <small style="color:var(--text-secondary); line-height:1.4;">A foto aparecerá na rota para facilitar a identificação do cliente.</small>
+                                </div>
+                            </div>
+                            <input type="file" id="client-profile-camera-input" accept="image/*" capture="environment" style="display:none;">
+                            <input type="file" id="client-profile-gallery-input" accept="image/*" style="display:none;">
+                        </div>
                         <div class="form-group">
                             <label>Nome do Cliente</label>
                             <input type="text" id="client-name" required value="${client.name || ''}">
@@ -8494,6 +9376,53 @@ function updateAdminNotificationsView() {
             lucide.createIcons({nodes: formModal.querySelectorAll('[data-lucide]')});
             applyLanguage(currentLang);
 
+            const clientProfileFallback = `https://placehold.co/256x256/22c55e/FFFFFF?text=${encodeURIComponent((client.name || 'C').charAt(0).toUpperCase())}`;
+            const clientProfilePreview = formModal.querySelector('#client-profile-preview');
+            const clientProfileCameraInput = formModal.querySelector('#client-profile-camera-input');
+            const clientProfileGalleryInput = formModal.querySelector('#client-profile-gallery-input');
+            const clientProfileRemoveBtn = formModal.querySelector('#client-profile-remove-btn');
+            const updateClientProfilePreview = (src, hasPhoto) => {
+                clientProfilePreview.src = src;
+                clientProfileRemoveBtn.style.display = hasPhoto ? 'inline-flex' : 'none';
+            };
+            const selectClientProfileFile = (file) => {
+                if (!file) return;
+                if (!file.type.startsWith('image/')) {
+                    showToast('Selecione um arquivo de imagem válido.', true);
+                    return;
+                }
+                if (file.size > 10 * 1024 * 1024) {
+                    showToast('A imagem deve ter no máximo 10 MB.', true);
+                    return;
+                }
+                showCropperModal(file, (blob) => {
+                    clientProfileBlob = blob;
+                    removeClientProfilePicture = false;
+                    if (clientProfilePreviewObjectUrl) URL.revokeObjectURL(clientProfilePreviewObjectUrl);
+                    clientProfilePreviewObjectUrl = URL.createObjectURL(blob);
+                    updateClientProfilePreview(clientProfilePreviewObjectUrl, true);
+                });
+            };
+            formModal.querySelector('#client-profile-camera-btn').addEventListener('click', () => clientProfileCameraInput.click());
+            formModal.querySelector('#client-profile-gallery-btn').addEventListener('click', () => clientProfileGalleryInput.click());
+            clientProfileCameraInput.addEventListener('change', (event) => {
+                selectClientProfileFile(event.target.files?.[0]);
+                event.target.value = '';
+            });
+            clientProfileGalleryInput.addEventListener('change', (event) => {
+                selectClientProfileFile(event.target.files?.[0]);
+                event.target.value = '';
+            });
+            clientProfileRemoveBtn.addEventListener('click', () => {
+                clientProfileBlob = null;
+                removeClientProfilePicture = true;
+                if (clientProfilePreviewObjectUrl) {
+                    URL.revokeObjectURL(clientProfilePreviewObjectUrl);
+                    clientProfilePreviewObjectUrl = null;
+                }
+                updateClientProfilePreview(clientProfileFallback, false);
+            });
+
             (client.paymentDays || []).forEach(day => {
                 const checkbox = formModal.querySelector(`#form-day-${day}`);
                 if (checkbox) checkbox.checked = true;
@@ -8562,12 +9491,67 @@ function updateAdminNotificationsView() {
                     interestRate: interest,
                     paymentDays: Array.from(document.querySelectorAll('#clientFormModal .day-selector input:checked')).map(el => parseInt(el.value)),
                     
-                    loans: updatedLoans
+                    loans: updatedLoans,
+                    profilePictureUrl: removeClientProfilePicture ? '' : (client.profilePictureUrl || '')
                  };
 
                 try {
-                    await updateDoc(doc(db, 'companies', currentCompanyId, "clients", clientId), updatedData);
+                    let profilePictureWarning = false;
+                    let profilePictureChanged = false;
+                    if (clientProfileBlob || removeClientProfilePicture) {
+                        const profileStorageRef = ref(storage, `companies/${currentCompanyId}/clients/${clientId}/profile.jpg`);
+                        try {
+                            if (clientProfileBlob) {
+                                await uploadBytes(profileStorageRef, clientProfileBlob, { contentType: 'image/jpeg' });
+                                updatedData.profilePictureUrl = await getDownloadURL(profileStorageRef);
+                                profilePictureChanged = true;
+                            } else {
+                                updatedData.profilePictureUrl = '';
+                                profilePictureChanged = true;
+                                try {
+                                    await deleteObject(profileStorageRef);
+                                } catch (deleteError) {
+                                    if (deleteError?.code !== 'storage/object-not-found') console.warn('Não foi possível apagar o arquivo antigo da foto:', deleteError);
+                                }
+                            }
+                        } catch (profileError) {
+                            profilePictureWarning = true;
+                            updatedData.profilePictureUrl = client.profilePictureUrl || '';
+                            console.error('Os dados serão salvos, mas a foto não pôde ser atualizada:', profileError);
+                        }
+                    }
+                    if (profilePictureChanged) {
+                        updatedData.profilePictureUpdatedAt = serverTimestamp();
+                        updatedData.profilePictureUpdatedBy = auth.currentUser?.uid || currentUserRole;
+                    }
+                    if (currentUserRole === 'subadmin') {
+                        await callAdminFunction('subadminUpdateClient', {
+                            clientId,
+                            loanIndex,
+                            client: {
+                                name: updatedData.name,
+                                address: updatedData.address,
+                                whatsapp: updatedData.whatsapp,
+                                phone: updatedData.phone,
+                                collectorId: updatedData.collectorId,
+                                paymentDays: updatedData.paymentDays,
+                                 ...(profilePictureChanged ? { profilePictureUrl: updatedData.profilePictureUrl } : {}),
+                            },
+                            loan: {
+                                principalAmount: loanAmount,
+                                interestRate: interest,
+                                microInsurance,
+                                installmentsCount: installments,
+                            },
+                        });
+                    } else {
+                        await updateDoc(doc(db, 'companies', currentCompanyId, "clients", clientId), updatedData);
+                    }
                     showToast(translations[currentLang].clientUpdated);
+                    if (profilePictureWarning) {
+                        setTimeout(() => showToast('Cliente salvo, mas não foi possível atualizar a foto de identificação.', true), 300);
+                    }
+                    if (clientProfilePreviewObjectUrl) URL.revokeObjectURL(clientProfilePreviewObjectUrl);
                     formModal.classList.remove('active');
                     document.getElementById('clientDetailModal').classList.remove('active');
                 } catch(error) {
@@ -8644,7 +9628,7 @@ let clientImpactoNeto = 0;
 
 
 
-        function showCropperModal(file) {
+        function showCropperModal(file, onCropped = handleProfilePictureChange) {
             const cropperModal = document.getElementById('cropperModal');
             cropperModal.innerHTML = `
                 <header class="modal-header">
@@ -8678,9 +9662,9 @@ let clientImpactoNeto = 0;
             document.getElementById('cancelCropBtn').addEventListener('click', () => cropperModal.classList.remove('active'));
             document.getElementById('confirmCropBtn').addEventListener('click', () => {
                 cropper.getCroppedCanvas({ width: 256, height: 256, imageSmoothingQuality: 'high' }).toBlob((blob) => {
-                    handleProfilePictureChange(blob);
+                    onCropped(blob);
                     cropperModal.classList.remove('active');
-                }, 'image/jpeg');
+                }, 'image/jpeg', 0.86);
             });
         }
 
@@ -8761,6 +9745,30 @@ function setupEventListeners() {
 
             document.body.addEventListener('click', async e => {
                 const target = e.target;
+
+                if (currentUserRole === 'subadmin') {
+                    const permissionTargets = [
+                        { selector: '#addCollectorBtn, #editCollectorBtn, #saveCollectorBtn', permission: 'manageCollectors' },
+                        { selector: '#editClientBtn, #saveClientBtn', permission: 'editClients' },
+                        { selector: '#save-admin-exp-btn, #save-edit-admin-exp', permission: 'manageAdminExpenses' },
+                        { selector: '#add-capital-injection-btn', permission: 'createCapitalInjections' },
+                        { selector: '#register-settlement-btn, #confirm-settlement-btn', permission: 'createCapitalWithdrawals' },
+                    ];
+                    const requestedPermission = permissionTargets.find(item => target.closest(item.selector));
+                    const alwaysBlocked = target.closest([
+                        '#deleteCollectorBtn', '#reportCollectorBtn', '#open-trash-btn', '#deleteClientBtn',
+                        '#approve-settlement-btn', '#reject-settlement-btn', '#approve-refinance-btn',
+                        '#reject-refinance-btn', '#delete-payment-btn', '#confirm-delete-btn',
+                        '#confirm-report-btn', '#save-edit-exp', '#submit-post-btn', '#save-settings-btn',
+                        '.dismiss-notif-btn'
+                    ].join(','));
+                    if (alwaysBlocked || (requestedPermission && !hasSubadminPermission(requestedPermission.permission))) {
+                        e.preventDefault();
+                        e.stopImmediatePropagation();
+                        showToast('Esta operação não foi autorizada para o Sócio Admin.', true);
+                        return;
+                    }
+                }
 
                 // --- LOGICA PARA BORRAR NOTIFICACIÓN (ELIMINADOR) ---
                 const dismissBtn = target.closest('.dismiss-notif-btn');
@@ -8856,17 +9864,33 @@ function setupEventListeners() {
                     btn.disabled = true; btn.innerHTML = `<i data-lucide="loader-circle" style="animation: spin 1s linear infinite;"></i>...`;
                     lucide.createIcons({ nodes: [btn.querySelector('i')] });
                     
-                    addDoc(collection(db, 'companies', currentCompanyId, 'adminExpenses'), {
-                        amount: amount, category: category, collectorId: collectorId,
-                        collectorName: selectedCollector.name,
-                        notes: notes, date: serverTimestamp(), adminId: auth.currentUser.uid
-                    }).then(() => {
+                    try {
+                        if (currentUserRole === 'subadmin') {
+                            await callAdminFunction('subadminCreateAdminExpense', {
+                                amount,
+                                category,
+                                collectorId,
+                                notes,
+                            });
+                        } else {
+                            await addDoc(collection(db, 'companies', currentCompanyId, 'adminExpenses'), {
+                                amount: amount, category: category, collectorId: collectorId,
+                                collectorName: selectedCollector.name,
+                                notes: notes, date: serverTimestamp(), adminId: auth.currentUser.uid
+                            });
+                        }
                         showToast("Gasto salvo. O caixa foi ajustado!", "success");
                         document.getElementById('admin-exp-amount').value = '';
                         document.getElementById('admin-exp-collector').value = allCollectors.length === 1 ? allCollectors[0].id : '';
                         document.getElementById('admin-exp-notes').value = '';
-                    }).catch(err => { console.error(err); showToast("Erro ao salvar", true); })
-                    .finally(() => { btn.disabled = false; btn.innerHTML = `<i data-lucide="save"></i> Salvar Gasto`; lucide.createIcons({ nodes: [btn.querySelector('i')] }); });
+                    } catch (err) {
+                        console.error(err);
+                        showToast(err.message || "Erro ao salvar", true);
+                    } finally {
+                        btn.disabled = false;
+                        btn.innerHTML = `<i data-lucide="save"></i> Salvar Gasto`;
+                        lucide.createIcons({ nodes: [btn.querySelector('i')] });
+                    }
                 }
 
                 const likeBtn = target.closest('.action-btn[data-action="like"]');
@@ -8909,6 +9933,16 @@ function setupEventListeners() {
 
                 if (target.closest('#header-profile-link')) showView('profile');
 
+                const subadminProfileAction = target.closest('[data-subadmin-profile-action]');
+                if (subadminProfileAction) {
+                    const permission = subadminProfileAction.dataset.subadminProfileAction;
+                    if (!hasSubadminPermission(permission)) {
+                        showToast('Esta operação não foi autorizada para o Sócio Admin.', true);
+                        return;
+                    }
+                    showView(subadminProfileAction.dataset.view || 'dashboard');
+                }
+
                 const collectorCard = target.closest('.collector-card');
                 if (collectorCard) showCollectorDetails(collectorCard.dataset.collectorId);
 
@@ -8927,6 +9961,22 @@ function setupEventListeners() {
                 
                 const navItem = target.closest('.nav-item');
                 if (navItem) { if (mapInstance) mapInstance.closePopup(); showView(navItem.dataset.view); }
+
+                if (target.closest('#add-subadmin-btn')) showSubadminModal();
+
+                const subadminAction = target.closest('[data-subadmin-action]');
+                if (subadminAction) {
+                    e.preventDefault();
+                    const uid = subadminAction.dataset.subadminUid;
+                    if (subadminAction.dataset.subadminAction === 'edit') showSubadminModal(uid);
+                    if (subadminAction.dataset.subadminAction === 'status') {
+                        await changeSubadminStatus(uid, subadminAction.dataset.nextStatus);
+                    }
+                }
+
+                if (target.closest('[data-subadmin-close]')) {
+                    document.getElementById('subadminModal')?.classList.remove('active');
+                }
                     
                 if (target.closest('#addCollectorBtn')) {
                     let limit = Infinity; 
@@ -8936,14 +9986,21 @@ function setupEventListeners() {
                         if (planType === 'demo') limit = currentCompanyData.plan.collectorLimit || 1; 
                         else if (currentCompanyData.plan.collectorLimit && currentCompanyData.plan.collectorLimit !== -1) limit = currentCompanyData.plan.collectorLimit;
                     }
-                    const currentCount = allCollectors.length;
+                    if (currentUserRole === 'subadmin'
+                        && currentCompanyData?.plan?.collectorCapacityAvailable !== true) {
+                        showToast('Não foi possível consultar o limite de cobradores. Tente novamente em instantes.', true);
+                        return;
+                    }
+                    const currentCount = currentUserRole === 'subadmin'
+                        ? Number(currentCompanyData.plan.collectorUsed)
+                        : allCollectors.length;
                     if (currentCount >= limit) showToast(`Limite de ${limit} cobradores atingido para o plano ${planType.toUpperCase()}.`, true);
                     else showCollectorFormModal(); 
                 }
 
                 if (target.closest('#save-settings-btn')) saveGlobalSettings();
 
-                if (target.closest('#logout-btn')) {
+                if (target.closest('#logout-btn, #subadmin-logout-btn')) {
                     signOut(auth).catch((error) => { console.error("Erro ao sair:", error); showToast('Erro ao tentar sair.', true); });
                 }
 
@@ -8974,6 +10031,12 @@ function setupEventListeners() {
                     preview.style.display = 'block';
                     document.getElementById('submit-post-btn').disabled = false; 
                 }
+            });
+
+            document.body.addEventListener('submit', async e => {
+                if (e.target.id !== 'subadmin-form') return;
+                e.preventDefault();
+                await saveSubadminForm(e.target);
             });
             
             document.body.addEventListener('input', e => {
@@ -9275,7 +10338,7 @@ async function showRefinanceVerificationModal(clientId) {
 
 
         
-                function init() {
+        async function init() {
             document.body.classList.add('dark-mode');
             
             // APLICAR IDIOMA INMEDIATAMENTE PARA EL LOGIN
@@ -9314,6 +10377,12 @@ async function showRefinanceVerificationModal(clientId) {
 
             const splash = document.getElementById('splash-screen');
 
+            try {
+                await setPersistence(auth, browserLocalPersistence);
+            } catch (error) {
+                console.warn('Não foi possível confirmar a persistência local da sessão:', error);
+            }
+
             onAuthStateChanged(auth, async (user) => {
                 splash.style.opacity = '0';
                 setTimeout(() => {
@@ -9322,6 +10391,7 @@ async function showRefinanceVerificationModal(clientId) {
 
                 if (user) {
                     try {
+                        subadminAccessInitialized = false;
                         console.log("Verificando permissões do admin...");
                         // CÓDIGO OPTIMIZADO:
                         const tokenResult = await user.getIdTokenResult(false);
@@ -9329,29 +10399,70 @@ async function showRefinanceVerificationModal(clientId) {
 
                         console.log("Claims (permissões) do usuário:", claims);
 
-                        if (claims.role !== 'admin' || !claims.companyId) {
-                            const errorMsg = "Sua conta não tem permissões de administrador. Contate o suporte.";
+                        if (!['admin', 'subadmin'].includes(claims.role) || !claims.companyId) {
+                            const errorMsg = "Sua conta não tem permissão para acessar este aplicativo. Contate o suporte.";
                             console.error(errorMsg, claims);
                             showBlockedView(errorMsg); 
                             await signOut(auth); 
                             return; 
                         }
 
+                        currentUserRole = claims.role;
                         currentCompanyId = claims.companyId; 
-                        console.log("Admin verificado. Company ID:", currentCompanyId);
+                        currentAdmin.id = user.uid;
+                        currentAdmin.name = user.displayName || user.email || 'Administrador';
+                        console.log("Acesso verificado. Role:", currentUserRole, "Company ID:", currentCompanyId);
 
-                        const companyRef = doc(db, 'companies', currentCompanyId);
-                        const companySnap = await getDoc(companyRef); 
-
-                        if (!companySnap.exists()) {
-                            const errorMsg = `Erro crítico: A empresa com ID (${currentCompanyId}) não foi encontrada no banco de dados.`;
-                            console.error(errorMsg);
-                            showBlockedView(errorMsg);
-                            await signOut(auth);
-                            return;
+                        if (currentUserRole === 'admin') {
+                            const companyRef = doc(db, 'companies', currentCompanyId);
+                            const companySnap = await getDoc(companyRef);
+                            if (!companySnap.exists()) {
+                                const errorMsg = `Erro crítico: A empresa com ID (${currentCompanyId}) não foi encontrada no banco de dados.`;
+                                console.error(errorMsg);
+                                showBlockedView(errorMsg);
+                                await signOut(auth);
+                                return;
+                            }
+                            currentCompanyData = companySnap.data();
+                            currentSubadminData = null;
+                            authorizedCollectorIds = [];
+                        } else {
+                            const subadminRef = doc(db, 'companies', currentCompanyId, 'subadmins', user.uid);
+                            const publicConfigRef = doc(db, 'companies', currentCompanyId, 'subadminPublicConfig', 'current');
+                            const [subadminSnap, publicConfigSnap] = await Promise.all([
+                                getDoc(subadminRef),
+                                getDoc(publicConfigRef),
+                            ]);
+                            if (!subadminSnap.exists() || subadminSnap.data().status !== 'active') {
+                                const accessError = new Error('Seu acesso de Sócio Admin está desativado ou não foi encontrado.');
+                                accessError.accessRevoked = true;
+                                throw accessError;
+                            }
+                            if (!publicConfigSnap.exists()) {
+                                throw new Error('A configuração segura da empresa ainda não foi preparada pelo administrador.');
+                            }
+                            currentSubadminData = { id: subadminSnap.id, ...subadminSnap.data() };
+                            authorizedCollectorIds = [...new Set(currentSubadminData.assignedCollectorIds || [])].sort();
+                            const publicConfig = publicConfigSnap.data();
+                            currentCompanyData = {
+                                name: publicConfig.companyName || 'Painel Admin',
+                                status: publicConfig.companyStatus || 'active',
+                                companyLogo: publicConfig.companyLogo || '',
+                                plan: {
+                                    companyLogo: publicConfig.companyLogo || '',
+                                    collectorCapacityAvailable: false,
+                                },
+                                settings: { currency: publicConfig.currency || 'BRL' },
+                                owner: { name: currentSubadminData.name || user.displayName || user.email },
+                            };
+                            currentAdmin.name = currentSubadminData.name || currentAdmin.name;
+                            try {
+                                const capacity = await callAdminFunction('subadminGetCollectorCapacity', {});
+                                applyCollectorCapacity(capacity);
+                            } catch (capacityError) {
+                                console.error('Falha ao consultar o limite de cobradores:', capacityError);
+                            }
                         }
-
-                        currentCompanyData = companySnap.data(); 
 
                         if (currentCompanyData.status === 'suspended') {
                             const errorMsg = `A conta da sua empresa (${currentCompanyData.name}) está suspensa. Entre em contato com o suporte para reativar seu serviço.`;
@@ -9360,26 +10471,34 @@ async function showRefinanceVerificationModal(clientId) {
                             return;
                         }
 
-                        console.log(`Acesso concedido para: ${currentCompanyData.name} (Status: ${currentCompanyData.status})`);
+                        console.log(`Acesso concedido para: ${currentCompanyData.name} (${currentUserRole})`);
                         document.getElementById('login-view').style.display = 'none';
 
                         globalSettings = currentCompanyData; 
                         loadGlobalSettings(globalSettings); 
-                        updateSettingsForm(globalSettings);
+                        if (currentUserRole === 'admin') updateSettingsForm(globalSettings);
 
                         showMainApp(); 
 
                     } catch (error) {
                         console.error("Erro crítico durante a verificação de acesso:", error);
                         showBlockedView(`Ocorreu um erro ao verificar sua conta: ${error.message}`);
-                        await signOut(auth);
+                        if (error.accessRevoked === true) await signOut(auth);
                     }
 
                 } else {
+                    clearSessionData();
+                    document.body.classList.remove('subadmin-mode');
                     document.getElementById('app-container').style.display = 'none';
                     document.getElementById('login-view').style.display = 'flex';
                     const loginForm = document.getElementById('login-form');
-                    if (loginForm) { 
+                    if (loginForm) {
+                        loginForm.reset();
+                        const loginButton = loginForm.querySelector('button[type="submit"]');
+                        if (loginButton) {
+                            loginButton.disabled = false;
+                            loginButton.textContent = translations[currentLang]?.accessPanel || 'Acessar Painel';
+                        }
                         loginForm.addEventListener('submit', handleLogin);
                     }
                     const forgotPasswordBtn = document.getElementById('forgot-password-btn');
@@ -9858,7 +10977,16 @@ async function generateDelinquencyPDF(collectorId) {
                             method: pending ? 'manual-legacy-assignment' : 'manual-reassignment'
                         });
                     }
-                    await updateDoc(doc(db, 'companies', currentCompanyId, 'adminExpenses', expenseId), updates);
+                    if (currentUserRole === 'subadmin') {
+                        await callAdminFunction('subadminUpdateAdminExpense', {
+                            expenseId,
+                            collectorId: newCollector.id,
+                            amount: newVal,
+                            notes: newNotes,
+                        });
+                    } else {
+                        await updateDoc(doc(db, 'companies', currentCompanyId, 'adminExpenses', expenseId), updates);
+                    }
                     showToast('Gasto administrativo atualizado com sucesso!', 'success');
                     modal.classList.remove('active');
                 } catch (error) { showToast('Erro ao atualizar.', true); e.currentTarget.disabled = false; e.currentTarget.innerHTML = t.saveChanges || 'Salvar'; }
