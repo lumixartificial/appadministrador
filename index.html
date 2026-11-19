@@ -2477,8 +2477,9 @@ function extractCoords(input) {
                         let isPaymentDay = false;
                         const frequency = loan.paymentFrequency || 'daily';
                         if (frequency === 'daily') isPaymentDay = (loan.paymentDays || []).includes(dayOfWeek);
-                        else if (frequency === 'weekly') isPaymentDay = (loan.paymentDays || [])[0] === dayOfWeek;
-                        else if (frequency === 'monthly') isPaymentDay = (loan.paymentDays || [])[0] === dayOfMonth;
+                        else if (frequency === 'weekly') isPaymentDay = isAdminWeeklyPaymentDay(loan, today);
+                        else if (frequency === 'biweekly') isPaymentDay = isAdminBiweeklyPaymentDay(loan, today);
+                        else if (frequency === 'monthly') isPaymentDay = isAdminMonthlyPaymentDay(loan, today);
                         if (isPaymentDay) expectedToday += (loan.originalInstallmentAmount || 0);
                     }
                 });
@@ -2572,8 +2573,9 @@ function extractCoords(input) {
                     let isToday = false;
 
                     if (freq === 'daily') isToday = pDays.includes(dayW);
-                    else if (freq === 'weekly') isToday = pDays[0] === dayW;
-                    else if (freq === 'monthly') isToday = pDays[0] === dayM;
+                    else if (freq === 'weekly') isToday = isAdminWeeklyPaymentDay(loan, today);
+                    else if (freq === 'biweekly') isToday = isAdminBiweeklyPaymentDay(loan, today);
+                    else if (freq === 'monthly') isToday = isAdminMonthlyPaymentDay(loan, today);
 
                     if (isToday && loanDetails.status !== 'finished') expectedToday += (Number(loan.originalInstallmentAmount) || 0);
 
@@ -5069,6 +5071,87 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
 
         const nationalHolidays = [ '01/01', '21/04', '01/05', '07/09', '12/10', '02/11', '15/11', '25/12' ];
 
+        function parseLoanScheduleDate(rawDate) {
+            if (!rawDate) return null;
+            if (typeof rawDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(rawDate)) {
+                const [year, month, day] = rawDate.split('-').map(Number);
+                const localDate = new Date(year, month - 1, day);
+                return isNaN(localDate.getTime()) ? null : localDate;
+            }
+            const parsed = rawDate?.toDate
+                ? rawDate.toDate()
+                : (rawDate?.seconds ? new Date(rawDate.seconds * 1000) : new Date(rawDate));
+            return parsed && !isNaN(parsed.getTime()) ? parsed : null;
+        }
+
+        function getLoanFirstPaymentDate(loan) {
+            return parseLoanScheduleDate(loan?.firstPaymentDate);
+        }
+
+        function formatLoanScheduleDate(date) {
+            if (!date) return '';
+            return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+        }
+
+        function getLoanCalendarDayNumber(date) {
+            const parsed = parseLoanScheduleDate(date);
+            return parsed ? Math.floor(Date.UTC(parsed.getFullYear(), parsed.getMonth(), parsed.getDate()) / 86400000) : null;
+        }
+
+        function getAdminMonthlyDay(loan) {
+            const firstPaymentDate = getLoanFirstPaymentDate(loan);
+            if (firstPaymentDate) return firstPaymentDate.getDate();
+            const configuredDay = Number.parseInt(loan?.paymentDays?.[0], 10);
+            return Number.isInteger(configuredDay) && configuredDay >= 1 && configuredDay <= 31 ? configuredDay : null;
+        }
+
+        function isAdminWeeklyPaymentDay(loan, referenceDate) {
+            const paymentDate = parseLoanScheduleDate(referenceDate);
+            if (!paymentDate) return false;
+            const firstPaymentDate = getLoanFirstPaymentDate(loan);
+            if (firstPaymentDate) {
+                const difference = getLoanCalendarDayNumber(paymentDate) - getLoanCalendarDayNumber(firstPaymentDate);
+                return difference >= 0 && difference % 7 === 0;
+            }
+            return Number.parseInt(loan?.paymentDays?.[0], 10) === paymentDate.getDay();
+        }
+
+        function isAdminBiweeklyPaymentDay(loan, referenceDate) {
+            const paymentDate = parseLoanScheduleDate(referenceDate);
+            if (!paymentDate) return false;
+            const configuredDay = Number.parseInt(loan?.paymentDays?.[0], 10);
+            if (Number.isInteger(configuredDay) && configuredDay !== paymentDate.getDay()) return false;
+            const firstPaymentDate = getLoanFirstPaymentDate(loan);
+            if (firstPaymentDate) {
+                const difference = getLoanCalendarDayNumber(paymentDate) - getLoanCalendarDayNumber(firstPaymentDate);
+                return difference >= 0 && difference % 14 === 0;
+            }
+            const startDate = parseLoanScheduleDate(loan?.startDate);
+            if (!startDate) return false;
+            const difference = getLoanCalendarDayNumber(paymentDate) - getLoanCalendarDayNumber(startDate);
+            return difference >= 0 && Math.floor(difference / 7) % 2 === 0;
+        }
+
+        function isAdminMonthlyPaymentDay(loan, referenceDate) {
+            const paymentDate = parseLoanScheduleDate(referenceDate);
+            const configuredDay = getAdminMonthlyDay(loan);
+            if (!paymentDate || !configuredDay) return false;
+            const firstPaymentDate = getLoanFirstPaymentDate(loan);
+            if (firstPaymentDate && getLoanCalendarDayNumber(paymentDate) < getLoanCalendarDayNumber(firstPaymentDate)) return false;
+            const lastDay = new Date(paymentDate.getFullYear(), paymentDate.getMonth() + 1, 0).getDate();
+            return paymentDate.getDate() === Math.min(configuredDay, lastDay);
+        }
+
+        function getAdminScheduleStartDate(loan) {
+            const firstPaymentDate = getLoanFirstPaymentDate(loan);
+            if (firstPaymentDate) return new Date(firstPaymentDate.getFullYear(), firstPaymentDate.getMonth(), firstPaymentDate.getDate());
+            const startDate = parseLoanScheduleDate(loan?.startDate);
+            if (!startDate) return null;
+            const nextDate = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+            nextDate.setDate(nextDate.getDate() + 1);
+            return nextDate;
+        }
+
         
         function legacyCalculateLoanDetails(loan) {
            let details = {
@@ -5126,8 +5209,7 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
            
            // Inicio del bucle: Día siguiente al inicio
            startDateObj.setHours(0, 0, 0, 0);
-           let checkDate = new Date(startDateObj); 
-           checkDate.setDate(checkDate.getDate() + 1); 
+           let checkDate = getAdminScheduleStartDate(loan) || new Date(startDateObj);
            
            let accumulatedLateDays = 0;
            let accumulatedLateFees = 0; 
@@ -5138,6 +5220,10 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
            // Límite de seguridad para el bucle
            let stopDate = new Date(today);
            stopDate.setDate(stopDate.getDate() + 60); 
+           const configuredFirstPaymentDate = getLoanFirstPaymentDate(loan);
+           if (configuredFirstPaymentDate && configuredFirstPaymentDate > stopDate) {
+               stopDate = new Date(configuredFirstPaymentDate);
+           }
 
            if (checkDate > stopDate) return details;
 
@@ -5152,19 +5238,9 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
                const pDays = (loan.paymentDays && loan.paymentDays.length > 0) ? loan.paymentDays : [1, 2, 3, 4, 5, 6];
                
                if (frequency === 'daily') isPaymentDay = pDays.some(d => String(d) === String(dayOfWeek));
-               else if (frequency === 'weekly') isPaymentDay = pDays.length > 0 && String(pDays[0]) === String(dayOfWeek);
-               else if (frequency === 'monthly') isPaymentDay = pDays.length > 0 && String(pDays[0]) === String(dayOfMonth);
-               else if (frequency === 'biweekly') {
-                   // LÓGICA QUINCENAL CORREGIDA (Usa Math.floor siempre para consistencia)
-                   if (pDays.length > 0 && String(pDays[0]) === String(dayOfWeek)) {
-                        const diffTime = checkDate.getTime() - startDateObj.getTime();
-                        // 1 día = 86400000 ms. Usamos Math.round para evitar errores de horario de verano
-                        const diffDays = Math.round(diffTime / 86400000);
-                        const weekNumber = Math.floor(diffDays / 7);
-                        // Paga en semanas pares (0, 2, 4...) después del inicio
-                        if (weekNumber % 2 === 0) isPaymentDay = true;
-                   }
-               }
+               else if (frequency === 'weekly') isPaymentDay = isAdminWeeklyPaymentDay(loan, checkDate);
+               else if (frequency === 'monthly') isPaymentDay = isAdminMonthlyPaymentDay(loan, checkDate);
+               else if (frequency === 'biweekly') isPaymentDay = isAdminBiweeklyPaymentDay(loan, checkDate);
 
                if (isPaymentDay && !isHoliday) {
                    const endOfCheckDate = new Date(checkDate);
@@ -9645,11 +9721,27 @@ function updateAdminNotificationsView() {
                              </div>
                             <div><label>Valor da Parcela</label><input type="text" id="client-installment-value" readonly></div>
                         </div>
-                         <div class="form-group">
-                            <label>Dias de Pagamento</label>
+                        <div class="form-group">
+                            <label>${currentLang === 'es' ? 'Forma de Pago' : (currentLang === 'en' ? 'Payment Frequency' : 'Forma de Pagamento')}</label>
+                            <select id="admin-payment-frequency">
+                                <option value="daily">${currentLang === 'es' ? 'Diario' : (currentLang === 'en' ? 'Daily' : 'Diário')}</option>
+                                <option value="weekly">${currentLang === 'es' ? 'Semanal' : (currentLang === 'en' ? 'Weekly' : 'Semanal')}</option>
+                                <option value="biweekly">${currentLang === 'es' ? 'Quincenal' : (currentLang === 'en' ? 'Biweekly' : 'Quinzenal')}</option>
+                                <option value="monthly">${currentLang === 'es' ? 'Mensual' : (currentLang === 'en' ? 'Monthly' : 'Mensal')}</option>
+                            </select>
+                        </div>
+                        <div id="admin-daily-payment-selector" class="form-group">
+                            <label>${currentLang === 'es' ? 'Días de Pago' : (currentLang === 'en' ? 'Payment Days' : 'Dias de Pagamento')}</label>
                             <div class="day-selector">
                                 ${['D','S','T','Q','Q','S','S'].map((day, i) => `<div><input type="checkbox" id="form-day-${i}" value="${i}"><label for="form-day-${i}">${day}</label></div>`).join('')}
                             </div>
+                        </div>
+                        <div id="admin-first-payment-selector" class="form-group" style="display:none;">
+                            <label for="admin-first-payment-date">${currentLang === 'es' ? 'Fecha del Primer Pago' : (currentLang === 'en' ? 'First Payment Date' : 'Data do Primeiro Pagamento')}</label>
+                            <input type="date" id="admin-first-payment-date">
+                            <small style="display:block; margin-top:7px; color:var(--text-secondary); line-height:1.4;">
+                                ${currentLang === 'es' ? 'La corrección preserva los pagos registrados y recalcula solamente el calendario pendiente.' : (currentLang === 'en' ? 'The correction preserves recorded payments and recalculates only the pending schedule.' : 'A correção preserva os pagamentos registrados e recalcula somente o calendário pendente.')}
+                            </small>
                         </div>
                     </form>
                 </div>
@@ -9709,10 +9801,31 @@ function updateAdminNotificationsView() {
                 updateClientProfilePreview(clientProfileFallback, false);
             });
 
-            (client.paymentDays || []).forEach(day => {
+            const adminPaymentFrequency = formModal.querySelector('#admin-payment-frequency');
+            const adminDailyPaymentSelector = formModal.querySelector('#admin-daily-payment-selector');
+            const adminFirstPaymentSelector = formModal.querySelector('#admin-first-payment-selector');
+            const adminFirstPaymentDate = formModal.querySelector('#admin-first-payment-date');
+            const originalPaymentFrequency = loan.paymentFrequency || client.paymentFrequency || 'daily';
+            const originalPaymentDays = Array.isArray(loan.paymentDays) && loan.paymentDays.length
+                ? loan.paymentDays
+                : (client.paymentDays || [1, 2, 3, 4, 5, 6]);
+            const originalFirstPaymentDate = formatLoanScheduleDate(getLoanFirstPaymentDate(loan));
+
+            const toggleAdminPaymentSchedule = (frequency) => {
+                const requiresFirstPaymentDate = ['weekly', 'biweekly', 'monthly'].includes(frequency);
+                adminDailyPaymentSelector.style.display = frequency === 'daily' ? 'block' : 'none';
+                adminFirstPaymentSelector.style.display = requiresFirstPaymentDate ? 'block' : 'none';
+                adminFirstPaymentDate.required = requiresFirstPaymentDate;
+            };
+
+            adminPaymentFrequency.value = originalPaymentFrequency;
+            originalPaymentDays.forEach(day => {
                 const checkbox = formModal.querySelector(`#form-day-${day}`);
                 if (checkbox) checkbox.checked = true;
             });
+            adminFirstPaymentDate.value = originalFirstPaymentDate;
+            toggleAdminPaymentSchedule(originalPaymentFrequency);
+            adminPaymentFrequency.addEventListener('change', (event) => toggleAdminPaymentSchedule(event.target.value));
 
             const loanAmountInput = formModal.querySelector('#client-loan-amount');
             const interestInput = formModal.querySelector('#client-interest');
@@ -9742,6 +9855,38 @@ function updateAdminNotificationsView() {
                  const interest = parseFloat(interestInput.value) || 0;
                  const installments = parseInt(installmentsInput.value) || 0;
                  const microInsurance = parseFloat(document.getElementById('client-micro-insurance').value) || 0;
+                 const selectedPaymentFrequency = adminPaymentFrequency.value;
+                 const requiresFirstPaymentDate = ['weekly', 'biweekly', 'monthly'].includes(selectedPaymentFrequency);
+                 const selectedFirstPaymentDateValue = adminFirstPaymentDate.value;
+                 const selectedFirstPaymentDate = parseLoanScheduleDate(selectedFirstPaymentDateValue);
+                 let selectedPaymentDays = [];
+
+                 if (selectedPaymentFrequency === 'daily') {
+                     selectedPaymentDays = Array.from(formModal.querySelectorAll('#admin-daily-payment-selector input:checked')).map(el => parseInt(el.value));
+                     if (selectedPaymentDays.length === 0) {
+                         showToast('Selecione pelo menos um dia de pagamento.', true);
+                         return;
+                     }
+                 } else {
+                     if (!selectedFirstPaymentDate) {
+                         showToast('Selecione a data do primeiro pagamento.', true);
+                         adminFirstPaymentDate.focus();
+                         return;
+                     }
+                     selectedPaymentDays = selectedPaymentFrequency === 'monthly'
+                         ? [selectedFirstPaymentDate.getDate()]
+                         : [selectedFirstPaymentDate.getDay()];
+                 }
+
+                 const normalizedOriginalDays = [...originalPaymentDays].map(Number).sort((a, b) => a - b);
+                 const normalizedSelectedDays = [...selectedPaymentDays].sort((a, b) => a - b);
+                 const scheduleChanged = selectedPaymentFrequency !== originalPaymentFrequency
+                     || JSON.stringify(normalizedSelectedDays) !== JSON.stringify(normalizedOriginalDays)
+                     || (requiresFirstPaymentDate ? selectedFirstPaymentDateValue : '') !== originalFirstPaymentDate;
+                 if (scheduleChanged) {
+                     const confirmed = window.confirm('Confirmar a correção da agenda? Pagamentos e histórico serão preservados, mas rota, parcelas pendentes e situação de atraso serão recalculadas.');
+                     if (!confirmed) return;
+                 }
 
                  const totalToPay = loanAmount * (1 + (interest / 100));
                  const installmentValue = installments > 0 ? totalToPay / installments : 0;
@@ -9758,7 +9903,10 @@ function updateAdminNotificationsView() {
                          
                          // [CORRECCIÓN CRÍTICA] Forzamos la actualización del Capital Principal
                          // Esto es lo que arregla el descuadre de caja.
-                         principalAmount: loanAmount, 
+                         principalAmount: loanAmount,
+                         paymentFrequency: selectedPaymentFrequency,
+                         paymentDays: selectedPaymentDays,
+                         firstPaymentDate: requiresFirstPaymentDate ? selectedFirstPaymentDateValue : null,
                      };
                  }
 
@@ -9775,7 +9923,9 @@ function updateAdminNotificationsView() {
                     principalAmount: loanAmount, // <-- Importante
                     installments: `${(client.installments || '0/0').split('/')[0]}/${installments}`,
                     interestRate: interest,
-                    paymentDays: Array.from(document.querySelectorAll('#clientFormModal .day-selector input:checked')).map(el => parseInt(el.value)),
+                    paymentFrequency: selectedPaymentFrequency,
+                    paymentDays: selectedPaymentDays,
+                    firstPaymentDate: requiresFirstPaymentDate ? selectedFirstPaymentDateValue : null,
                     
                     loans: updatedLoans,
                     profilePictureUrl: removeClientProfilePicture ? '' : (client.profilePictureUrl || '')
@@ -9820,7 +9970,9 @@ function updateAdminNotificationsView() {
                                 whatsapp: updatedData.whatsapp,
                                 phone: updatedData.phone,
                                 collectorId: updatedData.collectorId,
+                                paymentFrequency: updatedData.paymentFrequency,
                                 paymentDays: updatedData.paymentDays,
+                                firstPaymentDate: updatedData.firstPaymentDate,
                                  ...(profilePictureChanged ? { profilePictureUrl: updatedData.profilePictureUrl } : {}),
                             },
                             loan: {
@@ -9828,6 +9980,9 @@ function updateAdminNotificationsView() {
                                 interestRate: interest,
                                 microInsurance,
                                 installmentsCount: installments,
+                                paymentFrequency: selectedPaymentFrequency,
+                                paymentDays: selectedPaymentDays,
+                                firstPaymentDate: requiresFirstPaymentDate ? selectedFirstPaymentDateValue : null,
                             },
                         });
                     } else {
