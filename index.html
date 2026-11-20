@@ -2585,9 +2585,9 @@ function extractCoords(input) {
                     let isToday = false;
 
                     if (freq === 'daily') isToday = pDays.includes(dayW);
-                    else if (freq === 'weekly') isToday = isAdminWeeklyPaymentDay(loan, today);
-                    else if (freq === 'biweekly') isToday = isAdminBiweeklyPaymentDay(loan, today);
-                    else if (freq === 'monthly') isToday = isAdminMonthlyPaymentDay(loan, today);
+                    else if (freq === 'weekly') isToday = isAdminWeeklyPaymentDay(loan, todayDate);
+                    else if (freq === 'biweekly') isToday = isAdminBiweeklyPaymentDay(loan, todayDate);
+                    else if (freq === 'monthly') isToday = isAdminMonthlyPaymentDay(loan, todayDate);
 
                     if (isToday && loanDetails.status !== 'finished') expectedToday += (Number(loan.originalInstallmentAmount) || 0);
 
