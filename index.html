@@ -1380,7 +1380,7 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
     <div id="toast-container"></div>
     
     <script type="module">
-        import { calculateLoanDetails } from "./loan-calculations.js?v=20261119-rotas";
+        import { calculateLoanDetails } from "./loan-calculations.js?v=20261120-rotas-resilientes";
         import { calculateWeeklyLoanMetrics } from "./weekly-loan-metrics.mjs?v=20261028-1900";
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
         import { getFirestore, connectFirestoreEmulator, enableMultiTabIndexedDbPersistence, collection, onSnapshot, doc, getDoc, query, where, documentId, setDoc, updateDoc, deleteDoc, Timestamp, addDoc, orderBy, serverTimestamp, increment, getDocs, arrayUnion, writeBatch } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
@@ -2405,14 +2405,18 @@ function extractCoords(input) {
                 let sumGlobalCapitalOnHand = 0; 
 
                 allCollectors.forEach(collector => {
-                    const metrics = calculateCollectorMetrics(
-                        collector.id, collector, allClients, allExpenses, allSettlements, allCapitalInjections, allAdminExpenses
-                    );
-                    calculatedCollectorMetrics.set(collector.id, metrics);
+                    try {
+                        const metrics = calculateCollectorMetrics(
+                            collector.id, collector, allClients, allExpenses, allSettlements, allCapitalInjections, allAdminExpenses
+                        );
+                        calculatedCollectorMetrics.set(collector.id, metrics);
 
-                    sumGlobalDistributed += (metrics.totalDistributedCapital || 0);
-                    sumGlobalPatrimonio += (metrics.totalPatrimonio || 0);
-                    sumGlobalCapitalOnHand += (metrics.capitalOnHand || 0); 
+                        sumGlobalDistributed += (metrics.totalDistributedCapital || 0);
+                        sumGlobalPatrimonio += (metrics.totalPatrimonio || 0);
+                        sumGlobalCapitalOnHand += (metrics.capitalOnHand || 0);
+                    } catch (error) {
+                        console.error('Falha ao calcular métricas da rota:', { collectorId: collector.id, error });
+                    }
                 });
 
                 // DESCUENTO GLOBAL: Si el gasto admin es global, se resta directamente del patrimonio y caja de la empresa
@@ -2425,9 +2429,14 @@ function extractCoords(input) {
                 // a nenhum caixa até que o administrador escolha um cobrador.
                 
 
-                calculatedGlobalMetrics = calculateGlobalMetrics(
-                    allCollectors, allClients, allExpenses, allSettlements, allCapitalInjections, allAdminExpenses
-                );
+                try {
+                    calculatedGlobalMetrics = calculateGlobalMetrics(
+                        allCollectors, allClients, allExpenses, allSettlements, allCapitalInjections, allAdminExpenses
+                    );
+                } catch (error) {
+                    console.error('Falha ao calcular os indicadores globais:', error);
+                    calculatedGlobalMetrics = {};
+                }
                 
                 calculatedGlobalMetrics.sumGlobalDistributed = sumGlobalDistributed;
                 calculatedGlobalMetrics.sumGlobalPatrimonio = sumGlobalPatrimonio;
@@ -2948,6 +2957,9 @@ function extractCoords(input) {
                 allCollectors = documents.map(doc => ({ id: doc.id, ...doc.data() }));
                 
                 collectorsReady = true;
+                // As rotas devem aparecer assim que o snapshot de cobradores chegar.
+                // Os valores financeiros são preenchidos em seguida, sem bloquear a lista.
+                updateDashboard();
                 checkAndRunGlobalUpdate(); 
 
                 updateCollectorMarkers();
@@ -2957,6 +2969,19 @@ function extractCoords(input) {
                 if (collectorView?.classList.contains('active')) {
                     const currentCollectorId = collectorView.querySelector('#editCollectorBtn')?.dataset.collectorId;
                     if (currentCollectorId) showCollectorDetails(currentCollectorId);
+                }
+            }, error => {
+                collectorsReady = true;
+                console.error('Falha ao carregar as rotas:', error);
+                const listContainer = document.getElementById('collectors-list');
+                if (listContainer) {
+                    listContainer.innerHTML = `
+                        <div class="kpi-card" style="text-align:center; padding:24px; border-color:var(--danger-color);">
+                            <i data-lucide="triangle-alert" style="color:var(--danger-color);"></i>
+                            <p style="margin:10px 0;">Não foi possível carregar as rotas.</p>
+                            <button type="button" class="btn btn-secondary" onclick="window.location.reload()">Tentar novamente</button>
+                        </div>`;
+                    lucide.createIcons({ nodes: listContainer.querySelectorAll('[data-lucide]') });
                 }
             });
 
@@ -2975,10 +3000,19 @@ function extractCoords(input) {
                         client.loans = [];
                     }
 
-                    client.loans.forEach(loan => {
-                        const details = calculateLoanDetails(loan); 
-                        loan.status = details.status; 
-                        loan.lateFeesAccumulated = details.lateFeesAccumulated; 
+                    client.loans.forEach((loan, loanIndex) => {
+                        try {
+                            const details = calculateLoanDetails(loan);
+                            loan.status = details.status;
+                            loan.lateFeesAccumulated = details.lateFeesAccumulated;
+                        } catch (error) {
+                            // Um empréstimo inconsistente não pode impedir todas as rotas de aparecerem.
+                            console.error('Falha ao calcular empréstimo do cliente:', {
+                                clientId: client.id,
+                                loanIndex,
+                                error,
+                            });
+                        }
                     });
                 });
                 
@@ -4794,7 +4828,9 @@ async function sendNotificationToCollector(collectorId, title, body, type, icon 
                                     <button class="filter-btn" data-sort="capital"><i data-lucide="arrow-down-up" style="width:14px; height:14px;"></i> <span data-lang-key="sortByCapital"></span></button>
                                 </div>
                             </div>
-                            <div class="item-list" id="collectors-list"></div>
+                            <div class="item-list" id="collectors-list">
+                                <p style="color:var(--text-secondary);">Carregando rotas...</p>
+                            </div>
                         </section>
                     </div>
                     <div id="map-view" class="view" style="height:100%; padding:0;">
@@ -7900,7 +7936,7 @@ async function submitCollectorReport(collectorId) {
             const sortBy = activeSortBtn ? activeSortBtn.dataset.sort : null;
             
             let filteredCollectors = allCollectors.filter(collector => 
-                collector.name.toLowerCase().includes(searchTerm)
+                String(collector.name || '').toLowerCase().includes(searchTerm)
             );
             
             if (statusFilter !== 'all') {
@@ -7923,7 +7959,7 @@ async function submitCollectorReport(collectorId) {
                 let alertsCount = 0;
                 collectorClients.forEach(c => {
                     (c.loans || []).forEach(l => {
-                        if (l.status !== 'finished' && l.notes && l.notes.trim() !== '') {
+                        if (l.status !== 'finished' && typeof l.notes === 'string' && l.notes.trim() !== '') {
                             alertsCount++;
                         }
                     });
