@@ -2390,9 +2390,13 @@ function extractCoords(input) {
             
             
                  function checkAndRunGlobalUpdate() {
-                 // CÓDIGO OPTIMIZADO:
-                if (allDashboardDataReady()) {
-                console.log("[ADMIN-APP] Datos listos. Actualizando todo...");
+                // Cobradores e clientes são o núcleo das métricas por rota.
+                // As fontes financeiras refinam os valores conforme seus snapshots chegam.
+                if (!collectorsReady || !clientsReady) return;
+
+                console.log(allDashboardDataReady()
+                    ? "[ADMIN-APP] Dados completos. Atualizando painel..."
+                    : "[ADMIN-APP] Dados essenciais prontos. Atualizando rotas parcialmente...");
                 
                 calculatedCollectorMetrics.clear(); 
                 
@@ -2432,7 +2436,7 @@ function extractCoords(input) {
                 updateDashboard();
                 updateProfileView();
                 updateAdminNotificationsView();
-                if (allDashboardDataFromServer()) {
+                if (allDashboardDataReady() && allDashboardDataFromServer()) {
                     markStartupStage('dashboard-dados-servidor');
                     scheduleDashboardSummaryWrite();
                 } else {
@@ -2442,7 +2446,6 @@ function extractCoords(input) {
                 if (mapInstance) updateCollectorMarkers();
                 if (document.getElementById('reports-view') && document.getElementById('reports-view').classList.contains('active')) updateReportsView();
                 if (document.getElementById('admin-expenses-view') && document.getElementById('admin-expenses-view').classList.contains('active')) showView('admin-expenses');
-            } 
         }
 
         function calculateGlobalMetrics(collectors, clients, expenses, settlements, capitalInjections, adminExpenses) {
@@ -2945,9 +2948,6 @@ function extractCoords(input) {
                 allCollectors = documents.map(doc => ({ id: doc.id, ...doc.data() }));
                 
                 collectorsReady = true;
-                // Os cartões das rotas não dependem das coleções financeiras.
-                // Exiba-os assim que os cobradores chegarem e refine os valores depois.
-                updateDashboard();
                 checkAndRunGlobalUpdate(); 
 
                 updateCollectorMarkers();
@@ -2983,8 +2983,6 @@ function extractCoords(input) {
                 });
                 
                 clientsReady = true;
-                // Mantém a equipe visível mesmo se uma fonte auxiliar estiver lenta.
-                updateDashboard();
                 checkAndRunGlobalUpdate(); 
 
                 // 1. ACTUALIZACIÓN EN TIEMPO REAL: CHAT DEL CLIENTE
@@ -7917,7 +7915,8 @@ async function submitCollectorReport(collectorId) {
             }
             
             let collectorsWithData = filteredCollectors.map(collector => {
-                const metrics = calculatedCollectorMetrics.get(collector.id) || { capitalOnHand: 0, totalClientsCount: 0, activeClientsCount: 0, totalPatrimonio: 0 };
+                const metrics = calculatedCollectorMetrics.get(collector.id);
+                const metricsReady = Boolean(metrics);
                 
                 // --- CONTAR ALERTAS/NOTAS ACTIVAS ---
                 const collectorClients = allClients.filter(c => c.collectorId === collector.id);
@@ -7933,15 +7932,18 @@ async function submitCollectorReport(collectorId) {
 
                 return { 
                     ...collector, 
-                    capitalOnHand: metrics.capitalOnHand,
-                    totalPatrimonio: metrics.totalPatrimonio,
-                    clientCount: metrics.activeClientsCount !== undefined ? metrics.activeClientsCount : metrics.totalClientsCount,
+                    metricsReady,
+                    capitalOnHand: metrics?.capitalOnHand ?? null,
+                    totalPatrimonio: metrics?.totalPatrimonio ?? null,
+                    clientCount: metricsReady
+                        ? (metrics.activeClientsCount !== undefined ? metrics.activeClientsCount : metrics.totalClientsCount)
+                        : null,
                     alertsCount: alertsCount 
                 };
             });
             
             if (sortBy === 'capital') {
-                collectorsWithData.sort((a, b) => b.totalPatrimonio - a.totalPatrimonio);
+                collectorsWithData.sort((a, b) => (Number(b.totalPatrimonio) || 0) - (Number(a.totalPatrimonio) || 0));
             }
 
             if (collectorsWithData.length === 0) {
@@ -7974,7 +7976,7 @@ async function submitCollectorReport(collectorId) {
                             <div class="collector-card-top">
                                 <div class="item-info">
                                     <h4 class="item-name">${collector.name}</h4>
-                                    <p class="item-subtext">${collector.clientCount} <span data-lang-key="activeClients"></span></p>
+                                    <p class="item-subtext">${collector.metricsReady ? collector.clientCount : '…'} <span data-lang-key="activeClients"></span></p>
                                 </div>
                                 
                                 <div style="display: flex; align-items: center; background-color: ${bellBg}; padding: 4px 8px; border-radius: 12px; border: 1px solid ${bellBorder}; margin-right: 10px;">
@@ -7984,7 +7986,7 @@ async function submitCollectorReport(collectorId) {
 
                                 <div class="item-details" style="display: flex; align-items: center; gap: 6px; color: var(--accent-purple);">
                                     <i data-lucide="gem" style="width: 16px; height: 16px;"></i>
-                                    <span class="item-detail-value" style="color: var(--accent-purple);">${money(collector.totalPatrimonio)}</span>
+                                    <span class="item-detail-value" style="color: var(--accent-purple);">${collector.metricsReady ? money(collector.totalPatrimonio) : 'Calculando…'}</span>
                                 </div>
                             </div>
                             <div class="item-tags">
