@@ -1380,7 +1380,7 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
     <div id="toast-container"></div>
     
     <script type="module">
-        import { calculateLoanDetails } from "./loan-calculations.js?v=20261023-0100";
+        import { calculateLoanDetails } from "./loan-calculations.js?v=20261119-rotas";
         import { calculateWeeklyLoanMetrics } from "./weekly-loan-metrics.mjs?v=20261028-1900";
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
         import { getFirestore, connectFirestoreEmulator, enableMultiTabIndexedDbPersistence, collection, onSnapshot, doc, getDoc, query, where, documentId, setDoc, updateDoc, deleteDoc, Timestamp, addDoc, orderBy, serverTimestamp, increment, getDocs, arrayUnion, writeBatch } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
@@ -2944,7 +2944,10 @@ function extractCoords(input) {
                 recordDashboardSnapshot('collectors', documents, metadata);
                 allCollectors = documents.map(doc => ({ id: doc.id, ...doc.data() }));
                 
-                collectorsReady = true; 
+                collectorsReady = true;
+                // Os cartões das rotas não dependem das coleções financeiras.
+                // Exiba-os assim que os cobradores chegarem e refine os valores depois.
+                updateDashboard();
                 checkAndRunGlobalUpdate(); 
 
                 updateCollectorMarkers();
@@ -2979,7 +2982,9 @@ function extractCoords(input) {
                     });
                 });
                 
-                clientsReady = true; 
+                clientsReady = true;
+                // Mantém a equipe visível mesmo se uma fonte auxiliar estiver lenta.
+                updateDashboard();
                 checkAndRunGlobalUpdate(); 
 
                 // 1. ACTUALIZACIÓN EN TIEMPO REAL: CHAT DEL CLIENTE
