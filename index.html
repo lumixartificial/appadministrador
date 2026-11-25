@@ -2486,7 +2486,7 @@ function extractCoords(input) {
 
                     let principal = 0;
                     if (loan.principalAmount) principal = loan.principalAmount;
-                    else if (loan.totalLoan && client.interestRate) principal = (loan.totalLoan / (1 + (client.interestRate / 100)));
+                    else if (loan.totalLoan && client.interestRate != null) principal = (loan.totalLoan / (1 + (parseInterestRate(client.interestRate) / 100)));
                     totalPrincipalFromLoans += principal;
 
                     (loan.history || []).forEach(h => {
@@ -2583,7 +2583,7 @@ function extractCoords(input) {
                     if (!loan.migrationDate) {
                         let principal = Number(loan.principalAmount) || 0;
                         if (principal === 0 && loan.totalLoan) {
-                            const rate = Number(c.interestRate) || 20;
+                            const rate = parseInterestRate(c.interestRate);
                             principal = Number(loan.totalLoan) / (1 + (rate / 100));
                         }
                         totalPrincipal += principal;
@@ -6318,7 +6318,7 @@ async function submitCollectorReport(collectorId) {
                             let ld = loan.startDate?.seconds ? new Date(loan.startDate.seconds * 1000) : new Date();
                             let principal = Number(loan.principalAmount);
                             if (!principal && loan.totalLoan) {
-                                const rate = Number(client.interestRate) || 20;
+                                const rate = parseInterestRate(client.interestRate);
                                 principal = Number(loan.totalLoan) / (1 + (rate / 100));
                             }
                             principal = principal || 0;
@@ -7064,7 +7064,7 @@ async function submitCollectorReport(collectorId) {
                                 if (!loan.migrationDate) {
                                     let principal = loan.principalAmount;
                                     if (!principal && loan.totalLoan) {
-                                         const rate = client.interestRate || 20;
+                                         const rate = parseInterestRate(client.interestRate);
                                          principal = loan.totalLoan / (1 + (rate/100));
                                     }
                                     const fmt = safeDate(loanDateObj);
@@ -9678,6 +9678,12 @@ function updateAdminNotificationsView() {
         }
         
        
+        function parseInterestRate(value, fallback = 20) {
+            if (value === null || value === undefined || value === '') return fallback;
+            const parsedValue = Number(value);
+            return Number.isFinite(parsedValue) ? parsedValue : fallback;
+        }
+
         function showClientFormModal(clientId, forcedLoanIndex = null) {
             const client = allClients.find(c => c.id === clientId);
             if (!client) {
@@ -9700,7 +9706,7 @@ function updateAdminNotificationsView() {
             const loan = (client.loans && client.loans[loanIndex]) ? client.loans[loanIndex] : {};
 
             // === CÁLCULOS DE SEGURIDAD ===
-            const safeInterest = parseFloat(loan.interestRate || client.interestRate) || 0;
+            const safeInterest = parseInterestRate(loan.interestRate ?? client.interestRate, 0);
             const safeTotal = parseFloat(loan.totalLoan) || 0;
             const safeMicroInsurance = parseFloat(loan.microInsurance) || 0;
             
@@ -9984,6 +9990,7 @@ function updateAdminNotificationsView() {
                          // [CORRECCIÓN CRÍTICA] Forzamos la actualización del Capital Principal
                          // Esto es lo que arregla el descuadre de caja.
                          principalAmount: loanAmount,
+                         interestRate: interest,
                          paymentFrequency: selectedPaymentFrequency,
                          paymentDays: selectedPaymentDays,
                          firstPaymentDate: requiresFirstPaymentDate ? selectedFirstPaymentDateValue : null,
@@ -10110,7 +10117,7 @@ let clientImpactoNeto = 0;
         if (loan.principalAmount) {
             principal = Number(loan.principalAmount) || 0; // <-- Asegura que sea número
         } else if (loan.totalLoan) {
-            const rate = Number(clientData.interestRate) || 20;
+            const rate = parseInterestRate(clientData.interestRate);
             principal = Number(loan.totalLoan) / (1 + (rate / 100));
         }
     }
@@ -10602,7 +10609,7 @@ function setupEventListeners() {
 
     document.getElementById('settings-company-name').value = settings.companyName || '';
     document.getElementById('settings-logo-preview').src = settings.companyLogo || DEFAULT_LOGO_URL;
-    document.getElementById('settings-default-interest').value = settings.defaultInterest || 20;
+    document.getElementById('settings-default-interest').value = parseInterestRate(settings.defaultInterest);
     document.getElementById('settings-gps-toggle').checked = settings.requireGps || false;
 
     // Deshabilita el botón de guardar hasta que se haga un cambio
@@ -11212,7 +11219,7 @@ async function showRefinanceVerificationModal(clientId) {
                                             if (l.principalAmount) {
                                                 pPrincipal = l.principalAmount;
                                             } else if (l.totalLoan) {
-                                                const rate = data.interestRate || 20;
+                                                const rate = parseInterestRate(data.interestRate);
                                                 pPrincipal = l.totalLoan / (1 + (rate / 100));
                                             }
                                         }
