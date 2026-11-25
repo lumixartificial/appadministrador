@@ -1381,6 +1381,7 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
     
     <script type="module">
         import { calculateLoanDetails } from "./loan-calculations.js?v=20261120-rotas-resilientes";
+        import { dailyAdminEntries, operationalDayKey } from "./daily-listings.mjs?v=20261124-listagens";
         import { calculateWeeklyLoanMetrics } from "./weekly-loan-metrics.mjs?v=20261028-1900";
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
         import { getFirestore, connectFirestoreEmulator, enableMultiTabIndexedDbPersistence, collection, onSnapshot, doc, getDoc, query, where, documentId, setDoc, updateDoc, deleteDoc, Timestamp, addDoc, orderBy, serverTimestamp, increment, getDocs, arrayUnion, writeBatch } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
@@ -1569,6 +1570,17 @@ body.dark-mode #community-view .post-card { box-shadow: none; }
         
         let allCollectors = [];
         let allClients = [];
+        let listingsOperationalDay = operationalDayKey();
+        const refreshListingsDay = () => {
+            const day = operationalDayKey();
+            if (day === listingsOperationalDay) return;
+            listingsOperationalDay = day;
+            const view = document.getElementById('collectorDetailView');
+            const collectorId = view?.classList.contains('active') && view.querySelector('#editCollectorBtn')?.dataset.collectorId;
+            if (collectorId) showCollectorDetails(collectorId);
+        };
+        setInterval(refreshListingsDay, 30000);
+        document.addEventListener('visibilitychange', refreshListingsDay);
         let allExpenses = [];
         let globalSettings = {};
         let allCommunityPosts = [];
@@ -3190,6 +3202,10 @@ function extractCoords(input) {
         
             function showCollectorDetails(collectorId) {
             const detailView = document.getElementById('collectorDetailView');
+            const sameCollector = detailView.classList.contains('active') &&
+                detailView.querySelector('#editCollectorBtn')?.dataset.collectorId === collectorId;
+            const clientsFilter = sameCollector ? (detailView.querySelector('#admin-clients-filter')?.value || 'all') : 'all';
+            const clientsSearch = sameCollector ? (detailView.querySelector('#client-list-search')?.value || '') : '';
             const collector = allCollectors.find(c => c.id === collectorId);
             
             const t = translations[currentLang] || {}; 
@@ -3249,7 +3265,7 @@ function extractCoords(input) {
             // --- LISTA DE CLIENTES ---
             let clientsListHtml = '';
             if (clients.length > 0) {
-                const sortedClients = clients.map(client => {
+                const registryClients = clientsFilter === 'registry' ? clients.map(client => {
                     const loansWithStatus = (client.loans || []).map((loan, index) => {
                         const details = calculateLoanDetails(loan);
                         return { ...loan, status: details.status, lateDays: details.lateDays, overdueInstallments: details.overdueInstallments, originalIndex: index };
@@ -3263,9 +3279,20 @@ function extractCoords(input) {
 
                     const activeLoansCount = loansWithStatus.filter(l => l.status !== 'finished').length;
                     return { client, displayLoan, activeLoansCount };
-                }).sort((a, b) => a.client.name.localeCompare(b.client.name));
+                }).sort((a, b) => a.client.name.localeCompare(b.client.name)) : [];
 
-                clientsListHtml = sortedClients.map(({ client, displayLoan, activeLoansCount }) => {
+                const sortedClients = clientsFilter === 'registry' ? registryClients :
+                    dailyAdminEntries(clients).map(({ client, loan, loanIndex, pendingPayment }) => {
+                        const details = calculateLoanDetails(loan);
+                        return {
+                            client,
+                            displayLoan: { ...loan, originalIndex: loanIndex, status: details.status },
+                            activeLoansCount: (client.loans || []).filter(item => calculateLoanDetails(item).status !== 'finished').length,
+                            pendingPayment
+                        };
+                    }).sort((a, b) => a.client.name.localeCompare(b.client.name));
+
+                clientsListHtml = sortedClients.map(({ client, displayLoan, activeLoansCount, pendingPayment }) => {
                     const details = calculateLoanDetails(displayLoan); 
                     const statusKey = details.status;
                     
@@ -3277,6 +3304,7 @@ function extractCoords(input) {
                     };
                     const lang = currentLang || 'pt';
                     let statusLabel = statusDict[statusKey] ? statusDict[statusKey][lang] : '---';
+                    const paymentPendingLabel = lang === 'es' ? 'Pago pendiente de aprobación' : (lang === 'en' ? 'Payment awaiting approval' : 'Pagamento aguardando aprovação');
 
                     let statusColor = 'var(--text-secondary)';
                     let progressColor = 'var(--text-secondary)';
@@ -3330,6 +3358,7 @@ function extractCoords(input) {
                                 <div style="display: flex; align-items: center; gap: 10px; margin-top: 2px;">
                                     <span style="font-size: 0.85em; font-weight: 700; color: var(--text-primary); background: var(--bg); padding: 2px 6px; border-radius: 4px;">${money(displayLoan.originalInstallmentAmount)}</span>
                                     <span style="font-size: 0.75em; color: var(--text-secondary);">Início: ${startDateStr}</span>
+                                    ${pendingPayment ? `<span style="font-size: 0.75em; color: var(--warning-color);">${paymentPendingLabel}</span>` : ''}
                                 </div>
                             </div>
                             <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 5px; width: 85px;">
@@ -3608,7 +3637,12 @@ function extractCoords(input) {
                         <i class="icon" data-lucide="search" style="width: 18px; left: 12px; top: 50%; transform: translateY(-50%); position: absolute; color: var(--text-secondary);"></i>
                     </div>
                     
-                    <div class="item-list" id="clients-list-container">${clientsListHtml}</div>
+                    <label for="admin-clients-filter">${currentLang === 'es' ? 'Listado' : (currentLang === 'en' ? 'Listing' : 'Listagem')}</label>
+                    <select id="admin-clients-filter" style="margin-bottom: 15px;">
+                        <option value="all" ${clientsFilter === 'all' ? 'selected' : ''}>${t.all || 'Todos'} — ${currentLang === 'es' ? 'pagos del día' : (currentLang === 'en' ? 'payments today' : 'pagamentos do dia')}</option>
+                        <option value="registry" ${clientsFilter === 'registry' ? 'selected' : ''}>${currentLang === 'es' ? 'Registro completo' : (currentLang === 'en' ? 'Full register' : 'Cadastro completo')}</option>
+                    </select>
+                    <div class="item-list" id="clients-list-container">${clientsListHtml || `<p style="padding: 20px; text-align: center;">${currentLang === 'es' ? 'No hay pagos registrados hoy.' : (currentLang === 'en' ? 'No payments recorded today.' : 'Nenhum pagamento registrado no dia.')}</p>`}</div>
 
                     <section style="margin-top: 30px;">
                         <h2 class="section-title" data-lang-key="settlementHistory">Histórico de Retiradas</h2>
@@ -3836,7 +3870,9 @@ function extractCoords(input) {
             
             detailView.classList.add('active');
             const clientSearchInput = detailView.querySelector('#client-list-search');
+            detailView.querySelector('#admin-clients-filter').addEventListener('change', () => showCollectorDetails(collectorId));
             if (clientSearchInput) {
+                clientSearchInput.value = clientsSearch;
                 clientSearchInput.addEventListener('input', (e) => {
                     const term = e.target.value.toLowerCase();
                     const cards = detailView.querySelectorAll('.client-card');
@@ -3849,6 +3885,7 @@ function extractCoords(input) {
                     });
                 });
             }
+            if (clientSearchInput) clientSearchInput.dispatchEvent(new Event('input'));
             lucide.createIcons({nodes: detailView.querySelectorAll('[data-lucide]')});
             applyLanguage(currentLang);
 
@@ -8322,7 +8359,7 @@ async function submitCollectorReport(collectorId) {
                     <!-- ESTADO DEL PRÉSTAMO -->
                     <div class="kpi-card" style="text-align: center; margin-bottom: 20px; border-left: 4px solid ${statusColorCode}; border-right: 4px solid ${statusColorCode};">
                         <h3 class="kpi-title" style="justify-content: center;">Estado do Préstamo ${currentLoanIndex + 1}</h3>
-                        <span class="payment-status status-${currentStatus}" style="font-size: 1.2em; font-weight: 600; padding: 8px 20px; color: ${statusColorCode};">${statusText}</span>
+                        <span class="payment-status status-${currentStatus}" style="display: inline-block; max-width: 100%; box-sizing: border-box; height: auto; white-space: normal; overflow-wrap: anywhere; line-height: 1.45; vertical-align: top; font-size: 1.2em; font-weight: 600; padding: 8px 20px; color: ${statusColorCode};">${statusText}</span>
                     </div>
 
                     <!-- TARJETA DE DATOS (CON BOTONES) -->
